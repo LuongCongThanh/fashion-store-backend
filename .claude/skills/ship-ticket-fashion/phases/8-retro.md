@@ -1,41 +1,45 @@
-# Phase 8 — retro skill + push skill
+# Phase 8 — retro theo đợt
 
-Mục tiêu: cải thiện **môi trường** (skill, script, check, tài liệu cho agent), không phải code của ticket. Chạy ở phiên chính.
+Mục tiêu: từ bằng chứng của một đợt ticket, sửa chỗ gây làm lại trong môi trường agent (skill, script, check, tài liệu). Phiên chính thực hiện; mỗi đợt một PR.
 
-1. **Bằng chứng.** Phiên này; sau một `/clear` thì state, `report.md` của ticket, log trong `.git/ship-ticket-fashion/logs/`, và:
+## Phạm vi đợt
+
+`python S/scripts/retro_batch.py status` trả `pending`, `due`, `batch`, `through` và `tickets` (tối đa 10 đường dẫn spec). Chỉ bắt đầu retro tự động khi `due: true`; dùng đúng 10 ticket trong `tickets`. Đợt mới: lưu output vào `notes` của state trước khi review. Làm tiếp: dùng snapshot đã lưu để giữ nguyên phạm vi qua phiên mới.
+
+Checkpoint `S/reference/retro-batch.json` được commit cùng repo: `baseline` là mốc bắt đầu chính sách, `batches` giữ các đợt đã xử lý. Script lấy spec `Status: resolved` trong `origin/dev`, loại ticket đã resolved tại baseline và các đợt đã xử lý. Ticket chờ merge, PR tài liệu/retro và việc chạy lại cùng ticket không tăng bộ đếm. Thứ tự đợt theo đường dẫn ticket để chọn ổn định; nếu tồn hơn 10 thì phần dư ở đợt kế tiếp.
+
+State cũ ở `retro` nhưng chưa đủ đợt → `transition --to closed --next "chọn ticket tiếp theo" --reason "hoãn retro tới đủ 10 ticket"`, báo `<pending>/10` rồi dừng. Lỗi Git/checkpoint cần sửa trước khi quyết định đợt; lỗi không có nghĩa là bộ đếm bằng 0.
+
+## Review và cải thiện
+
+1. **Bằng chứng.** Đọc `report.md`, đặc biệt *Ghi chú cho retro*, của đủ 10 ticket; bổ sung spec/plan, finding, commit → task trong thân squash commit và review/CI của PR khi cần xác minh. Log dùng chung bị lần chạy sau ghi đè, nên chỉ dùng khi còn khớp ticket. Claude Code có thể thêm `python S/scripts/user_prompts.py --last 3`; đây chỉ là các phiên gần nhất, không đại diện cả đợt. Codex lấy nguồn theo entrypoint Codex. Xong khi mỗi ghi chú có kết luận có bằng chứng hoặc ghi rõ chưa xác minh được.
+2. **Gom vấn đề cùng nguyên nhân**, kèm ticket/PR và chi phí đã quan sát (lượt làm lại, debug, lệnh đắt, lời nhắc). Chọn nơi sửa hẹp nhất:
+   - Máy kiểm được → test, script, lint hoặc hook hiện có; kiểm tra thứ đã có trước khi thêm mới.
+   - Quy ước code hoặc thiết kế → `CONTRIBUTING.md` hoặc tài liệu architecture mà reviewer đọc.
+   - Điều hướng/thao tác → một chỉ dẫn ở đúng phase dùng nó; output dài → lọc log qua `run_logged.py`.
+   - Chỉ dẫn thừa, trùng hoặc lỗi thời → xoá hoặc sửa ngay tại nguồn chuẩn.
+   - Gotcha chỉ khi nguyên nhân đã xác minh, sẽ lặp lại và có cách sửa cụ thể mà các chỗ trên chưa mã hoá được. Ghi `triệu chứng → nguyên nhân → cách sửa (ticket/PR)`, tối đa 2 dòng; mỗi file `gotchas/` ≤ 4 KB.
+3. **Chọn cải tiến.** Trình một danh sách gọn: vấn đề, bằng chứng, nơi sửa, khuyến nghị theo chi phí/lần lặp. Hỏi bằng `AskUserQuestion` những đề xuất chưa được người dùng duyệt; chỉ sửa mục được chọn. Chưa có gì đáng sửa thì ghi kết luận đó và tiếp tục checkpoint, không hỏi chọn danh sách rỗng.
+4. **Viết theo `mattpocock-skills:writing-for-agents`.** Đọc skill nếu có; dùng fallback của entrypoint Codex khi thiếu. Mỗi ý một nguồn; chỉ dẫn hành động và điều kiện hoàn tất cụ thể; phần chỉ dùng ở một nhánh đặt sau con trỏ của nhánh đó. Cắt dòng trùng, không còn tác dụng hoặc đã được cấu hình/script diễn đạt. Cải tiến chung ở `S`; phần riêng của Codex ở `.agents/skills/ship-ticket-fashion/`.
+5. **Kiểm chứng và checkpoint.** Sửa script → `python -m unittest discover -s S/scripts`. Sửa hook/cấu hình backend → chạy lint/test liên quan qua `run_logged.py`. Luôn `git diff --check`. Khi mọi vấn đề đã có kết luận và sửa được chọn đã kiểm xong, dùng snapshot đã lưu:
 
    ```bash
-   python S/scripts/user_prompts.py --last 3
+   python S/scripts/retro_batch.py complete --through <through> --batch <batch>
    ```
 
-   Cộng `python S/scripts/commit_map.py <T>` trước khi merge (sau merge: thân commit squash trên `dev`): task có hai commit và nhiều commit `ci` là dấu làm lại. Gom mọi vấn đề đã tốn một lần làm lại, một câu người dùng phải nhắc hoặc sửa ("sao chưa…", "từ từ hỏi lại"), một vòng debug, hoặc một lệnh đắt.
-2. **Phân loại** mỗi vấn đề vào loại đầu tiên khớp:
-   - **Check tự động**: lỗi máy bắt được → mã hoá ở chỗ hẹp nhất bắt được nó: test, script trong `S/scripts/` (bước shell lặp lại), rule ruff / import-linter, hook pre-commit. Check có sẵn nhưng chưa nối hoặc đang hỏng là phát hiện, không làm check mới.
-   - **Chuẩn code**: review bắt muộn hoặc bỏ sót. Máy móc → check ở trên; cần phán đoán → `CONTRIBUTING.md` hoặc tài liệu architecture mà trục Standards đọc.
-   - **Điều hướng**: tìm file hay thông tin lâu → một con trỏ trong file phase cần nó.
-   - **Tiết kiệm token**: lệnh output dài, chạy lại toàn bộ không cần → bộ lọc trong lệnh của phase, hoặc dùng `run_logged.py`.
-   - **Câu thừa**: dòng trong skill, `CLAUDE.md` không làm thay đổi gì agent làm, hoặc bị bỏ qua → xoá, hoặc viết sắc hơn.
-   - **Gotcha**: chỉ khi không loại nào ở trên mã hoá được, và qua đủ 4 điều kiện: **mới** (chưa có trong `gotchas/`), **đã xác minh** (nguyên nhân chứng minh bằng thử, không đoán), **sẽ lặp lại** ở ticket khác, **cách sửa cụ thể** (lệnh, cấu hình). Dạng: `- **<triệu chứng>**: nguyên nhân: <…>. Sửa: <…>. (<T>)`, tối đa 2 dòng, mỗi file `gotchas/` ≤ 4 KB.
-3. **Đề xuất, chưa ghi.** Một tin liệt kê mọi đề xuất, xếp theo mức đã tốn ở ticket này, mỗi mục có lý do. Hỏi bằng `AskUserQuestion` (multi-select, ≤ 4 mục mỗi câu, gom theo file khi nhiều). Không có vấn đề nào → báo "không có gì để cải thiện", `transition --to closed`, dừng.
-4. **Ghi** chỉ mục được chọn, theo `mattpocock-skills:writing-for-agents`: mỗi ý một chỗ; viết điều cần làm thay vì điều cấm; thêm một dòng thì tìm một dòng đã thừa hoặc đã cũ để xoá. Script sửa thì chạy `python -m unittest discover -s S/scripts` cho xanh. Thay đổi ngoài `.claude/skills/` (hook, cấu hình lint) ảnh hưởng cả repo: chạy `make lint` và `make test`.
-5. **Bộ nhớ**: chỉ lưu vào memory của agent khi người dùng sửa cách làm việc hoặc bảo nhớ; bài học kỹ thuật nằm trong skill.
-6. **Push skill.** Từ `origin/dev` mới nhất, nhánh `chore/skill-retro-<feature>-<NN>` (tên riêng mỗi ticket, để PR retro trước chưa merge không đụng nhau), commit `chore: refine ship-ticket-fashion skill after <T>`, push và mở PR vào `dev` theo `phases/6-ship.md` mục 1, 2, 4. Báo người dùng URL PR.
-7. `state.py transition <T> --to closed --next "chọn ticket tiếp theo" --reason "retro xong"`.
+   Lệnh chỉ ghi nhận 10 ticket của snapshot đó; chạy lại cùng `batch` giữ nguyên kết quả. Ticket merge sau `through` vẫn chờ đợt sau. Checkpoint không được ghi trước khi review xong.
+6. **Một PR cho cả đợt.** Từ `origin/dev` mới nhất, nhánh `chore/skill-retro-<batch>`, commit `chore: refine ship-ticket-fashion after batch <batch>`. Commit checkpoint cùng các sửa đã duyệt; không có sửa thì PR chỉ checkpoint, thân PR ghi kết luận review. Tìm PR cùng nhánh trước để tiếp tục PR đang mở. Push, mở PR vào `dev`, kiểm CI và comment theo `phases/6-ship.md` (mục mở PR và kiểm CI); ghi đủ 10 ticket, bằng chứng, kết luận và cách kiểm trong thân PR. Merge vẫn theo chỉ thị người dùng. Kết thúc bằng `state.py transition <T> --to closed --next "chọn ticket tiếp theo" --reason "retro đợt <batch> có PR #<số>"`.
+
+Chỉ ghi memory khi người dùng yêu cầu trực tiếp; bài học kỹ thuật nằm trong nguồn chuẩn của skill/repo.
 
 ## Xong khi
 
-Mọi vấn đề có loại và kết luận (đề xuất, hoặc bị bộ lọc gotcha loại); người dùng đã trả lời; chỉ mục được chọn được ghi và check của chúng xanh; có URL PR của skill (hoặc không có gì để sửa); `phase` là `closed`.
+Đủ 10 ticket đã được review; mỗi vấn đề có kết luận; chỉ cải tiến đã duyệt được ghi và kiểm chứng; checkpoint và thay đổi nằm trong một PR, hoặc PR đợt có sẵn đã được cập nhật; state ticket là `closed`. Checkpoint có hiệu lực trên các nhánh mới sau khi PR merge vào `dev`.
 
-## Retro một PR
+## Retro một PR theo yêu cầu
 
-Cho PR không đi qua vòng của skill (sửa tay, review theo yêu cầu, PR tài liệu), khi người dùng gọi `retro #<số>`. Không có state; bước 2–6 như trên với `<T>` thay bằng `pr-<số>`.
+`retro #<số>` chạy ngay, độc lập bộ đếm và không ghi nhận đợt 10 ticket. Không có state ticket.
 
-1. Bằng chứng (tài khoản ở `phases/6-ship.md`):
-
-   ```bash
-   GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr view <số> --json title,commits,reviews,comments,statusCheckRollup
-   python S/scripts/user_prompts.py --last 3
-   ```
-
-   Thêm comment gắn dòng code theo `phases/6-ship.md` mục 4. Tìm những gì skill lẽ ra đã làm: commit sửa sau review, câu người dùng phải nhắc, check CI đỏ.
-2. Thêm câu hỏi riêng: việc của PR này có nên đi qua skill không (ticket mới `needs-triage`, hay một nhánh mới trong `SKILL.md`)?
+1. Lấy bằng chứng bằng `gh pr view <số> --json title,commits,reviews,comments,statusCheckRollup` với tài khoản ở `phases/6-ship.md`; đọc thêm comment gắn dòng theo phần kiểm CI của phase đó và báo cáo ticket nếu có. Nguồn hội thoại theo môi trường như bước 1 ở trên.
+2. Làm bước 2–4 và kiểm chứng ở bước 5 cho PR này. Người dùng yêu cầu cải tiến cụ thể là đã duyệt phần đó; chỉ hỏi phần đề xuất mới còn mở.
+3. Có sửa → nhánh `chore/skill-retro-pr-<số>`, một PR theo bước 6, bỏ thao tác checkpoint và transition state. Không có sửa → báo kết luận rồi kết thúc.

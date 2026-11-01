@@ -36,3 +36,7 @@
 #### Tài liệu đã cập nhật
 
 - `docs/architecture/02-backend-structure.md`: <gì> / Không
+
+#### Ghi chú cho retro
+
+- <vấn đề đã tốn công → bằng chứng bền vững (test, finding, commit, PR) → gợi ý> / Không

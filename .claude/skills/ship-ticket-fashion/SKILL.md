@@ -1,6 +1,6 @@
 ---
 name: ship-ticket-fashion
-description: Làm một ticket `.scratch/<feature>/issues/NN-*/` của Fashion Store từ grilling tới merge, kèm retro skill; tạo spec và ticket cho module chưa có ticket; retro một PR. Dùng khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo.
+description: Làm một ticket `.scratch/<feature>/issues/NN-*/` của Fashion Store từ grilling tới merge, retro mỗi đợt 10 ticket; tạo spec và ticket cho module chưa có ticket; retro một PR theo yêu cầu. Dùng khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo.
 argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done|retro] | retro #<PR>"
 ---
 
@@ -24,10 +24,12 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 
 ```
 0 plan (khi frontier rỗng)
-1 grill → ⛔G1 → 2 code (S1 → S2 → …) → 3 report → 4 review → 5 sync → ⛔G2 → 6 ship → 7 done → 8 retro
+1 grill → ⛔G1 → 2 code (S1 → S2 → …) → 3 report → 4 review → 5 sync → ⛔G2 → 6 ship → 7 done → closed
                     ↑                                  │          │
                     └──── review / sync đổi hành vi ───┴──────────┘
 ```
+
+Phase 7 chỉ vào **8 retro** khi `retro_batch.py status` báo đủ 10 ticket mới đã merge; chưa đủ thì đóng ticket. `retro #<PR>` là nhánh thủ công, chạy ngay theo yêu cầu. Quy tắc đếm và checkpoint nằm trong `phases/8-retro.md`, chỉ đọc khi tới đợt hoặc được yêu cầu retro.
 
 | # | Phase | File | Skill (`mattpocock-skills:`) | Kết quả |
 | --- | --- | --- | --- | --- |
@@ -39,7 +41,7 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 | 5 | sync | `phases/5-sync.md` | `domain-modeling` khi có thuật ngữ / ADR mới | tài liệu khớp code, ⛔G2 |
 | 6 | ship | `phases/6-ship.md` | — | PR mở, ticket đóng trong PR, CI xanh |
 | 7 | done | `phases/7-done.md` | — | merge khi người dùng bảo |
-| 8 | retro | `phases/8-retro.md` | `writing-for-agents` | skill tốt hơn, PR của skill |
+| 8 | retro (đủ đợt / theo yêu cầu) | `phases/8-retro.md` | `writing-for-agents` | kết luận đợt 10 ticket + một PR skill/checkpoint |
 
 Quy tắc chung cho mọi phase: `reference/rules.md`.
 

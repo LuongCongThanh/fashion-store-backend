@@ -95,7 +95,11 @@ def check_transition(state: dict, to: str, gate: str | None) -> str | None:
     current = state["phase"]
     if to not in PHASES:
         return f"phase lạ: {to}"
-    step_ok = PHASES.index(to) == PHASES.index(current) + 1 or (current, to) in BACK_EDGES
+    step_ok = (
+        PHASES.index(to) == PHASES.index(current) + 1
+        or (current, to) in BACK_EDGES
+        or (current, to) == ("done", "closed")
+    )
     if not step_ok:
         return f"không đi được {current} → {to}"
     if gate and GATE_EDGES[gate] != (current, to):
@@ -111,6 +115,8 @@ def check_transition(state: dict, to: str, gate: str | None) -> str | None:
         return "vào ship cần G2 (--gate g2)"
     if to == "done" and not state.get("pr"):
         return "chưa có số PR (set pr=<số>)"
+    if current == "done" and to == "closed" and not state.get("pr"):
+        return "đóng ticket cần số PR đã merge"
     return None
 
 
