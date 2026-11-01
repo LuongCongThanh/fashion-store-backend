@@ -10,6 +10,8 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 
 `S` = `.claude/skills/ship-ticket-fashion` (đường dẫn tính từ gốc repo). `<T>` = ticket ở dạng `<feature>/<NN>`, ví dụ `backend-bootstrap/16`.
 
+**Codex:** đọc [entrypoint Codex](../../../.agents/skills/ship-ticket-fashion/SKILL.md) trước khi chạy. File đó điều chỉnh công cụ, skill phụ thuộc và bằng chứng retro cho Codex; phase, script và state vẫn dùng chung ở `S`. Claude Code tiếp tục theo hướng dẫn bên dưới.
+
 ## Đầu mỗi lần chạy
 
 1. `python S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
