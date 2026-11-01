@@ -155,6 +155,7 @@ backend/
 ├── CHANGELOG.md                    # sinh bằng commitizen ([11](./11-git-workflow.md) mục 7)
 ├── conftest.py                     # pytest_plugins = ["shared.testing.fixtures"]; fixture cần Tài khoản (customer_client, staff_client, admin_client, dùng factory của identity) thêm ở đây; tới khi có JWT ở M1, staff_client/admin_client gọi force_authenticate với claims `aud = backoffice`
 ├── scripts/
+│   ├── check_module_coverage.py    # branch coverage ≥ 80% cho từng module và nhóm shared (12 mục 8)
 │   └── gen_importlinter.py         # sinh các contract "forbidden" của import-linter cho từng module (mục 8)
 │
 ├── config/                         # cấu hình project, KHÔNG chứa nghiệp vụ

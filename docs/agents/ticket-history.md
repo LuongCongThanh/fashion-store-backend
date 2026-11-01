@@ -39,6 +39,7 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 14. [27](../../.scratch/backend-bootstrap/issues/27-outbox-invalid-payload-fails-fast/spec.md) · payload không parse được bằng class sự kiện thì delivery `failed` ngay, không retry · PR #49 · 01/11/2026
 15. [23](../../.scratch/backend-bootstrap/issues/23-makefile-utf8-output/spec.md) · `Makefile` và hook `lint-imports` chạy Python ở chế độ UTF-8 trên Windows · PR #52 · 01/11/2026
 16. [22](../../.scratch/backend-bootstrap/issues/22-openapi-error-responses/spec.md) · `ErrorDTO` và response lỗi mặc định trong OpenAPI (`shared.api.schema.AutoSchema`) · PR #54 · 01/11/2026
+17. [01](../../.scratch/backend-bootstrap/issues/01-services-coverage-gate/spec.md) · cổng branch coverage ≥ 80% riêng từng module và nhóm `shared` trong `make test` và CI (`scripts/check_module_coverage.py`) · PR #56 · 01/11/2026
 
 ### Còn mở
 
@@ -46,7 +47,6 @@ Chia nhóm theo quyết định 30/10/2026 trong [roadmap](../../.scratch/mvp-ro
 
 Làm xen kẽ, không chặn mốc:
 
-- [01](../../.scratch/backend-bootstrap/issues/01-services-coverage-gate/spec.md) · cổng coverage cho `services` và `handlers` · `ready-for-agent`
 - [02](../../.scratch/backend-bootstrap/issues/02-pytest-markers-and-br-report/spec.md) · marker pytest và `make br-report` · `ready-for-agent`
 - [03](../../.scratch/backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md) · commit `openapi.yaml` và chặn schema lệch · `ready-for-agent`
 - [04](../../.scratch/backend-bootstrap/issues/04-import-linter-test-factories/spec.md) · `gen_importlinter.py` và import-linter · `ready-for-agent`
