@@ -1,6 +1,8 @@
 # Chặn branch coverage dưới 80% cho `services` và `handlers` của từng module trong CI
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #56
 
 Blocked by: 07
 
@@ -38,8 +40,8 @@ Chốt khi grilling ngày 01/11/2026. Người dùng duyệt G1: mode full, hai 
 
 ## Acceptance criteria
 
-- [ ] PR có branch coverage dưới 80% ở nhóm `services/` + `handlers.py` của bất kỳ module nào, hoặc nhóm hạ tầng `shared` theo 12 mục 8, thì bị CI chặn.
-- [ ] Module A đạt 100% không giúp module B đạt 60% qua cổng.
-- [ ] Module chưa có `services/` và `handlers.py` không làm bước này lỗi.
-- [ ] Coverage đo đúng khi chạy song song bằng `pytest -n auto` (kết quả bằng khi chạy tuần tự).
-- [ ] Không có ngưỡng coverage cho toàn repo.
+- [x] PR có branch coverage dưới 80% ở nhóm `services/` + `handlers.py` của bất kỳ module nào, hoặc nhóm hạ tầng `shared` theo 12 mục 8, thì bị CI chặn.
+- [x] Module A đạt 100% không giúp module B đạt 60% qua cổng.
+- [x] Module chưa có `services/` và `handlers.py` không làm bước này lỗi.
+- [x] Coverage đo đúng khi chạy song song bằng `pytest -n auto` (kết quả bằng khi chạy tuần tự).
+- [x] Không có ngưỡng coverage cho toàn repo.

@@ -2,7 +2,7 @@
 
 ### Báo cáo 01/11/2026 (sau review)
 
-**Nhánh:** `chore/module-branch-coverage` · **PR:** chưa mở · **Mode:** full
+**Nhánh:** `chore/module-branch-coverage` · **PR:** #56 · **Mode:** full
 
 #### Đã làm
 
@@ -27,7 +27,7 @@
 
 #### Thay đổi theo yêu cầu
 
-- Không
+- SonarCloud (PR #56): `backend/scripts/check_module_coverage.py:44` cognitive complexity 16 > 15 → tách `_load` (nạp cấu hình và dữ liệu coverage) khỏi `_check`; 18 test cổng và `make test` xanh (task `ci`)
 
 #### Review
 
@@ -53,6 +53,8 @@
 | S1 | 2 code | 1, 2, 3, 5 | `d483e72` feat: enforce branch coverage per module | 5 |
 | S2 | 2 code | 1, 4, 5 | `85db251` ci: gate branch coverage in make test and CI | 5 |
 | R1 | 4 review | — | `a5c5e0a` fix(scripts): address review findings on module coverage gate | 6 |
+| sync | 5 sync | — | `f377abb` docs: sync docs and report for module coverage gate ticket | 4 |
+| ci | 6 ship | — | `a71ab39` refactor(ci): split coverage loading out of module gate check | 1 |
 
 #### Tài liệu đã cập nhật
 
