@@ -202,6 +202,7 @@ backend/
 │   │   ├── permissions.py          # IsCustomer, IsStaff, IsAdmin (chỉ dựa vào kind và aud, không chứa nghiệp vụ)
 │   │   ├── client_ip.py            # middleware: lấy IP người dùng từ X-Client-IP khi X-BFF-Secret đúng (ADR 0009)
 │   │   ├── throttling.py           # các mức throttle dùng chung, theo IP từ client_ip; fail-open khi Redis lỗi
+│   │   ├── schema.py               # AutoSchema (DEFAULT_SCHEMA_CLASS): component ErrorDTO và response lỗi mặc định cho mọi operation (04 mục 5.6)
 │   │   ├── idempotency.py          # lớp HTTP của Idempotency-Key: begin(request) đọc header, dựng scope (method + path + account hoặc hash X-Cart-Token), request_hash(data) của body JSON rồi gọi shared.idempotency.claim; response(outcome) dựng response cho Replay và 202 IdempotencyPendingDTO
 │   │   └── views.py                # handler400/403/404/500 của Django trả ErrorDTO cho lỗi ngoài DRF; chọn ngôn ngữ theo Accept-Language không cần file riêng: LocaleMiddleware bật trong settings (vi mặc định)
 │   ├── health/

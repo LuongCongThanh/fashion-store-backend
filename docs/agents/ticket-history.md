@@ -38,6 +38,7 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 13. [24](../../.scratch/backend-bootstrap/issues/24-outbox-killed-handler-redispatch/spec.md) · delivery bị kill liên tục chuyển `failed` sau 3 lần chạy dở (`interrupted_runs`) · PR #47 · 31/10/2026
 14. [27](../../.scratch/backend-bootstrap/issues/27-outbox-invalid-payload-fails-fast/spec.md) · payload không parse được bằng class sự kiện thì delivery `failed` ngay, không retry · PR #49 · 01/11/2026
 15. [23](../../.scratch/backend-bootstrap/issues/23-makefile-utf8-output/spec.md) · `Makefile` và hook `lint-imports` chạy Python ở chế độ UTF-8 trên Windows · PR #52 · 01/11/2026
+16. [22](../../.scratch/backend-bootstrap/issues/22-openapi-error-responses/spec.md) · `ErrorDTO` và response lỗi mặc định trong OpenAPI (`shared.api.schema.AutoSchema`) · PR #54 · 01/11/2026
 
 ### Còn mở
 
@@ -52,7 +53,6 @@ Làm xen kẽ, không chặn mốc:
 - [14](../../.scratch/backend-bootstrap/issues/14-trivy-and-dependabot-backend/spec.md) · quét image bằng trivy, Dependabot cho `backend/` · `ready-for-agent`
 - [19](../../.scratch/backend-bootstrap/issues/19-trust-upstream-request-id/spec.md) · dùng `X-Request-ID` từ BFF làm `request_id` · `ready-for-agent`
 - [20](../../.scratch/backend-bootstrap/issues/20-dependabot-compose-images/spec.md) · Dependabot theo dõi image trong Compose · `ready-for-agent`
-- [22](../../.scratch/backend-bootstrap/issues/22-openapi-error-responses/spec.md) · `ErrorDTO` và response lỗi trong OpenAPI · `ready-for-agent`
 
 Trước go-live:
 
