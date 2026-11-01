@@ -41,7 +41,7 @@ def _groups(root: Path) -> dict[str, list[Path]]:
     return groups
 
 
-def _check(root: Path, data_file: Path | None) -> int:
+def _load(root: Path, data_file: Path | None) -> Coverage:
     # Nạp cấu hình coverage của project để áp exclude và partial_branches như `coverage report`
     config = root / "pyproject.toml"
     coverage = Coverage(config_file=str(config) if config.is_file() else False)
@@ -54,6 +54,11 @@ def _check(root: Path, data_file: Path | None) -> int:
     coverage.load()
     if not coverage.get_data().has_arcs():
         raise CoverageException("branch coverage data is required")
+    return coverage
+
+
+def _check(root: Path, data_file: Path | None) -> int:
+    coverage = _load(root, data_file)
     failed = False
     for name, files in _groups(root).items():
         if not files:
