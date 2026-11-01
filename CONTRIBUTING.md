@@ -44,6 +44,7 @@ Chi tiết ở [Cấu trúc Backend §9](./docs/architecture/02-backend-structur
 - Trong khối `pytest.raises` chỉ có một lời gọi có thể ném lỗi: dựng tham số, object, decorator và mở context manager khác (`transaction.atomic()`) ở trước khối. Assert viết `actual == expected`, giá trị kỳ vọng ở vế phải; giá trị thực là tuple/list dựng tại chỗ hoặc hằng viết hoa thì gán vào biến trước (`after = (a.x, a.y)`), vì SonarCloud đọc chúng là giá trị kỳ vọng còn ruff `SIM300` đòi đặt hằng ở vế trái.
 - Log bằng `structlog.get_logger(__name__)`, message là tên sự kiện `snake_case` kèm keyword, không f-string. Không log PII, token hay payload thanh toán.
 - Exception gốc có thể chứa secret (URL kết nối, khoá, phần URL bị parse sai) thì raise lỗi mới `from None`, để traceback chỉ in thông báo đã lọc.
+- Lặp trên dict mà cần hai giá trị thì dùng `.items()`; không tách cặp từ key là tuple (`for a, b in d`), SonarCloud báo lỗi. Bỏ trùng giữ thứ tự cho dữ liệu dạng cặp thì dựng list.
 
 ## Bảo mật khi dùng AI agent
 
