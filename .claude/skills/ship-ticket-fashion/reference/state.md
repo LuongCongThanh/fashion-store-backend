@@ -36,6 +36,7 @@
 - `phase`: `grill | code | report | review | sync | ship | done | retro | closed`.
 - `pr`: số PR, ghi ở phase 6.
 - `phase`, `transitions`, `gates`: chỉ `state.py transition` ghi; `set` / `push` từ chối các field này. `--gate g1` chỉ dùng ở `grill → code`, `--gate g2` chỉ ở `sync → ship`.
+- Sau merge, `done → closed` khi chưa đủ đợt retro; đủ đợt thì `done → retro → closed`. Chờ merge giữ `done`. Bộ đếm dùng lịch sử `origin/dev` và `reference/retro-batch.json`, độc lập state từng ticket.
 
 Lệnh:
 
