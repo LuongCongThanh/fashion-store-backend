@@ -15,8 +15,19 @@ import subprocess
 import sys
 
 from check_ship import SUBJECT
-from commit_map import TASK
+from commit_map import TASK, read_commits
 from common import git, load_state, resolve, state_dir, ticket_ref
+
+
+def foreign_commits(commits: list[dict], ticket: str) -> str | None:
+    """Commit trên nhánh mà `Refs:` không phải ticket này, ví dụ phiên khác commit nhầm vào."""
+    others = [f"{c['sha']} {c['subject']}" for c in commits if c["refs"] != ticket]
+    if not others:
+        return None
+    return (
+        f"nhánh có commit không thuộc ticket: {'; '.join(others)}. "
+        "Xem `git log origin/dev..HEAD`, đưa chúng ra khỏi nhánh rồi commit lại"
+    )
 
 
 def message(subject: str, body: str, ticket: str, task: str) -> str:
@@ -57,6 +68,8 @@ def main() -> int:
     error = check_task(args.task, state)
     if error is None and not SUBJECT.match(args.subject):
         error = f"subject sai Conventional Commits: {args.subject}"
+    if error is None:
+        error = foreign_commits(read_commits(), ticket_ref(ticket))
     if error:
         print(f"TỪ CHỐI: {error}")
         return 1

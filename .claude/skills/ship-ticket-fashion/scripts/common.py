@@ -10,7 +10,9 @@ from progress import Feature, Ticket, load_features
 
 
 def state_dir() -> Path:
-    path = Path(git("rev-parse", "--absolute-git-dir")) / "ship-ticket-fashion"
+    """`.git/ship-ticket-fashion/` của repo chính, dùng chung cho mọi worktree."""
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    path = Path(common) / "ship-ticket-fashion"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
