@@ -8,8 +8,11 @@ export PYTHONUTF8 := 1
 
 .PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset
 
+# Cùng lệnh với job backend của CI: pytest-cov gom coverage từ các worker xdist, rồi cổng
+# branch coverage từng module (12 mục 8)
 test:
-	uv run pytest -n auto
+	uv run pytest -n auto --cov=modules --cov=shared --cov-report=
+	uv run python scripts/check_module_coverage.py
 
 lint:
 	uv run ruff check .

@@ -229,7 +229,7 @@ Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó
 | `make shell` | `manage.py shell` chạy trên máy | M0 (ticket 15) |
 | `make makemigrations` / `make migrate` | Tạo / chạy migration; `make migrate` chạy thêm `manage.py sync_beat_schedule` để ghi lịch job vào DB ([07](./07-async-events-jobs.md) mục 3.2) | M0 (ticket 15) |
 | `make db-reset` | Xoá và tạo lại database `fashion` (`manage.py reset_db`, chỉ chạy khi `DEBUG` bật, host là `localhost` và server nghe ở loopback) rồi `make migrate` (mục 2.2) | M0 (ticket 15) |
-| `make test` | `pytest -n auto` | M0 (ticket 07) |
+| `make test` | `pytest -n auto --cov=modules --cov=shared --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
 | `make lint` | `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, `scripts/gen_importlinter.py --check` | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04) |
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
@@ -268,6 +268,7 @@ Lệnh release (`cz bump`, `cz changelog`) xem [11 mục 5.3](./11-git-workflow.
 - Test dùng database `test_fashion` do pytest-django tự tạo trên PostgreSQL cài trên máy, mỗi worker `pytest-xdist` một database riêng (không dùng SQLite, để giống production: `select_for_update`, `EXCLUDE`, `unaccent`).
 - Celery chạy đồng bộ; API bên ngoài dùng Fake hoặc `respx`; thời gian cố định bằng `time-machine`.
 - Test chạy trên máy bằng `make test`. `.env` đã trỏ mọi địa chỉ về `localhost` (mục 2.3), nên không cần ghi đè biến nào.
+- `make test` đo branch coverage (`[tool.coverage.run] branch = true` trong `pyproject.toml`), ghi `.coverage` rồi chạy cổng branch coverage riêng từng module: dưới 80% ở `services/` + `handlers.py` của một module, hoặc ở nhóm hạ tầng `shared`, thì lệnh lỗi ([12](./12-testing-strategy.md) mục 8). Chạy một file hay một test bằng `uv run pytest <file>` không đo coverage và không qua cổng này.
 
 ## 6. Cấu hình IDE dùng chung
 

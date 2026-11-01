@@ -117,9 +117,13 @@ jobs:
           ruff format --check .
           mypy .
           lint-imports
+      # pytest-cov gom coverage từ các worker xdist vào .coverage (12 mục 8)
       - name: Test
         if: steps.detect.outputs.present == 'true'
-        run: pytest
+        run: pytest -n auto --cov=modules --cov=shared --cov-report=
+      - name: Coverage
+        if: steps.detect.outputs.present == 'true'
+        run: python scripts/check_module_coverage.py
       - name: pip-audit
         if: steps.detect.outputs.present == 'true'
         # pip-audit nằm trong nhóm dev của uv.lock, không cài bằng uvx (phiên bản không được khoá)

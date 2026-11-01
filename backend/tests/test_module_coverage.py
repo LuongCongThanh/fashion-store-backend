@@ -10,7 +10,10 @@ from pathlib import Path
 
 from coverage import Coverage
 
-GATE = Path(__file__).resolve().parents[1] / "scripts/check_module_coverage.py"
+BACKEND = Path(__file__).resolve().parents[1]
+GATE = BACKEND / "scripts/check_module_coverage.py"
+# Cùng cờ với `make test` và job backend của CI (12 mục 8)
+PYTEST_COV = ["--cov=modules", "--cov=shared", "--cov-report="]
 SERVICE = "def choose(flag):\n    if flag:\n        return 1\n    return 2\n"
 
 
@@ -25,14 +28,14 @@ def _isolated_env() -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("COVERAGE_", "COV_CORE_"))
-        and key not in {"PYTEST_ADDOPTS", "PYTEST_PLUGINS", "DJANGO_SETTINGS_MODULE"}
+        if not key.startswith(("COVERAGE_", "COV_CORE_", "PYTEST_"))
+        and key != "DJANGO_SETTINGS_MODULE"
     }
     env["PYTHONUTF8"] = "1"
     return env
 
 
-def _measure(root: Path, files: dict[str, str], exercise: str, *, branch: bool = True) -> Path:
+def _write(root: Path, files: dict[str, str]) -> None:
     for relative, text in {"modules/__init__.py": "", "shared/__init__.py": "", **files}.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,6 +44,10 @@ def _measure(root: Path, files: dict[str, str], exercise: str, *, branch: bool =
             if parent == root:
                 break
             (parent / "__init__.py").touch()
+
+
+def _measure(root: Path, files: dict[str, str], exercise: str, *, branch: bool = True) -> Path:
+    _write(root, files)
     (root / "exercise.py").write_text(exercise, encoding="utf-8")
     data_file = root / ".coverage"
     command = [sys.executable, "-m", "coverage", "run", "--source=modules,shared"]
@@ -59,9 +66,37 @@ def _measure(root: Path, files: dict[str, str], exercise: str, *, branch: bool =
     return data_file
 
 
-def _gate(root: Path) -> subprocess.CompletedProcess[str]:
+def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedProcess[str]:
+    """Chạy pytest với pytest-cov và cấu hình coverage của backend, như `make test`."""
+    result = subprocess.run(  # noqa: S603 -- Python cố định, chỉ chạy test do fixture tạo.
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            *options,
+            *PYTEST_COV,
+            f"--cov-config={BACKEND / 'pyproject.toml'}",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=root,
+        env={
+            **_isolated_env(),
+            "COVERAGE_FILE": str(root / data_file),
+            "PYTEST_XDIST_AUTO_NUM_WORKERS": "2",
+        },
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return result
+
+
+def _gate(root: Path, data_file: str = ".coverage") -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GATE), "--root", str(root)],
+        [sys.executable, str(GATE), "--root", str(root), "--data-file", data_file],
         cwd=root,
         env=_isolated_env(),
         capture_output=True,
@@ -253,3 +288,35 @@ def test_gate_accepts_exactly_eighty_percent(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert "catalog: 8/10 branches (80.00%) PASS" in result.stdout
+
+
+def test_parallel_collection_matches_serial_branch_counts(tmp_path: Path) -> None:
+    def tests(name: str, values: range) -> str:
+        cases = "".join(
+            f"def test_{index}():\n    {name}({number})\n\n" for index, number in enumerate(values)
+        )
+        return f"from modules.{name}.services.{name} import choose as {name}\n\n" + cases
+
+    _write(
+        tmp_path,
+        {
+            "pytest.ini": "[pytest]\npythonpath = .\n",
+            "modules/catalog/services/catalog.py": _choices(5),
+            "modules/inventory/services/inventory.py": _choices(5),
+            "tests/test_catalog_low.py": tests("catalog", range(-1, 2)),
+            "tests/test_catalog_high.py": tests("catalog", range(2, 5)),
+            "tests/test_inventory.py": tests("inventory", range(-1, 1)),
+        },
+    )
+
+    serial = _collect(tmp_path, "serial.coverage")
+    parallel = _collect(tmp_path, "parallel.coverage", "-n", "auto")
+    serial_gate = _gate(tmp_path, "serial.coverage")
+    parallel_gate = _gate(tmp_path, "parallel.coverage")
+
+    assert "8 passed" in serial.stdout
+    assert "2 workers [8 items]" in parallel.stdout
+    assert parallel_gate.returncode == serial_gate.returncode == 1
+    assert parallel_gate.stdout == serial_gate.stdout
+    assert "catalog: 10/10 branches (100.00%) PASS" in parallel_gate.stdout
+    assert "inventory: 6/10 branches (60.00%) FAIL" in parallel_gate.stdout
