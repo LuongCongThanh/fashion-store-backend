@@ -31,20 +31,7 @@ GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr create -B dev -H <nhánh
 python S/scripts/state.py set <T> pr=<số>
 ```
 
-## 3. Đóng ticket trong PR
-
-```bash
-python S/scripts/close_ticket.py <T> --pr <số>
-python S/scripts/progress.py --feature <feature>
-```
-
-`close_ticket.py` in các AC vừa tick: đối chiếu với bảng AC → bằng chứng. AC nằm trong `untestable` (đọc từ state) không được tick và in riêng: đã kiểm tay thì tự tick, chưa thì ghi vào Notes của PR.
-
-Cùng commit, sửa `.scratch/mvp-roadmap/map.md`: dòng của mốc trong bảng **Tiến độ** khớp `progress.py`; **Decisions-so-far** thêm `DD/MM/YYYY: …` cho mỗi quyết định ảnh hưởng ngoài ticket. Sửa `docs/agents/ticket-history.md`: thêm ticket vào cuối **Đã xong** của feature (`link · mô tả · PR #<số> · DD/MM/YYYY`), bỏ khỏi **Còn mở**.
-
-`commit.py <T> --task close -m "docs: close <chủ đề> ticket" -- <thư mục ticket> .scratch/mvp-roadmap/map.md docs/agents/ticket-history.md`, push.
-
-## 4. CI
+## 3. CI
 
 ```bash
 GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr checks <số> --watch
@@ -77,6 +64,19 @@ gh api repos/LuongCongThanh/fashion-store-backend/check-runs/$id/annotations --j
 Xử lý từng issue như finding *sửa* của phase 4 và ghi vào *Thay đổi theo yêu cầu* của báo cáo. Issue thuộc một quy ước code chưa có trong `CONTRIBUTING.md` mục *Quy ước code* → đề xuất thêm ở retro.
 
 Mỗi lần push thêm vào PR đã mở: cập nhật thân PR (`gh pr edit <số> -F .git/PR_BODY.md`) và thêm comment tóm tắt đã sửa gì (`gh pr comment <số> -F <file>`).
+
+## 4. Đóng ticket trong PR, khi CI xanh
+
+```bash
+python S/scripts/close_ticket.py <T> --pr <số>
+python S/scripts/progress.py --feature <feature>
+```
+
+`close_ticket.py` in các AC vừa tick: đối chiếu với bảng AC → bằng chứng. AC nằm trong `untestable` (đọc từ state) không được tick và in riêng: đã kiểm tay, hoặc là AC về CI mà mục 3 đã xanh, thì tự tick; chưa thì ghi vào Notes của PR.
+
+Cùng commit, sửa `.scratch/mvp-roadmap/map.md`: dòng của mốc trong bảng **Tiến độ** khớp `progress.py`; **Decisions-so-far** thêm `DD/MM/YYYY: …` cho mỗi quyết định ảnh hưởng ngoài ticket. Sửa `docs/agents/ticket-history.md`: thêm ticket vào cuối **Đã xong** của feature (`link · mô tả · PR #<số> · DD/MM/YYYY`), bỏ khỏi **Còn mở**.
+
+`commit.py <T> --task close -m "docs: close <chủ đề> ticket" -- <thư mục ticket> .scratch/mvp-roadmap/map.md docs/agents/ticket-history.md`, push.
 
 ## 5. Chuyển phase
 

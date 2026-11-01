@@ -15,9 +15,9 @@ from pathlib import Path
 from check_ac_trace import test_exists, trace
 from check_ship import check_dirty, check_subjects, diff_size, dirty_paths, porcelain_z
 from close_ticket import close, fill_pr
-from commit import check_task, message
+from commit import check_task, foreign_commits, message
 from commit_map import parse_log, problems, render
-from common import resolve
+from common import resolve, state_dir
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
 from run_logged import make_recipe
@@ -339,6 +339,13 @@ class PlanAndCommits(unittest.TestCase):
             (repo / ".scratch" / "t.md").write_text("b", encoding="utf-8")
             self.assertEqual(dirty_paths(porcelain_z(repo)), [".scratch/t.md"])
 
+    def test_commit_refuses_branch_holding_another_tickets_commit(self):
+        # backend-bootstrap/23: phiên khác commit vào nhánh, commit plan chồng lên mà không ai báo
+        self.assertIsNone(foreign_commits([commit("plan"), commit("S1", "b2")], REF))
+        error = foreign_commits([commit("S1"), commit("", "b2", "")], REF)
+        self.assertIn("b2", error)
+        self.assertNotIn("a1", error)
+
     def test_missing_task_is_one_fail_not_also_a_duplicate(self):
         found = problems([commit("", "a1"), commit("", "b2")], REF)
         self.assertEqual([level for level, _ in found], ["FAIL", "FAIL"])
@@ -351,6 +358,30 @@ class PlanAndCommits(unittest.TestCase):
         commits = parse_log(raw)
         self.assertEqual([(c["sha"], c["task"], c["files"]) for c in commits],
                          [("a1", "S1", 2), ("b2", "sync", 1)])
+
+
+class StateSharedAcrossWorktrees(unittest.TestCase):
+    def test_worktree_uses_state_dir_of_main_repo(self):
+        # backend-bootstrap/23: --absolute-git-dir trỏ vào .git/worktrees/<tên>, state phải copy tay
+        import os
+
+        with tempfile.TemporaryDirectory() as tmp:
+            main, side = Path(tmp) / "main", Path(tmp) / "side"
+            main.mkdir()
+            git_in = lambda *a: subprocess.run(  # noqa: E731
+                ["git", *a], cwd=main, capture_output=True, check=True
+            )
+            git_in("init", "-q")
+            git_in("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+                   "--allow-empty", "-m", "init")
+            git_in("worktree", "add", "-q", str(side))
+            cwd = os.getcwd()
+            try:
+                os.chdir(side)
+                found = state_dir()
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(found.resolve(), (main / ".git" / "ship-ticket-fashion").resolve())
 
 
 class CommitOnlyListedPaths(unittest.TestCase):

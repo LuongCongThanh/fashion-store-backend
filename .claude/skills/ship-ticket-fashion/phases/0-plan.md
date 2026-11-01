@@ -42,4 +42,4 @@ Spec: [spec.md](../../spec.md)
 - `progress.py` in frontier không rỗng cho mốc mới, không có cảnh báo.
 - `map.md`: bảng Tiến độ có dòng của mốc, Decisions-so-far có dòng ngày tạo spec.
 
-Ship phần kế hoạch như một PR tài liệu (nhánh `docs/<slug>-spec`) theo `phases/6-ship.md` mục 1, 2, 4, rồi chạy lại skill để chọn ticket.
+Ship phần kế hoạch như một PR tài liệu (nhánh `docs/<slug>-spec`) theo `phases/6-ship.md` mục 1, 2, 3, rồi chạy lại skill để chọn ticket.

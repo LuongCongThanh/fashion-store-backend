@@ -19,7 +19,7 @@ Mục tiêu: cải thiện **môi trường** (skill, script, check, tài liệu
 3. **Đề xuất, chưa ghi.** Một tin liệt kê mọi đề xuất, xếp theo mức đã tốn ở ticket này, mỗi mục có lý do. Hỏi bằng `AskUserQuestion` (multi-select, ≤ 4 mục mỗi câu, gom theo file khi nhiều). Không có vấn đề nào → báo "không có gì để cải thiện", `transition --to closed`, dừng.
 4. **Ghi** chỉ mục được chọn, theo `mattpocock-skills:writing-for-agents`: mỗi ý một chỗ; viết điều cần làm thay vì điều cấm; thêm một dòng thì tìm một dòng đã thừa hoặc đã cũ để xoá. Script sửa thì chạy `python -m unittest discover -s S/scripts` cho xanh. Thay đổi ngoài `.claude/skills/` (hook, cấu hình lint) ảnh hưởng cả repo: chạy `make lint` và `make test`.
 5. **Bộ nhớ**: chỉ lưu vào memory của agent khi người dùng sửa cách làm việc hoặc bảo nhớ; bài học kỹ thuật nằm trong skill.
-6. **Push skill.** Từ `origin/dev` mới nhất, nhánh `chore/skill-retro-<feature>-<NN>` (tên riêng mỗi ticket, để PR retro trước chưa merge không đụng nhau), commit `chore: refine ship-ticket-fashion skill after <T>`, push và mở PR vào `dev` theo `phases/6-ship.md` mục 1, 2, 4. Báo người dùng URL PR.
+6. **Push skill.** Từ `origin/dev` mới nhất, nhánh `chore/skill-retro-<feature>-<NN>` (tên riêng mỗi ticket, để PR retro trước chưa merge không đụng nhau), commit `chore: refine ship-ticket-fashion skill after <T>`, push và mở PR vào `dev` theo `phases/6-ship.md` mục 1, 2, 3. Báo người dùng URL PR.
 7. `state.py transition <T> --to closed --next "chọn ticket tiếp theo" --reason "retro xong"`.
 
 ## Xong khi
@@ -37,5 +37,5 @@ Cho PR không đi qua vòng của skill (sửa tay, review theo yêu cầu, PR t
    python S/scripts/user_prompts.py --last 3
    ```
 
-   Thêm comment gắn dòng code theo `phases/6-ship.md` mục 4. Tìm những gì skill lẽ ra đã làm: commit sửa sau review, câu người dùng phải nhắc, check CI đỏ.
+   Thêm comment gắn dòng code theo `phases/6-ship.md` mục 3. Tìm những gì skill lẽ ra đã làm: commit sửa sau review, câu người dùng phải nhắc, check CI đỏ.
 2. Thêm câu hỏi riêng: việc của PR này có nên đi qua skill không (ticket mới `needs-triage`, hay một nhánh mới trong `SKILL.md`)?

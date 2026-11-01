@@ -98,7 +98,7 @@ Phiên chính điều phối. Việc đọc nhiều file hoặc chạy nhiều l
 | Phase 1, bản đồ code (`Explore`) | một | như full |
 | Phase 2, mỗi slice | một cho mỗi slice | phiên chính |
 | Phase 4, ba trục review | do skill review tạo | như full |
-| Phase 4, vòng sửa khi finding đổi code | một cho mọi vòng | như full |
+| Phase 4, vòng sửa khi finding đổi code | một cho mọi vòng | phiên chính |
 
 Gate, tài liệu, ship, done, retro chạy ở phiên chính: retro cần thấy những gì phiên này đã vấp.
 
