@@ -9,13 +9,16 @@ from pathlib import Path
 from coverage import Coverage
 from coverage.exceptions import CoverageException
 
+# Thư mục của Django app `modules` nằm ở gốc `modules/`, không phải module nghiệp vụ (ADR 0006)
+DJANGO_APP_DIRS = frozenset({"management", "migrations", "templates"})
+
 
 def _groups(root: Path) -> dict[str, list[Path]]:
     groups: dict[str, list[Path]] = {}
     modules = root / "modules"
     if modules.is_dir():
         for module in sorted(modules.iterdir()):
-            if not module.is_dir() or module.name.startswith("_"):
+            if not module.is_dir() or module.name.startswith("_") or module.name in DJANGO_APP_DIRS:
                 continue
             files = sorted((module / "services").rglob("*.py"))
             handler = module / "handlers.py"
@@ -29,17 +32,25 @@ def _groups(root: Path) -> dict[str, list[Path]]:
         if "tests" not in path.relative_to(shared / "events").parts
     ]
     files.extend(
-        path for path in (shared / "api/idempotency.py", shared / "tasks.py") if path.is_file()
+        path
+        for path in (shared / "api/idempotency.py", shared / "idempotency.py", shared / "tasks.py")
+        if path.is_file()
     )
     if files:
         groups["shared"] = files
     return groups
 
 
-def _check(root: Path, data_file: Path) -> int:
+def _check(root: Path, data_file: Path | None) -> int:
+    # Nạp cấu hình coverage của project để áp exclude và partial_branches như `coverage report`
+    config = root / "pyproject.toml"
+    coverage = Coverage(config_file=str(config) if config.is_file() else False)
+    if data_file is None:
+        # COVERAGE_FILE, rồi `[tool.coverage.run] data_file`, rồi `.coverage`; tính từ root
+        data_file = root / str(coverage.get_option("run:data_file"))
     if not data_file.is_file():
         raise CoverageException(f"coverage data file is missing: {data_file}")
-    coverage = Coverage(data_file=str(data_file), config_file=False)
+    coverage.set_option("run:data_file", str(data_file))
     coverage.load()
     if not coverage.get_data().has_arcs():
         raise CoverageException("branch coverage data is required")
@@ -64,10 +75,11 @@ def main() -> int:
     """Đọc đường dẫn dữ liệu và trả exit code của cổng coverage."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--data-file", type=Path, default=Path(".coverage"))
+    parser.add_argument("--data-file", type=Path)
     args = parser.parse_args()
     try:
-        return _check(args.root.resolve(), args.root.resolve() / args.data_file)
+        data_file = args.data_file.resolve() if args.data_file else None
+        return _check(args.root.resolve(), data_file)
     except (CoverageException, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

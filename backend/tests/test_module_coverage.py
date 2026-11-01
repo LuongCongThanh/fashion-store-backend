@@ -46,24 +46,31 @@ def _write(root: Path, files: dict[str, str]) -> None:
             (parent / "__init__.py").touch()
 
 
-def _measure(root: Path, files: dict[str, str], exercise: str, *, branch: bool = True) -> Path:
+def _measure(
+    root: Path,
+    files: dict[str, str],
+    exercise: str,
+    *,
+    branch: bool = True,
+    data_file: str = ".coverage",
+) -> Path:
     _write(root, files)
     (root / "exercise.py").write_text(exercise, encoding="utf-8")
-    data_file = root / ".coverage"
+    path = root / data_file
     command = [sys.executable, "-m", "coverage", "run", "--source=modules,shared"]
     if branch:
         command.append("--branch")
     result = subprocess.run(  # noqa: S603 -- Python cố định, chỉ chạy fixture do test tạo.
         [*command, "exercise.py"],
         cwd=root,
-        env={**_isolated_env(), "COVERAGE_FILE": str(data_file)},
+        env={**_isolated_env(), "COVERAGE_FILE": str(path)},
         capture_output=True,
         text=True,
         encoding="utf-8",
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    return data_file
+    return path
 
 
 def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedProcess[str]:
@@ -94,11 +101,19 @@ def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedP
     return result
 
 
-def _gate(root: Path, data_file: str = ".coverage") -> subprocess.CompletedProcess[str]:
+def _gate(
+    root: Path,
+    data_file: str | None = None,
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Chạy cổng như CI; không truyền `data_file` thì cổng tự lấy theo cấu hình coverage."""
+    options = [] if data_file is None else ["--data-file", data_file]
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GATE), "--root", str(root), "--data-file", data_file],
-        cwd=root,
-        env=_isolated_env(),
+        [sys.executable, str(GATE), "--root", str(root), *options],
+        cwd=cwd or root,
+        env={**_isolated_env(), **(env or {})},
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -152,6 +167,24 @@ def test_gate_skips_empty_modules(tmp_path: Path) -> None:
     assert "catalog: SKIP (no services/ or handlers.py)" in result.stdout
 
 
+def test_gate_ignores_django_app_packages(tmp_path: Path) -> None:
+    _measure(
+        tmp_path,
+        {
+            "modules/catalog/__init__.py": "",
+            "modules/management/commands/purge.py": "",
+            "modules/migrations/0001_initial.py": "",
+            "modules/templates/email.txt": "",
+        },
+        "import modules.catalog\n",
+    )
+
+    result = _gate(tmp_path)
+
+    assert result.returncode == 0
+    assert result.stdout == "catalog: SKIP (no services/ or handlers.py)\n"
+
+
 def test_gate_checks_handlers_without_services(tmp_path: Path) -> None:
     _measure(
         tmp_path,
@@ -184,18 +217,20 @@ def test_gate_checks_shared_targets(tmp_path: Path) -> None:
         {
             "shared/events/relay.py": SERVICE,
             "shared/api/idempotency.py": SERVICE,
+            "shared/idempotency.py": SERVICE,
             "shared/tasks.py": SERVICE,
         },
         "from shared.events.relay import choose as relay\n"
         "from shared.api.idempotency import choose as idempotency\n"
+        "from shared.idempotency import choose as claim\n"
         "from shared.tasks import choose as task\n"
-        "relay(True)\nidempotency(True)\ntask(True)\n",
+        "relay(True)\nidempotency(True)\nclaim(True)\ntask(True)\n",
     )
 
     result = _gate(tmp_path)
 
     assert result.returncode == 1
-    assert "shared: 3/6 branches (50.00%) FAIL" in result.stdout
+    assert "shared: 4/8 branches (50.00%) FAIL" in result.stdout
 
 
 def test_gate_ignores_unrelated_low_coverage(tmp_path: Path) -> None:
@@ -234,6 +269,58 @@ def test_gate_rejects_missing_data(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "coverage data file is missing" in result.stderr
+
+
+def test_gate_reads_data_file_from_coverage_environment(tmp_path: Path) -> None:
+    files = {"modules/catalog/services/product.py": SERVICE}
+    _measure(
+        tmp_path,
+        files,
+        "from modules.catalog.services.product import choose\nchoose(True)\nchoose(False)\n",
+    )
+    fresh = _measure(
+        tmp_path,
+        files,
+        "from modules.catalog.services.product import choose\nchoose(True)\n",
+        data_file="fresh.coverage",
+    )
+
+    result = _gate(tmp_path, env={"COVERAGE_FILE": str(fresh)})
+
+    assert result.returncode == 1
+    assert "catalog: 1/2 branches (50.00%) FAIL" in result.stdout
+
+
+def test_gate_applies_project_coverage_config(tmp_path: Path) -> None:
+    _measure(
+        tmp_path,
+        {
+            "pyproject.toml": '[tool.coverage.run]\ndata_file = "branch.coverage"\n\n'
+            '[tool.coverage.report]\nexclude_also = ["if flag:"]\n',
+            "modules/catalog/services/product.py": SERVICE,
+        },
+        "from modules.catalog.services.product import choose\nchoose(False)\n",
+        data_file="branch.coverage",
+    )
+
+    result = _gate(tmp_path)
+
+    assert result.returncode == 0
+    assert "catalog: 0/0 branches (no branches) PASS" in result.stdout
+
+
+def test_gate_resolves_data_file_option_from_working_directory(tmp_path: Path) -> None:
+    root = tmp_path / "backend"
+    _measure(
+        root,
+        {"modules/catalog/services/product.py": SERVICE},
+        "from modules.catalog.services.product import choose\nchoose(True)\n",
+    )
+
+    result = _gate(root, "backend/.coverage", cwd=tmp_path)
+
+    assert result.returncode == 1
+    assert "catalog: 1/2 branches (50.00%) FAIL" in result.stdout
 
 
 def test_gate_reports_targets_without_branches(tmp_path: Path) -> None:
