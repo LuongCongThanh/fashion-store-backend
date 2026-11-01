@@ -37,7 +37,9 @@ Chi tiết ở [Cấu trúc Backend §9](./docs/architecture/02-backend-structur
 - Format bằng `ruff format` (dòng tối đa 100 ký tự), lint bằng `ruff check` + `mypy` + `lint-imports`. Chạy `make fmt` trước khi commit.
 - Docstring Google style, bắt buộc cho hàm public trong `contracts.py` và `services/`.
 - Model kế thừa `shared.models.BaseModel` (khoá chính UUID v7), không tự khai báo `id`. Tên thuộc tính class không trùng tên field chỉ khác hoa/thường (alias `Status` cạnh field `status`); dùng thẳng class `TextChoices` ở cấp module.
+- Cột NOT NULL thêm vào bảng đã có khai báo `db_default`, không chỉ `default`: `default` làm migration `DROP DEFAULT`, code bản cũ còn chạy trong lúc rolling deploy INSERT lỗi (09 mục 4, migration tương thích ngược).
 - Test: dữ liệu tạo bằng `factory-boy`, không mock ORM, chỉ giả lập hệ thống bên ngoài. Branch coverage của `services/` và `handlers.py` tối thiểu 80%, tính riêng từng module.
+- Hành vi dựa vào việc một transaction đã commit (code chạy nhiều transaction nối tiếp, `on_commit`, khoá giữa các kết nối) test bằng `@pytest.mark.django_db(transaction=True)`; `django_db` thường bọc test trong một transaction nên `transaction.atomic()` bên trong chỉ là savepoint.
 - Model chỉ dùng trong test mà kế thừa `BaseModel` khai báo lại `objects = BaseQuerySet.as_manager()`, nếu không mypy chạy từ đầu (như CI) suy sai kiểu manager.
 - Trong khối `pytest.raises` chỉ có một lời gọi có thể ném lỗi: dựng tham số, object, decorator và mở context manager khác (`transaction.atomic()`) ở trước khối. Assert viết `actual == expected`, giá trị kỳ vọng ở vế phải; giá trị thực là tuple/list dựng tại chỗ hoặc hằng viết hoa thì gán vào biến trước (`after = (a.x, a.y)`), vì SonarCloud đọc chúng là giá trị kỳ vọng còn ruff `SIM300` đòi đặt hằng ở vế trái.
 - Log bằng `structlog.get_logger(__name__)`, message là tên sự kiện `snake_case` kèm keyword, không f-string. Không log PII, token hay payload thanh toán.

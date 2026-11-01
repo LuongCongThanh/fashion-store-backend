@@ -95,7 +95,8 @@ REST_FRAMEWORK: dict[str, object] = {
     # Mặc định từ chối; view công khai tự khai báo AllowAny (05 mục 4)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "UNAUTHENTICATED_USER": None,
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Thêm ErrorDTO và response lỗi mặc định cho mọi operation (04 mục 5.6)
+    "DEFAULT_SCHEMA_CLASS": "shared.api.schema.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "shared.api.pagination.StandardPagination",
     "EXCEPTION_HANDLER": "shared.api.exception_handler.exception_handler",
     # Khoá theo pii_hmac(request.client_ip) hoặc Tài khoản (05 mục 5)

@@ -1,6 +1,11 @@
 # Lệnh hằng ngày (08 mục 3). Mỗi lệnh thêm cùng ticket tạo ra thứ nó gọi.
 # Recipe chỉ gọi `uv run`, `docker compose` hoặc target khác qua `$(MAKE)`, không dùng cú pháp
 # riêng của shell POSIX, để chạy được bằng GNU make trên Windows (ADR 0017).
+
+# Python ở chế độ UTF-8: trên Windows, output chuyển hướng ra file hay pipe mặc định theo ANSI
+# code page của máy (vd. cp1252) nên lint-imports dừng ở tên contract tiếng Việt.
+export PYTHONUTF8 := 1
+
 .PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset
 
 test:

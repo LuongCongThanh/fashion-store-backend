@@ -218,7 +218,7 @@ Không có Django Admin ([ADR 0004](../adr/0004-custom-nextjs-admin.md)). Xem d�
 
 ## 3. Lệnh hằng ngày (`Makefile`)
 
-Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó gọi, nên cột "Có từ" cho biết lệnh nào đã dùng được.
+Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó gọi, nên cột "Có từ" cho biết lệnh nào đã dùng được. `Makefile` đặt `PYTHONUTF8=1`, nên trên Windows các lệnh Python trong recipe vẫn ghi UTF-8 khi output chuyển hướng ra file hay pipe; hook `lint-imports` của pre-commit cũng đặt biến này.
 
 | Lệnh | Làm gì | Có từ |
 |---|---|---|

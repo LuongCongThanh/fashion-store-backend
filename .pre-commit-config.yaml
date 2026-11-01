@@ -39,7 +39,7 @@ repos:
         pass_filenames: false
       - id: lint-imports
         name: import-linter (backend)
-        entry: bash -c 'cd backend 2>/dev/null && [ -f pyproject.toml ] || exit 0; uv run lint-imports'
+        entry: bash -c 'cd backend 2>/dev/null && [ -f pyproject.toml ] || exit 0; PYTHONUTF8=1 uv run lint-imports'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false

@@ -57,7 +57,7 @@ HTTP 409
 
 | HTTP | Khi nào | Ví dụ `code` |
 |---|---|---|
-| 400 | Dữ liệu vào sai định dạng | `VALIDATION_ERROR` (kèm `details.fields`), `INVALID_QUOTE`, `INVALID_RETURN_URL`; `BAD_REQUEST` khi request hỏng ngoài DRF, không gắn được field (ví dụ `SuspiciousOperation`, `handler400`) |
+| 400 | Dữ liệu vào sai định dạng | `VALIDATION_ERROR` (kèm `details.fields`), `INVALID_QUOTE`, `INVALID_RETURN_URL`; `PARSE_ERROR` khi body không parse được (JSON hỏng); `BAD_REQUEST` khi request hỏng ngoài DRF, không gắn được field (ví dụ `SuspiciousOperation`, `handler400`) |
 | 401 | Chưa đăng nhập, token hết hạn | `NOT_AUTHENTICATED`, `TOKEN_EXPIRED` |
 | 403 | Không đủ quyền | `PERMISSION_DENIED` |
 | 404 | Không tìm thấy | `NOT_FOUND`, `ORDER_NOT_FOUND` |
@@ -342,6 +342,8 @@ Các DTO đọc chỉ có field trong bảng này. Ký hiệu `Base + ...` kế 
 ### 5.6. Registry request/response của endpoint
 
 Các route trong bảng ở mục 4 có schema tại đây; path params giữ UUID/code/slug như mục 1. `Patch<X>` chỉ cho field ghi của X theo PATCH semantics; `None` không body. `ErrorDTO` áp cho lỗi mọi operation trừ webhook/HTML/CSV. Khi bootstrap, mỗi operation phải khai báo request/response/status/permission/error schemas trong OpenAPI và có ví dụ trước khi frontend dùng; CI kiểm schema sinh lại theo12. Không tự sinh OpenAPI từ field model để lấp chỗ còn chưa triển khai.
+
+Response lỗi mặc định do `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối). View tự khai mã đặc thù (409, 422…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè. 401/403 và 503 `AUTH_STATE_UNAVAILABLE` chưa khai mặc định, thêm cùng JWT ở M1.
 
 | Nhánh / operation | Request hoặc query | Success response |
 |---|---|---|
