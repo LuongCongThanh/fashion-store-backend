@@ -131,4 +131,4 @@ def test_purge_scheduled_daily_0330() -> None:
     # Giờ theo CELERY_TIMEZONE (Asia/Ho_Chi_Minh)
     assert entry["schedule"] == crontab(hour=3, minute=30)
     assert entry["task"] == purge_old_outbox_events.name
-    assert app.tasks[entry["task"]].queue == "default"
+    assert app.tasks[entry["task"]].queue == "default"  # type: ignore[attr-defined]  # celery-types thiếu Task.queue

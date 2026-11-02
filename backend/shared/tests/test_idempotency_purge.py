@@ -84,4 +84,4 @@ def test_purge_scheduled_daily_0345() -> None:
     # Giờ theo CELERY_TIMEZONE (Asia/Ho_Chi_Minh)
     assert entry["schedule"] == crontab(hour=3, minute=45)
     assert entry["task"] == purge_idempotency_keys.name
-    assert app.tasks[entry["task"]].queue == "default"
+    assert app.tasks[entry["task"]].queue == "default"  # type: ignore[attr-defined]  # celery-types thiếu Task.queue

@@ -279,13 +279,14 @@ Team dùng cả **VS Code** và **PyCharm**. Repo commit sẵn cấu hình chung
 | VS Code | `.vscode/launch.json` | "Django (local)": chạy `manage.py runserver` bằng interpreter `.venv`; "Pytest (local)": chạy test bằng interpreter `.venv` |
 | VS Code | `.vscode/extensions.json` | Extension khuyến nghị: Python, Pylance, Python Debugger, Ruff, Mypy Type Checker, Docker, EditorConfig, Mermaid preview |
 | PyCharm | `.run/*.run.xml` | Run configuration lưu dạng file dự án: "Pytest" (đã có), "Django server" (thêm ở ticket 15) |
+| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `backend/.venv` và coi `backend/` là gốc import (`config`, `shared`, `modules`), không cần chọn interpreter tay |
 | Cả hai | `.editorconfig` | Thụt lề 4 dấu cách cho Python, 2 cho YAML/JSON/TOML; LF; UTF-8; xoá khoảng trắng cuối dòng |
 
-Interpreter của cả hai IDE là `backend/.venv`, tạo bằng `uv sync`. Trên Windows đường dẫn là `backend/.venv/Scripts/python.exe`, trên macOS là `backend/.venv/bin/python`.
+Interpreter của cả hai IDE là `backend/.venv`, tạo bằng `uv sync`. Trên Windows đường dẫn là `backend/.venv/Scripts/python.exe`, trên macOS là `backend/.venv/bin/python`. Repo chỉ có venv này: chạy `uv` trong `backend/`, không chạy ở gốc repo, để không sinh `.venv` thứ hai mà Pylance có thể chọn nhầm (lỗi `reportMissingImports` cho mọi thư viện).
 
 ### 6.1. VS Code
 
-- Chọn interpreter `backend/.venv`.
+- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `backend/.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `backend/.venv`, rồi *Python: Restart Language Server*.
 - Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong `backend/` sẽ dừng đúng chỗ.
 
 ### 6.2. PyCharm

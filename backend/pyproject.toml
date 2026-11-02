@@ -19,6 +19,7 @@ dependencies = [
     "gunicorn>=23.0",
     "phonenumbers>=9.0",
     "vietnam-provinces>=2026.9.0",
+    "requests>=2.34.2",
 ]
 
 [dependency-groups]
@@ -42,6 +43,7 @@ dev = [
     "pre-commit>=4.7.0",
     # Cùng bản với hook commitizen trong .pre-commit-config.yaml
     "commitizen==4.19.3",
+    "celery-types>=0.26.0",
 ]
 
 [tool.uv]
