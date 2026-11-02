@@ -116,6 +116,7 @@ jobs:
           ruff check .
           ruff format --check .
           mypy .
+          python scripts/gen_importlinter.py --check
           lint-imports
       # pytest-cov gom coverage từ các worker xdist vào .coverage (12 mục 8)
       - name: Test

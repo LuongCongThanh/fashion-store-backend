@@ -132,7 +132,7 @@ docs(adr): add 0007 events via outbox and celery
 |---|---|---|
 | `.github/workflows/ci.yml` | `secrets` | `gitleaks` quét toàn bộ lịch sử |
 | | `pr-title` | Tiêu đề PR đúng Conventional Commits (chỉ chạy trên PR) |
-| | `backend` | `ruff`, `mypy`, `lint-imports`, `pytest`, coverage, kiểm tra OpenAPI lệch, `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
+| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `pytest`, coverage, kiểm tra OpenAPI lệch, `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
 | `.github/workflows/codeql.yml` | `codeql (actions)`, `codeql (python)` | CodeQL bộ `security-extended`, chạy trên PR, push lên `main` và mỗi thứ Hai |
 
 `ci.yml` chạy khi push lên `main`, `uat`, `dev` và trên mọi PR.

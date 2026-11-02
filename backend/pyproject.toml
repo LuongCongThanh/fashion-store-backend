@@ -120,9 +120,9 @@ branch = true
 [tool.importlinter]
 root_packages = ["shared", "modules", "config"]
 
-# Contract `forbidden` giữa từng cặp module do scripts/gen_importlinter.py sinh (ticket 04)
+# Tên contract viết ASCII: lint-imports in tên ra console, mà console Windows có thể dùng cp1252
 [[tool.importlinter.contracts]]
-name = "Thứ tự lớp giữa các module"
+name = "Layer order between modules"
 type = "layers"
 layers = [
     "modules.notifications",
@@ -131,6 +131,113 @@ layers = [
     "modules.identity | modules.catalog | modules.payments | modules.shipping",
     "shared",
 ]
+
+# Contract `forbidden` do scripts/gen_importlinter.py sinh trong vùng dưới đây (02 mục 8)
+# BEGIN gen_importlinter
+# Sinh bởi scripts/gen_importlinter.py, không sửa tay: chạy lại script sau khi thêm
+# module hoặc phần nội bộ của module
+[[tool.importlinter.contracts]]
+name = "Modules publish events only via shared.events.publish"
+type = "forbidden"
+source_modules = [
+    "modules",
+]
+forbidden_modules = [
+    "shared.events.relay",
+    "shared.events.tasks",
+]
+
+[[tool.importlinter.contracts]]
+name = "modules.catalog uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.catalog",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.inventory uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.inventory",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.notifications uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.notifications",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.ordering uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.ordering",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.payments uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.payments",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.promotions uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.promotions",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "modules.shipping uses only the public API of modules.identity"
+type = "forbidden"
+source_modules = [
+    "modules.shipping",
+]
+forbidden_modules = [
+    "modules.identity.constants",
+    "modules.identity.models",
+    "modules.identity.services",
+]
+allow_indirect_imports = true
+# END gen_importlinter
 
 [tool.commitizen]
 name = "cz_conventional_commits"

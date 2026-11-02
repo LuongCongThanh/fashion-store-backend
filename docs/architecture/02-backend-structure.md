@@ -483,14 +483,14 @@ Order lưu `payment_id` của khoản dùng để thanh toán đơn: COD từ T2
 
 ## 8. Kiểm tra ranh giới module (`import-linter`)
 
-Cấu hình trong `pyproject.toml`:
+Cấu hình trong `pyproject.toml` gồm hai phần: contract `layers` viết tay, và vùng contract `forbidden` do `scripts/gen_importlinter.py` sinh giữa hai dòng `# BEGIN gen_importlinter` / `# END gen_importlinter`. Tên contract viết ASCII tiếng Anh, vì `lint-imports` in tên ra console và console Windows có thể dùng code page không có dấu tiếng Việt (vd. cp1252).
 
 ```toml
 [tool.importlinter]
 root_packages = ["shared", "modules", "config"]
 
 [[tool.importlinter.contracts]]
-name = "Thứ tự lớp giữa các module"
+name = "Layer order between modules"
 type = "layers"
 layers = [
     "modules.notifications",
@@ -500,39 +500,49 @@ layers = [
     "shared",
 ]
 
+# BEGIN gen_importlinter
+# Sinh bởi scripts/gen_importlinter.py, không sửa tay: chạy lại script sau khi thêm
+# module hoặc phần nội bộ của module
 [[tool.importlinter.contracts]]
-name = "Ordering chỉ đọc catalog qua public API, ngoại lệ FK ở model"
+name = "Modules publish events only via shared.events.publish"
 type = "forbidden"
-source_modules = ["modules.ordering"]
+source_modules = [
+    "modules",
+]
 forbidden_modules = [
-    "modules.catalog.models",
-    "modules.catalog.services",
-    "modules.catalog.selectors",
-    "modules.catalog.api",
+    "shared.events.relay",
+    "shared.events.tasks",
 ]
-ignore_imports = [
-    "modules.ordering.models.order -> modules.catalog.models.variant",
-]
-# Chỉ cấm import trực tiếp. Mặc định import-linter cấm cả chuỗi gián tiếp, mà mọi lời gọi
-# hợp lệ qua contracts.py đều đi tiếp xuống models của module kia, nên CI sẽ luôn đỏ.
-allow_indirect_imports = true
-# Ví dụ hoàn chỉnh cho ordering -> catalog; tên file FK phải khớp cây code thực tế.
-# Generator sinh contract cho mọi cặp module và mọi phần nội bộ thực sự tồn tại
-# (models/services/selectors/api/tasks/handlers/providers/constants/auth…); không chỉ bốn mục ví dụ.
-# Không cấm contracts, events, exceptions: đó là public API của module (mục 6.1).
-# Ngoại lệ duy nhất (khai báo bằng ignore_imports): models/ được import models/ của module
-# lớp dưới để khai báo FK (mục 6.3); contract "layers" ở trên vẫn kiểm tra chiều của import này.
-# Danh sách đầy đủ sinh bằng script scripts/gen_importlinter.py; mọi ignore_imports
-# là đường dẫn import cụ thể giữa model để khai báo FK, không bỏ qua cả package.
 
 [[tool.importlinter.contracts]]
-name = "Module không được tự đẩy sự kiện, phải qua shared.events.publish"
+name = "modules.ordering uses only the public API of modules.catalog"
 type = "forbidden"
-source_modules = ["modules"]
-forbidden_modules = ["shared.events.relay", "shared.events.tasks"]
+source_modules = [
+    "modules.ordering",
+]
+forbidden_modules = [
+    "modules.catalog.api",
+    "modules.catalog.constants",
+    "modules.catalog.models",
+    "modules.catalog.selectors",
+    "modules.catalog.services",
+]
+allow_indirect_imports = true
+# ... một contract như trên cho mỗi cặp (module nguồn, module đích)
+# END gen_importlinter
 ```
 
-CI phải chạy generator ở chế độ kiểm tra cấu hình không bị cũ, rồi lint-imports. Khi bootstrap, dùng package thử nghiệm tạm để xác nhận: gọi contracts hợp lệ thì qua; services import trực tiếp model khác thì fail; FK trong model đúng chiều thì qua; cùng lớp hoặc đảo chiều thì fail. Package thử nghiệm không nằm trong code production. Xem [cấu hình forbidden chính thức](https://import-linter.readthedocs.io/en/stable/contract_types/forbidden/).
+Quy tắc của generator:
+
+- Danh sách module lấy bằng cách quét `modules/`, bỏ thư mục bắt đầu bằng `_` và thư mục của Django app (`management`, `migrations`, `templates`, ADR 0006), giống `scripts/check_module_coverage.py`.
+- Mỗi cặp (module nguồn → module đích) một contract `forbidden`, chỉ sinh khi module đích có phần nội bộ. `forbidden_modules` là mọi package và module con thực sự tồn tại của module đích (`models`, `services`, `selectors`, `api`, `tasks`, `handlers`, `providers`, `constants`, `auth`…), trừ `contracts`, `events`, `exceptions` (public API, mục 6.1) và `tests` (contract `layers` kiểm quy tắc factory, [12](./12-testing-strategy.md) mục 4).
+- Luôn có `allow_indirect_imports = true`: chỉ cấm import trực tiếp. Mặc định import-linter cấm cả chuỗi gián tiếp, mà mọi lời gọi hợp lệ qua `contracts.py` đều đi tiếp xuống phần nội bộ của module kia, nên CI sẽ luôn đỏ.
+- Không có `ignore_imports`; contract "không tự đẩy sự kiện" ở trên cũng do generator sinh.
+- Vùng sinh **không sửa tay**. Thêm module hoặc phần nội bộ thì chạy `uv run python scripts/gen_importlinter.py`. `--check` so vùng hiện có với nội dung sinh lại: lệch thì exit 1 kèm diff, thiếu dòng đánh dấu hoặc lỗi đọc file thì exit 2.
+
+**Ngoại lệ FK (chưa làm).** `models/` được import `models/` của module lớp dưới để khai báo FK (mục 6.3); contract `layers` vẫn kiểm chiều của import này. Ngoại lệ sẽ khai báo bằng `ignore_imports` là đường dẫn import cụ thể giữa model (ví dụ `"modules.ordering.models.order -> modules.catalog.models.variant"`), không bỏ qua cả package. Chưa có FK chéo module nên generator chưa sinh `ignore_imports`; làm khi FK đầu tiên xuất hiện ở M1.
+
+`make lint` và bước Lint của job `backend` trong CI chạy `gen_importlinter.py --check` trước `lint-imports`. Test `backend/tests/test_import_boundaries.py` dựng cây package tạm, chép phần `[tool.importlinter]` thật, chạy generator rồi `lint-imports`: gọi contracts hợp lệ thì qua; service hay test import trực tiếp phần nội bộ module khác thì fail; module import outbox relay thì fail. Package thử nghiệm không nằm trong code production. Xem [cấu hình forbidden chính thức](https://import-linter.readthedocs.io/en/stable/contract_types/forbidden/).
 
 > Các module trong cùng một lớp (ví dụ `payments` và `shipping`) **không** được import lẫn nhau (`|` trong `layers` nghĩa là độc lập).
 
