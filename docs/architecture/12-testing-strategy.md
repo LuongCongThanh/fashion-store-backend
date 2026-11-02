@@ -194,6 +194,7 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 - Test trong một module chỉ dùng factory của chính module đó và của các module lớp dưới, theo đúng chiều phụ thuộc trong [02-backend-structure.md](./02-backend-structure.md) mục 4. Ví dụ test của `ordering` dùng được factory của `catalog` và `inventory`; test của `inventory` không dùng được factory của `ordering`.
 - `backend/tests/flows/` được dùng factory của mọi module.
 - Contract `layers` của `import-linter` đã giữ quy tắc này, không cần contract riêng: test của `inventory` import factory của `ordering` là import ngược lớp. `backend/tests/` không thuộc `root_packages` nên không bị kiểm tra.
+- Code ngoài `tests` (service, API…) không import factory của module khác; `scripts/gen_importlinter.py` sinh contract `forbidden` cho quy tắc này ([02-backend-structure.md](./02-backend-structure.md) mục 8).
 - Muốn kiểm tra dữ liệu của module khác (ví dụ Tồn kho sau khi đặt Đơn hàng), test gọi `contracts` của module đó, **không** import `models`, `services`, `selectors` của module đó. Test tuân theo cùng ranh giới như code thật ([02-backend-structure.md](./02-backend-structure.md) mục 8).
 
 ## 5. Hợp đồng API với frontend (OpenAPI)
@@ -219,6 +220,7 @@ Job `backend` trong `.github/workflows/ci.yml`:
 |---|---|
 | `ruff check`, `ruff format --check` | Không lỗi |
 | `mypy` | Không lỗi (`--strict` cho `services`, `selectors`, `contracts`) |
+| `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp với cây `modules/` hiện tại; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 8) |
 | `lint-imports` | Không vi phạm ranh giới module, kể cả quy tắc factory (mục 4) |
 | `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`. Chạy `pytest -n auto --cov=modules --cov=shared --cov-report=` (`pytest-cov` gom coverage từ các worker của `pytest-xdist`) |
 | Coverage | Sau test, chạy `python scripts/check_module_coverage.py`: ≥ 80% **branch coverage riêng** (`[tool.coverage.run] branch = true`) cho nhóm `modules/<module>/services/**/*.py` + `modules/<module>/handlers.py` của **từng module**. Hạ tầng `shared/events/**/*.py` (bỏ các thư mục `tests`), `shared/idempotency.py`, `shared/api/idempotency.py`, `shared/tasks.py` là một nhóm riêng. Thư mục của Django app ở gốc `modules/` (`management`, `migrations`, `templates`, ADR 0006) không phải module. Script đọc dữ liệu và cấu hình coverage của project (`COVERAGE_FILE`, `[tool.coverage]` trong `pyproject.toml`, mặc định `.coverage`) bằng API public `Coverage.branch_stats`, cộng số nhánh đã chạy/tổng số nhánh theo nhóm và so số nguyên với 80%; không dùng tỷ lệ gộp dòng + nhánh của `coverage report --fail-under`. Module chưa có target được bỏ qua, target không có nhánh được báo rõ và qua; file chưa chạy vẫn được phân tích. Thiếu dữ liệu hoặc dữ liệu chỉ đo statement là lỗi. Không tính `shared/geo`, `shared/health` và phần định dạng của `shared/api`, vì ít nhánh nghiệp vụ. **Không** đặt ngưỡng cho toàn repo, để không ai phải viết test chỉ để lấp số |

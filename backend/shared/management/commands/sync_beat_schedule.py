@@ -81,7 +81,7 @@ def _resolve_schedule_row(
         job_schedule = schedule(job_schedule)
     if isinstance(job_schedule, schedule):
         spec = {
-            "every": int(job_schedule.run_every.total_seconds()),
+            "every": int(job_schedule.seconds),
             "period": IntervalSchedule.SECONDS,
         }
         interval = IntervalSchedule.objects.filter(**spec).order_by("pk").first()

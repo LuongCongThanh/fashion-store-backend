@@ -245,7 +245,7 @@ def test_dispatch_programming_error_not_swallowed() -> None:
 
 def test_dispatch_event_routed_to_events_queue() -> None:
     # Relay không truyền queue: decorator của task định tuyến vào queue `events` (07 mục 3.1)
-    assert dispatch_event.queue == "events"
+    assert dispatch_event.queue == "events"  # type: ignore[attr-defined]  # celery-types thiếu Task.queue
 
 
 @time_machine.travel(NOW, tick=False)

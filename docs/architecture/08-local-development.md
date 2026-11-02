@@ -230,7 +230,7 @@ Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó
 | `make makemigrations` / `make migrate` | Tạo / chạy migration; `make migrate` chạy thêm `manage.py sync_beat_schedule` để ghi lịch job vào DB ([07](./07-async-events-jobs.md) mục 3.2) | M0 (ticket 15) |
 | `make db-reset` | Xoá và tạo lại database `fashion` (`manage.py reset_db`, chỉ chạy khi `DEBUG` bật, host là `localhost` và server nghe ở loopback) rồi `make migrate` (mục 2.2) | M0 (ticket 15) |
 | `make test` | `pytest -n auto --cov=modules --cov=shared --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
-| `make lint` | `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, `scripts/gen_importlinter.py --check` | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04) |
+| `make lint` | `ruff check`, `ruff format --check`, `mypy`, `scripts/gen_importlinter.py --check` (contract `forbidden` trong `pyproject.toml` không lệch với generator), `lint-imports`; cùng thứ tự với bước Lint của job `backend` trong CI | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04) |
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
 | `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`) | M0 (ticket 12) |
@@ -279,13 +279,14 @@ Team dùng cả **VS Code** và **PyCharm**. Repo commit sẵn cấu hình chung
 | VS Code | `.vscode/launch.json` | "Django (local)": chạy `manage.py runserver` bằng interpreter `.venv`; "Pytest (local)": chạy test bằng interpreter `.venv` |
 | VS Code | `.vscode/extensions.json` | Extension khuyến nghị: Python, Pylance, Python Debugger, Ruff, Mypy Type Checker, Docker, EditorConfig, Mermaid preview |
 | PyCharm | `.run/*.run.xml` | Run configuration lưu dạng file dự án: "Pytest" (đã có), "Django server" (thêm ở ticket 15) |
+| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `backend/.venv` và coi `backend/` là gốc import (`config`, `shared`, `modules`), không cần chọn interpreter tay |
 | Cả hai | `.editorconfig` | Thụt lề 4 dấu cách cho Python, 2 cho YAML/JSON/TOML; LF; UTF-8; xoá khoảng trắng cuối dòng |
 
-Interpreter của cả hai IDE là `backend/.venv`, tạo bằng `uv sync`. Trên Windows đường dẫn là `backend/.venv/Scripts/python.exe`, trên macOS là `backend/.venv/bin/python`.
+Interpreter của cả hai IDE là `backend/.venv`, tạo bằng `uv sync`. Trên Windows đường dẫn là `backend/.venv/Scripts/python.exe`, trên macOS là `backend/.venv/bin/python`. Repo chỉ có venv này: chạy `uv` trong `backend/`, không chạy ở gốc repo, để không sinh `.venv` thứ hai mà Pylance có thể chọn nhầm (lỗi `reportMissingImports` cho mọi thư viện).
 
 ### 6.1. VS Code
 
-- Chọn interpreter `backend/.venv`.
+- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `backend/.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `backend/.venv`, rồi *Python: Restart Language Server*.
 - Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong `backend/` sẽ dừng đúng chỗ.
 
 ### 6.2. PyCharm
