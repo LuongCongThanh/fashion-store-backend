@@ -167,11 +167,11 @@ def _run(root: Path, *, check: bool) -> int:
 def main() -> int:
     """Sinh lại vùng contract `forbidden`, hoặc chỉ kiểm nó với `--check`."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--check", action="store_true", help="report drift, do not write")
     args = parser.parse_args()
     try:
-        return _run(args.root.resolve(), check=args.check)
+        # Luôn chạy trên thư mục hiện tại (`backend/` ở Make và CI): không nhận đường dẫn từ CLI
+        return _run(Path.cwd(), check=args.check)
     except (GeneratorError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

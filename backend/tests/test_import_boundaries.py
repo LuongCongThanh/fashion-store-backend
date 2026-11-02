@@ -54,7 +54,7 @@ def _lint(root: Path, files: dict[str, str]) -> subprocess.CompletedProcess[str]
     """Sinh contract cho cây tạm bằng generator thật rồi chạy lint-imports như `make lint`."""
     write_tree(root, {"pyproject.toml": importlinter_section(), **TREE, **files})
     generated = subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GENERATOR), "--root", str(root)],
+        [sys.executable, str(GENERATOR)],
         cwd=root,
         env=isolated_env(),
         capture_output=True,

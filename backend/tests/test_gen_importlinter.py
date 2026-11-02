@@ -13,7 +13,7 @@ GENERATOR = BACKEND / "scripts/gen_importlinter.py"
 
 def _generate(root: Path, *options: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GENERATOR), "--root", str(root), *options],
+        [sys.executable, str(GENERATOR), *options],
         cwd=root,
         env=isolated_env(),
         capture_output=True,

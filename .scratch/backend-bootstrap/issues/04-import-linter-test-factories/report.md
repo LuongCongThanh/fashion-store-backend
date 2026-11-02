@@ -37,6 +37,7 @@ S2 xanh ngay lần đầu vì contract `layers` đã có; đã chứng minh 3 te
 #### Thay đổi theo yêu cầu
 
 - `celery-types` vào nhóm `dev`; sửa 4 lỗi mypy stub làm lộ ra: `sync_beat_schedule.py` dùng `schedule.seconds`, 3 test đọc `Task.queue` ghi `# type: ignore[attr-defined]` (stub thiếu thuộc tính). Bằng chứng: `shared/tests/test_sync_beat_schedule.py::test_empty_db_creates_every_job_from_code`, `shared/events/tests/test_relay.py::test_dispatch_event_routed_to_events_queue`, `mypy .` 0 lỗi.
+- SonarCloud (PR #57): "Path Traversal via file content" ở `scripts/gen_importlinter.py` (đường dẫn `--root` từ CLI chảy tới `write_text`) → bỏ `--root`, script luôn chạy trên thư mục hiện tại (`backend/` ở Make và CI); test vốn chạy với `cwd` là cây tạm.
 - `requests>=2.34.2` thêm ở S3 theo yêu cầu, rồi bỏ ở R1 theo quyết định của người dùng ở review (St1/B10: chưa có code dùng, 02 §3.1 chọn `httpx`).
 - Thống nhất venv: `pyrightconfig.json` ở gốc repo trỏ `backend/.venv` và gốc import `backend/`; xoá `.venv` thừa ở gốc repo (không commit được, nằm trong `.gitignore`); 08 §6 ghi quy ước. Bằng chứng: `uvx pyright backend/shared/management/commands/sync_beat_schedule.py` không còn `reportMissingImports`.
 
