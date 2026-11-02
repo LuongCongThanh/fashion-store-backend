@@ -194,6 +194,7 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 - Test trong một module chỉ dùng factory của chính module đó và của các module lớp dưới, theo đúng chiều phụ thuộc trong [02-backend-structure.md](./02-backend-structure.md) mục 4. Ví dụ test của `ordering` dùng được factory của `catalog` và `inventory`; test của `inventory` không dùng được factory của `ordering`.
 - `backend/tests/flows/` được dùng factory của mọi module.
 - Contract `layers` của `import-linter` đã giữ quy tắc này, không cần contract riêng: test của `inventory` import factory của `ordering` là import ngược lớp. `backend/tests/` không thuộc `root_packages` nên không bị kiểm tra.
+- Code ngoài `tests` (service, API…) không import factory của module khác; `scripts/gen_importlinter.py` sinh contract `forbidden` cho quy tắc này ([02-backend-structure.md](./02-backend-structure.md) mục 8).
 - Muốn kiểm tra dữ liệu của module khác (ví dụ Tồn kho sau khi đặt Đơn hàng), test gọi `contracts` của module đó, **không** import `models`, `services`, `selectors` của module đó. Test tuân theo cùng ranh giới như code thật ([02-backend-structure.md](./02-backend-structure.md) mục 8).
 
 ## 5. Hợp đồng API với frontend (OpenAPI)

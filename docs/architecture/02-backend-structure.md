@@ -77,6 +77,7 @@ Phiên bản được kiểm tra trên PyPI ngày **25/10/2026**. Dấu **—** 
 | `django-test-migrations` | 1.7.0 | Test data migration có `RunPython` ([12-testing-strategy.md](./12-testing-strategy.md) mục 6) |
 | `pip-audit` | 2.10.1 | Kiểm tra lỗ hổng đã công bố trong dependency (chạy trong CI) |
 | `pre-commit` | 4.7.0 | Chạy ruff, mypy, import-linter và các hook `pre-commit-hooks` (`check-yaml`, `check-toml`, `end-of-file-fixer`, `trailing-whitespace`) trước khi commit |
+| `celery-types` | 0.26.0 | Type stub cho Celery để mypy và IDE kiểm được `shared_task`, `app.send_task` |
 | `commitizen` | 4.19.3 | Kiểm tra commit message theo Conventional Commits, gắn tag phiên bản, sinh CHANGELOG ([11](./11-git-workflow.md)) |
 
 ### 3.3. Không dùng (và lý do)
@@ -513,6 +514,7 @@ forbidden_modules = [
     "shared.events.relay",
     "shared.events.tasks",
 ]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "modules.ordering uses only the public API of modules.catalog"
@@ -529,14 +531,30 @@ forbidden_modules = [
 ]
 allow_indirect_imports = true
 # ... một contract như trên cho mỗi cặp (module nguồn, module đích)
+
+[[tool.importlinter.contracts]]
+name = "Only tests of other modules import modules.catalog.tests"
+type = "forbidden"
+source_modules = [
+    "modules.ordering.api",
+    "modules.ordering.models",
+    "modules.ordering.services",
+    # ... mọi package và module con trừ `tests` của các module khác
+]
+forbidden_modules = [
+    "modules.catalog.tests",
+]
+allow_indirect_imports = true
+# ... một contract như trên cho mỗi module có `tests`
 # END gen_importlinter
 ```
 
 Quy tắc của generator:
 
-- Danh sách module lấy bằng cách quét `modules/`, bỏ thư mục bắt đầu bằng `_` và thư mục của Django app (`management`, `migrations`, `templates`, ADR 0006), giống `scripts/check_module_coverage.py`.
+- Danh sách module lấy bằng cách quét package con của `modules/` (có `__init__.py`), bỏ thư mục bắt đầu bằng `_` và thư mục của Django app (`management`, `migrations`, `templates`, ADR 0006), dùng chung hàm `list_modules` trong `scripts/_modules.py` với `scripts/check_module_coverage.py`.
 - Mỗi cặp (module nguồn → module đích) một contract `forbidden`, chỉ sinh khi module đích có phần nội bộ. `forbidden_modules` là mọi package và module con thực sự tồn tại của module đích (`models`, `services`, `selectors`, `api`, `tasks`, `handlers`, `providers`, `constants`, `auth`…), trừ `contracts`, `events`, `exceptions` (public API, mục 6.1) và `tests` (contract `layers` kiểm quy tắc factory, [12](./12-testing-strategy.md) mục 4).
-- Luôn có `allow_indirect_imports = true`: chỉ cấm import trực tiếp. Mặc định import-linter cấm cả chuỗi gián tiếp, mà mọi lời gọi hợp lệ qua `contracts.py` đều đi tiếp xuống phần nội bộ của module kia, nên CI sẽ luôn đỏ.
+- Mỗi module có `tests` thêm một contract `forbidden`: package và module con ngoài `tests` của các module khác không import `modules.<module>.tests`, vì factory chỉ dùng trong test ([12](./12-testing-strategy.md) mục 4). Test của module khác vẫn import được, theo chiều của contract `layers`.
+- Mọi contract sinh ra đều có `allow_indirect_imports = true`: chỉ cấm import trực tiếp. Mặc định import-linter cấm cả chuỗi gián tiếp, mà mọi lời gọi hợp lệ qua `contracts.py` đều đi tiếp xuống phần nội bộ của module kia, và `shared.tasks.enqueue_on_commit` (mục 9.1) đi qua `shared.events.operations` → `relay` → `tasks`, nên CI sẽ luôn đỏ.
 - Không có `ignore_imports`; contract "không tự đẩy sự kiện" ở trên cũng do generator sinh.
 - Vùng sinh **không sửa tay**. Thêm module hoặc phần nội bộ thì chạy `uv run python scripts/gen_importlinter.py`. `--check` so vùng hiện có với nội dung sinh lại: lệch thì exit 1 kèm diff, thiếu dòng đánh dấu hoặc lỗi đọc file thì exit 2.
 

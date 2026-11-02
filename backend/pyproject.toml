@@ -19,7 +19,6 @@ dependencies = [
     "gunicorn>=23.0",
     "phonenumbers>=9.0",
     "vietnam-provinces>=2026.9.0",
-    "requests>=2.34.2",
 ]
 
 [dependency-groups]
@@ -148,6 +147,7 @@ forbidden_modules = [
     "shared.events.relay",
     "shared.events.tasks",
 ]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "modules.catalog uses only the public API of modules.identity"

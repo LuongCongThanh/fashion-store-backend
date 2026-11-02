@@ -6,25 +6,19 @@ import argparse
 import sys
 from pathlib import Path
 
+from _modules import list_modules
 from coverage import Coverage
 from coverage.exceptions import CoverageException
-
-# Thư mục của Django app `modules` nằm ở gốc `modules/`, không phải module nghiệp vụ (ADR 0006)
-DJANGO_APP_DIRS = frozenset({"management", "migrations", "templates"})
 
 
 def _groups(root: Path) -> dict[str, list[Path]]:
     groups: dict[str, list[Path]] = {}
-    modules = root / "modules"
-    if modules.is_dir():
-        for module in sorted(modules.iterdir()):
-            if not module.is_dir() or module.name.startswith("_") or module.name in DJANGO_APP_DIRS:
-                continue
-            files = sorted((module / "services").rglob("*.py"))
-            handler = module / "handlers.py"
-            if handler.is_file():
-                files.append(handler)
-            groups[module.name] = files
+    for module in list_modules(root):
+        files = sorted((module / "services").rglob("*.py"))
+        handler = module / "handlers.py"
+        if handler.is_file():
+            files.append(handler)
+        groups[module.name] = files
     shared = root / "shared"
     files = [
         path

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import io
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 from coverage import Coverage
 
-BACKEND = Path(__file__).resolve().parents[1]
+from tests.helpers import BACKEND, isolated_env, write_tree
+
 GATE = BACKEND / "scripts/check_module_coverage.py"
 # Cùng cờ với `make test` và job backend của CI (12 mục 8)
 PYTEST_COV = ["--cov=modules", "--cov=shared", "--cov-report="]
@@ -24,26 +24,8 @@ def _choices(count: int) -> str:
     return "def choose(value):\n" + cases + "    return -1\n"
 
 
-def _isolated_env() -> dict[str, str]:
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(("COVERAGE_", "COV_CORE_", "PYTEST_"))
-        and key != "DJANGO_SETTINGS_MODULE"
-    }
-    env["PYTHONUTF8"] = "1"
-    return env
-
-
 def _write(root: Path, files: dict[str, str]) -> None:
-    for relative, text in {"modules/__init__.py": "", "shared/__init__.py": "", **files}.items():
-        path = root / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        for parent in path.parents:
-            if parent == root:
-                break
-            (parent / "__init__.py").touch()
+    write_tree(root, {"modules/__init__.py": "", "shared/__init__.py": "", **files})
 
 
 def _measure(
@@ -63,7 +45,7 @@ def _measure(
     result = subprocess.run(  # noqa: S603 -- Python cố định, chỉ chạy fixture do test tạo.
         [*command, "exercise.py"],
         cwd=root,
-        env={**_isolated_env(), "COVERAGE_FILE": str(path)},
+        env={**isolated_env(), "COVERAGE_FILE": str(path)},
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -88,7 +70,7 @@ def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedP
         ],
         cwd=root,
         env={
-            **_isolated_env(),
+            **isolated_env(),
             "COVERAGE_FILE": str(root / data_file),
             "PYTEST_XDIST_AUTO_NUM_WORKERS": "2",
         },
@@ -113,7 +95,7 @@ def _gate(
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
         [sys.executable, str(GATE), "--root", str(root), *options],
         cwd=cwd or root,
-        env={**_isolated_env(), **(env or {})},
+        env={**isolated_env(), **(env or {})},
         capture_output=True,
         text=True,
         encoding="utf-8",
