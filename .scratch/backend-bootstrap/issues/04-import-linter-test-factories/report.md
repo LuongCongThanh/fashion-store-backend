@@ -2,7 +2,7 @@
 
 ### Báo cáo 02/11/2026
 
-**Nhánh:** `chore/import-linter-boundaries` · **PR:** chưa mở · **Mode:** full
+**Nhánh:** `chore/import-linter-boundaries` · **PR:** #57 · **Mode:** full
 
 #### Đã làm
 

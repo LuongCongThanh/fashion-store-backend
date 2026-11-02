@@ -1,6 +1,8 @@
 # `gen_importlinter.py` và ranh giới `import-linter` cho test và factory
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #57
 
 Blocked by: 07
 
@@ -32,10 +34,10 @@ Chốt khi grilling ngày 02/11/2026.
 
 ## Acceptance criteria
 
-- [ ] Sửa tay contract `forbidden` trong `pyproject.toml` thì `gen_importlinter.py --check` báo lệch, cả ở `make lint` lẫn CI.
-- [ ] Test của `inventory` import `modules.ordering.tests.factories` thì `lint-imports` báo lỗi.
-- [ ] Test của `payments` import `modules.shipping.tests.factories` thì `lint-imports` báo lỗi.
-- [ ] Test của `ordering` import `modules.inventory.tests.factories` thì `lint-imports` qua.
-- [ ] Test của `ordering` import `modules.inventory.models` thì `lint-imports` báo lỗi.
-- [ ] `modules.ordering.services` gọi `modules.inventory.contracts` thì `lint-imports` qua.
-- [ ] Code ngoài `tests` vẫn không được import trực tiếp `models`, `services`, `selectors`, `api` của module khác.
+- [x] Sửa tay contract `forbidden` trong `pyproject.toml` thì `gen_importlinter.py --check` báo lệch, cả ở `make lint` lẫn CI.
+- [x] Test của `inventory` import `modules.ordering.tests.factories` thì `lint-imports` báo lỗi.
+- [x] Test của `payments` import `modules.shipping.tests.factories` thì `lint-imports` báo lỗi.
+- [x] Test của `ordering` import `modules.inventory.tests.factories` thì `lint-imports` qua.
+- [x] Test của `ordering` import `modules.inventory.models` thì `lint-imports` báo lỗi.
+- [x] `modules.ordering.services` gọi `modules.inventory.contracts` thì `lint-imports` qua.
+- [x] Code ngoài `tests` vẫn không được import trực tiếp `models`, `services`, `selectors`, `api` của module khác.

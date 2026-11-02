@@ -24,7 +24,7 @@ Cập nhật trong cùng PR đóng ticket. Nguồn sự thật vẫn là dòng `
 | Mốc / feature | Trạng thái | Ticket |
 |---|---|---|
 | [`dev-security-baseline`](../dev-security-baseline/spec.md) | Gần xong | ✅ 01, 02 · 🟡 03 chờ chủ repo tự kiểm tra 3 AC |
-| **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | Xong (mốc chính) | ✅ 06, 07, 08, 09, 16, 15, 17, 10, 18, 11, 12, 21, 24, 27, 23, 22, 01 · Backlog không chặn M0, làm xen kẽ: 02–04, 14, 19, 20 · ⏸ trước go-live: 13 macOS, 25, 26, 28 outbox (`ready-for-agent`) |
+| **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | Xong (mốc chính) | ✅ 06, 07, 08, 09, 16, 15, 17, 10, 18, 11, 12, 21, 24, 27, 23, 22, 01, 04 · Backlog không chặn M0, làm xen kẽ: 02, 03, 14, 19, 20 · ⏸ trước go-live: 13 macOS, 25, 26, 28 outbox (`ready-for-agent`) |
 | **M1** `catalog-inventory` | Kế tiếp | Tạo spec (`/ship-ticket-fashion M1`) |
 | **M2** – **M6** | Chưa có spec | Tạo spec khi mốc trước gần xong |
 | **M7** `sandbox-acceptance` | Chưa có spec | ⏸ [01](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) k6, `needs-triage` |
