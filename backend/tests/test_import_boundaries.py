@@ -142,3 +142,42 @@ def test_module_importing_outbox_relay_fails(tmp_path: Path) -> None:
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "Modules publish events only via shared.events.publish BROKEN" in result.stdout
+
+
+def test_inventory_tests_importing_ordering_factories_fails(tmp_path: Path) -> None:
+    result = _lint(
+        tmp_path,
+        {
+            "modules/ordering/tests/factories.py": "",
+            "modules/inventory/tests/test_stock.py": (
+                "from modules.ordering.tests import factories\n"
+            ),
+        },
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Layer order between modules BROKEN" in result.stdout
+
+
+def test_payments_tests_importing_shipping_factories_fails(tmp_path: Path) -> None:
+    result = _lint(
+        tmp_path,
+        {
+            "modules/shipping/tests/factories.py": "",
+            "modules/payments/tests/test_refund.py": (
+                "from modules.shipping.tests import factories\n"
+            ),
+        },
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Layer order between modules BROKEN" in result.stdout
+
+
+def test_ordering_tests_importing_inventory_factories_passes(tmp_path: Path) -> None:
+    result = _lint(
+        tmp_path,
+        {"modules/ordering/tests/test_cart.py": "from modules.inventory.tests import factories\n"},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
