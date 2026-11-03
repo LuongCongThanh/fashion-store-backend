@@ -5,7 +5,7 @@ Full: một sub-agent cho mỗi slice, theo thứ tự DAG (`dependsOn` xong h�
 ## Trong một slice
 
 1. `state.py set <T> slices.<id>.status=code currentSlice=<id>`. Đọc các mục *tài liệu chi phối* (dòng đầu `## Quyết định`) của file slice sẽ đổi và `CONTRIBUTING.md` mục *Quy ước code*: code theo đúng tên, cấu trúc, quy ước ở đó.
-2. `mattpocock-skills:tdd`, chỉ test ở seam của slice. Với mỗi `tddTests`: viết test, chạy `tdd.py <T> <slice> red <test-id>` và thấy đúng `expectedRed`, viết code tối thiểu, chạy lại với `green`. Với `verificationTests`: chạy `tdd.py <T> <slice> verify <test-id>` sau thay đổi. Runner giữ bằng chứng; `state.py set/push` không được ghi field này.
+2. `mattpocock-skills:tdd`, chỉ test ở seam của slice. Với mỗi `tddTests`: viết test, chạy `tdd.py <T> <slice> red <test-id>` và thấy đúng `expectedRed`, viết code tối thiểu, chạy lại với `green`. Red khác `expectedRed`, hoặc vẫn đỏ sau hai lần sửa code → `mattpocock-skills:diagnosing-bugs`, dùng chính lệnh `tdd.py` làm vòng phản hồi. Với `verificationTests`: chạy `tdd.py <T> <slice> verify <test-id>` sau thay đổi. Runner giữ bằng chứng; `state.py set/push` không được ghi field này.
 3. Test đỏ không thuộc slice → chứng minh nó đỏ trên `origin/dev` (`reference/rules.md` → *Test*), ghi `notes`, làm tiếp.
 4. Cần migration → `uv run python manage.py makemigrations <app>` và đọc lại file sinh ra; migration phải đảo ngược được (`docs/architecture/12-testing-strategy.md` mục 6).
 5. Cuối slice: `uv run ruff format` và `uv run ruff check --fix` cho file đã đổi, chạy lại các test của slice. Kết quả mypy và `lint-imports` lấy từ `run_logged.py … make lint` (cấu hình đầy đủ như CI); gọi `mypy` theo cách khác có thể báo lỗi không có thật.
@@ -22,7 +22,7 @@ python S/scripts/check_ac_trace.py <T>
 python S/scripts/state.py transition <T> --to report --next "viết báo cáo" --reason "mọi slice xanh"
 ```
 
-Đỏ → sửa trong phạm vi ticket rồi chạy lại; đỏ ngoài phạm vi → *Cần người dùng*.
+Đỏ → sửa trong phạm vi ticket rồi chạy lại (nguyên nhân chưa rõ → `mattpocock-skills:diagnosing-bugs`); đỏ ngoài phạm vi → *Cần người dùng*.
 
 ## Xong khi
 

@@ -23,7 +23,7 @@ git push -u origin <nhánh>        # nhánh của mình: --force-with-lease sau 
 ## 2. Mở PR
 
 1. Tiêu đề Conventional Commits, scope là module (`shared`, `catalog`…); tiêu đề này thành commit squash trên `dev`.
-2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. Lấy từ `report.md`: *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A.
+2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. Lấy từ `report.md`: *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A. Viết nội dung theo `mattpocock-skills:pr`, giữ khung template của repo: **Giải pháp** dùng hình nhỏ nhất của skill (pseudocode, call tree, diff-sketch); *Cách kiểm* ghi Before/After (test đỏ → xanh); *Reviewer cần chú ý* ghi Door (một chiều / hai chiều) và Blast Radius.
 3. Tạo, rồi ghi số PR vào state:
 
 ```bash
@@ -39,7 +39,7 @@ GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr checks <số> --watch
 
 In `no checks reported` (chạy ngay sau push, workflow chưa đăng ký check) → chạy lại lệnh trên.
 
-Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi, sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
+Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi (nguyên nhân chưa rõ hoặc chỉ đỏ trên CI → `mattpocock-skills:diagnosing-bugs`), sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
 
 Check SonarCloud xanh cả khi còn issue (Quality Gate vẫn passed), nên đọc thêm comment của bot:
 

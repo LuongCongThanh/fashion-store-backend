@@ -12,7 +12,7 @@ Dùng khi frontier của mốc hiện tại rỗng hoặc sắp rỗng, người
 
 ## Điểm nóng
 
-Khi gặp điều kiện điểm nóng ở `SKILL.md` (*Đầu mỗi lần chạy*), hoặc người dùng hỏi kiến trúc một khu vực → đề xuất người dùng gõ `/improve-codebase-architecture <khu vực>` trước khi tạo hay làm thêm ticket ở đó. Ứng viên người dùng chọn đi qua bước 5, thành ticket `needs-triage`; ticket cũ trùng việc thì gộp vào hoặc đóng `wontfix`.
+Khi gặp điều kiện điểm nóng ở `SKILL.md` (*Đầu mỗi lần chạy*), hoặc người dùng hỏi kiến trúc một khu vực → đề xuất người dùng gõ `/mattpocock-skills:improve-codebase-architecture <khu vực>` (skill chỉ người dùng gọi được) trước khi tạo hay làm thêm ticket ở đó. Ứng viên người dùng chọn đi qua bước 5, thành ticket `needs-triage`; ticket cũ trùng việc thì gộp vào hoặc đóng `wontfix`.
 
 ## Khung `spec.md` của ticket
 

@@ -119,6 +119,145 @@ Script làm các việc sau, chạy lại nhiều lần vẫn an toàn:
    CREATE DATABASE fashion OWNER fashion;
    ```
 
+#### Linux
+
+Ngoài phạm vi hỗ trợ chính thức ([ADR 0015](../adr/0015-local-postgres-on-host.md) chỉ chốt macOS và Windows). Đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS, Docker Engine 29.9.2, PostgreSQL 18 cài bằng apt. Áp dụng cho Ubuntu/Debian dùng Docker Engine (không phải Docker Desktop) và PostgreSQL cài bằng apt. Làm đúng thứ tự dưới đây; bước 1–7 chỉ làm một lần cho mỗi máy, bước 8–11 là cách chạy app.
+
+**Bước 1. Kiểm tra công cụ.** Mỗi lệnh phải in ra số phiên bản; lệnh nào báo `command not found` thì cài công cụ đó trước.
+
+```bash
+git --version
+make --version
+docker --version
+docker compose version
+uv --version
+```
+
+Chạy được `docker` mà không cần `sudo`: `docker ps` không báo `permission denied`. Nếu có báo, chạy `sudo usermod -aG docker $USER`, đăng xuất rồi đăng nhập lại.
+
+**Bước 2. Kiểm tra PostgreSQL đã cài và đang chạy.**
+
+```bash
+pg_lsclusters
+```
+
+Kết quả đúng là một dòng có `Status` là `online`, ví dụ `18  main  5432  online`. Ghi lại hai số: **major** (`18`) dùng ở bước 4, **cổng** (`5432`) dùng ở bước 5. Lệnh không tồn tại nghĩa là chưa cài PostgreSQL: cài bản major mới nhất từ apt PGDG hoặc chạy `bash scripts/setup/postgres.sh` từ gốc repo (mục macOS bước 2), rồi làm lại bước này.
+
+**Bước 3. Tạo role và database `fashion`.** Chạy lại nhiều lần vẫn an toàn. Bỏ qua bước này nếu đã chạy `scripts/setup/postgres.sh`.
+
+```bash
+sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'fashion') THEN CREATE ROLE fashion LOGIN CREATEDB PASSWORD 'fashion'; END IF; END \$\$;"
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'fashion'" | grep -q 1 || sudo -u postgres createdb -O fashion fashion
+sudo -u postgres psql -d fashion -tc "SELECT name FROM pg_available_extensions WHERE name IN ('unaccent', 'pg_trgm', 'btree_gist')"
+```
+
+Lệnh cuối phải in đủ ba tên `unaccent`, `pg_trgm`, `btree_gist`. Thử đăng nhập bằng role mới (mật khẩu `fashion`):
+
+```bash
+psql "postgres://fashion:fashion@localhost:5432/fashion" -c "SELECT current_user"
+```
+
+Kết quả đúng: in `fashion`.
+
+**Bước 4. Cho container trong Docker gọi được PostgreSQL.** Container gọi `host.docker.internal`, trên Linux là IP của `docker0`, còn PostgreSQL mặc định chỉ nghe ở `127.0.0.1`. Bỏ bước này thì bước 8 dừng ở service `migrate` với lỗi `couldn't get a connection after 3.00 sec`.
+
+```bash
+# 4.1. Xem IP của docker0, thường là 172.17.0.1
+ip -4 addr show docker0 | grep inet
+
+# 4.2. Cho PostgreSQL nghe thêm ở IP đó (thay 18 bằng major ở bước 2, thay IP nếu khác)
+sudo sed -i "s/^#\?listen_addresses.*/listen_addresses = 'localhost,172.17.0.1'/" /etc/postgresql/18/main/postgresql.conf
+
+# 4.3. Cho mạng Docker (172.16.0.0/12) đăng nhập role fashion bằng mật khẩu
+echo "host  fashion  fashion  172.16.0.0/12  scram-sha-256" | sudo tee -a /etc/postgresql/18/main/pg_hba.conf
+
+# 4.4. Khởi động lại để nhận cấu hình mới
+sudo systemctl restart postgresql
+
+# 4.5. Kiểm tra
+ss -ltn | grep 5432
+```
+
+Kết quả đúng của 4.5 là **hai** dòng: `127.0.0.1:5432` và `172.17.0.1:5432`. Chỉ có một dòng thì xem lỗi bằng `sudo tail -20 /var/log/postgresql/postgresql-18-main.log`. Lệnh 4.3 chạy hai lần chỉ thêm một dòng trùng, vô hại.
+
+Máy bật tường lửa `ufw` (`sudo ufw status` in `Status: active`) thì mở thêm cổng cho mạng Docker:
+
+```bash
+sudo ufw allow from 172.16.0.0/12 to any port 5432
+```
+
+**Bước 5. Tạo file biến môi trường.** Từ gốc repo:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Mở `backend/.env` và kiểm `DATABASE_URL` cùng `PG_PORT` khớp cổng ở bước 2 (mục 2.3). Không commit `.env`.
+
+**Bước 6. Cài dependency Python.** Trong `backend/`:
+
+```bash
+uv sync
+```
+
+Kết quả đúng: tạo `backend/.venv`, không có dòng `error`.
+
+**Bước 7. Cài hook git và kiểm kết nối từ máy.** Trong `backend/`:
+
+```bash
+uv run pre-commit install
+uv run python manage.py check --database default
+```
+
+Lệnh thứ hai phải in `System check identified no issues`. Lỗi kết nối thì quay lại bước 3 và bước 5.
+
+**Bước 8. Bật các container.** Trong `backend/`:
+
+```bash
+make up
+docker compose ps
+```
+
+`make up` build image, chạy service `migrate` (migration và `sync_beat_schedule`), rồi bật `worker`, `beat`, `relay`, `redis`, `mailpit`. Kết quả đúng của `docker compose ps`: `migrate` là `exited (0)`, các service còn lại là `running`. Lỗi thì xem bảng *Lỗi thường gặp* bên dưới.
+
+**Bước 9. Nạp dữ liệu nền.** Trong `backend/`, chạy một lần (hoặc sau `make db-reset`):
+
+```bash
+make load-geo        # 34 tỉnh/thành và phường/xã
+make create-admin    # hỏi email, nhập mật khẩu hai lần (tối thiểu 8 ký tự)
+```
+
+**Bước 10. Chạy API.** Trong `backend/`, để terminal này mở:
+
+```bash
+make run
+```
+
+API chạy ở `http://localhost:8000` và tự reload khi sửa code.
+
+**Bước 11. Kiểm tra.** Mở trình duyệt hoặc dùng terminal khác:
+
+```bash
+curl -s http://localhost:8000/healthz    # tiến trình sống
+curl -s http://localhost:8000/readyz     # kết nối được PostgreSQL
+```
+
+Swagger UI ở http://localhost:8000/api/docs/, Mailpit ở http://localhost:8025.
+
+**Những lần sau** chỉ cần, trong `backend/`: `make up` rồi `make run`. Tắt bằng `Ctrl+C` (API) và `make down` (container). Sửa code của worker, beat, relay thì chạy `make restart-worker`. Các lệnh khác ở mục 3.
+
+**Lỗi thường gặp**
+
+| Dấu hiệu | Xem bằng | Nguyên nhân và cách sửa |
+|---|---|---|
+| `service "migrate" didn't complete successfully: exit 1` | `docker compose logs migrate \| tail -5` | Đọc dòng lỗi cuối, so với các dòng dưới |
+| `couldn't get a connection after 3.00 sec` | `ss -ltn \| grep 5432` | PostgreSQL chưa nghe ở `172.17.0.1`: làm lại bước 4; đã nghe rồi thì kiểm `ufw` |
+| `no pg_hba.conf entry for host "172.…"` | `sudo grep fashion /etc/postgresql/18/main/pg_hba.conf` | Thiếu dòng ở bước 4.3 |
+| `password authentication failed for user "fashion"` | — | Mật khẩu trong `DATABASE_URL` của `.env` khác mật khẩu role; đặt lại bằng `sudo -u postgres psql -c "ALTER ROLE fashion PASSWORD 'fashion'"` |
+| `port is already allocated` (6380, 1025, 8025) | `ss -ltn \| grep <cổng>` | Cổng đang bị chương trình khác giữ; tắt chương trình đó hoặc đổi `REDIS_PORT` trong `.env` |
+| `permission denied ... docker.sock` | `docker ps` | User chưa thuộc nhóm `docker`: xem bước 1 |
+
 Production (RDS) và CI (`postgres:18`) có thể chạy bản major cũ hơn local: không dùng tính năng chỉ có ở bản mới; CI sẽ bắt lỗi này. Trên Windows, PostgreSQL là bản build cho Windows, còn CI và production chạy Linux: khác biệt về collation và locale có thể chỉ lộ ra trên CI.
 
 Kết nối:
@@ -127,6 +266,7 @@ Kết nối:
 - Container trong Compose (worker, beat, relay, migrate): `host.docker.internal:<PG_PORT>`, vì Compose đặt `DATABASE_HOST` thay host của `DATABASE_URL` (mục 7).
   - Windows (Docker Desktop, PostgreSQL 18 bản EDB): đã xác minh ngày 2026-10-29, không cần sửa cấu hình. Docker Desktop chuyển kết nối qua localhost của máy, nên PostgreSQL thấy client là `127.0.0.1`, và dòng `host all all 127.0.0.1/32` mặc định trong `pg_hba.conf` của EDB đã cho phép.
   - macOS **[Cần xác minh]**. Nếu container không kết nối được thì cách sửa (`listen_addresses`, `pg_hba.conf`) sẽ được ghi ở đây (ticket `.scratch/backend-bootstrap/issues/13-local-postgres-installer-macos/spec.md`).
+  - Linux (Docker Engine, PostgreSQL 18 cài bằng apt): đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS. PostgreSQL mặc định chỉ nghe ở `127.0.0.1`, container không gọi tới được; phải làm bước 4 của mục [Linux](#linux) ở trên.
 
 Dữ liệu nằm trên máy, nên `make down` không làm mất dữ liệu. Thường không cần xoá; chỉ xoá khi migration bị rối (đổi qua lại giữa các nhánh có migration xung đột) hoặc muốn seed lại từ đầu: `make db-reset` (drop và tạo lại database `fashion`, giữ role, rồi migrate).
 

@@ -181,7 +181,7 @@ Các mục ở sidebar PR trên GitHub:
 
 | Mục | Quy ước |
 |---|---|
-| Reviewers | Không gắn khi mới có một người làm. Tự review bằng `/code-review` trước khi merge. Có người thứ hai thì gắn họ và nâng số người duyệt lên 1 (mục 6) |
+| Reviewers | Không gắn khi mới có một người làm. Tự review bằng `/mattpocock-skills:code-review` trước khi merge. Có người thứ hai thì gắn họ và nâng số người duyệt lên 1 (mục 6) |
 | Assignees | Luôn gán người mở PR: `gh pr create --assignee @me` |
 | Labels | Không dùng. Loại PR nằm ở tiêu đề, trạng thái ticket nằm ở dòng `Status:` trong `.scratch/` |
 | Projects, Milestone | Không dùng. Phiên bản theo tag và `CHANGELOG.md` (mục 7) |

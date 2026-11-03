@@ -5,14 +5,14 @@
 - **Mỗi loại kiến thức một chỗ.**
   - Quyết định của ticket → `## Quyết định` trong `spec.md` của ticket (bảng Chủ đề | Quyết định).
   - Quyết định ảnh hưởng ngoài ticket (API của `shared`, tách ticket, đổi phạm vi) → **Decisions-so-far** của `.scratch/mvp-roadmap/map.md`.
-  - Quyết định kiến trúc lâu dài → ADR trong `docs/adr/` qua `domain-modeling`.
+  - Quyết định kiến trúc lâu dài → ADR trong `docs/adr/` qua `mattpocock-skills:domain-modeling`.
   - Thuật ngữ → `GLOSSARY.md`, tránh các từ ở mục _Avoid_.
   - Slice, `next`, ánh xạ AC → test → state; bản in cho người đọc là `plan.md` (`plan.py`).
   - Commit thuộc task nào → trailer `Task:` của commit (`commit.py` ghi, `commit_map.py` đọc).
   - Kết quả (đã làm, chưa làm, gap) → `report.md` của ticket.
   - Điều máy kiểm tra được → test, script trong `S/scripts/`, rule lint hoặc hook.
 - **Cần người dùng** là quyết định ngoài gate: thay đổi ngoài phạm vi; sửa `backend/shared/` mà ticket không nhắc; test đỏ ngoài ticket chưa chứng minh được là đỏ sẵn trên `origin/dev`; hook chặn không sửa được trong phạm vi; tài liệu thiếu, mâu thuẫn nhau, hoặc code buộc phải trái ADR (`docs/agents/domain.md`). Phiên chính hỏi ngay bằng `AskUserQuestion`; sub-agent làm theo `reference/sub-agent.md`.
-- **Từ vựng thiết kế**: *module* là module nghiệp vụ trong `modules/` (ADR 0006). Bàn thiết kế code thì dùng *seam*, *interface*, *depth*, *adapter*, *deletion test* của `codebase-design`; thứ skill đó gọi là module thì gọi bằng tên cụ thể (hàm, class, package).
+- **Từ vựng thiết kế**: *module* là module nghiệp vụ trong `modules/` (ADR 0006). Bàn thiết kế code thì dùng *seam*, *interface*, *depth*, *adapter*, *deletion test* của `mattpocock-skills:codebase-design`; thứ skill đó gọi là module thì gọi bằng tên cụ thể (hàm, class, package).
 - **Nói với người dùng**: một mã người dùng không tự viết thì kèm nghĩa bên cạnh: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
 - **Test**: gọi skill này nghĩa là đồng ý chạy test. Lệnh chạy trong `backend/`. Test đỏ ngoài ticket: chứng minh nó đỏ trên `origin/dev` (`git stash`, chạy, `git stash pop`) rồi ghi một dòng vào báo cáo.
 - **Tiết kiệm token**:

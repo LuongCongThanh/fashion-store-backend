@@ -43,12 +43,16 @@ Chỉ gọi skill thực sự có trong danh sách của phiên; tên `mattpococ
 | Skill được nhắc tới | Kết quả cần thực hiện khi thiếu |
 | --- | --- |
 | `grilling` | Đọc code và tài liệu, tìm quyết định còn mở trong phạm vi ticket, trình phương án và khuyến nghị, chốt câu trả lời vào `## Quyết định`. |
-| `to-spec`, `to-tickets` | Tự viết spec theo `S/phases/0-plan.md` và mẫu `.scratch/backend-bootstrap/spec.md`; tạo ticket theo khung của phase 0, có AC kiểm chứng được và quan hệ chặn. Chốt phạm vi còn mở với người dùng trước khi viết. |
+| `to-spec`, `to-tickets` (người dùng gọi) | Tự viết spec theo `S/phases/0-plan.md` và mẫu `.scratch/backend-bootstrap/spec.md`; tạo ticket theo khung của phase 0, có AC kiểm chứng được và quan hệ chặn. Chốt phạm vi còn mở với người dùng trước khi viết. |
 | `codebase-design` | Chốt interface và seam trong spec; đánh giá phần phức tạp được che giấu và điều gì mất nếu xoá abstraction (deletion test). Một seam chỉ có một adapter phải có lý do. Interface `contracts.py` đầu tiên so sánh tối đa ba phương án ở G1. |
 | `tdd` | Làm từng vòng test red đúng lỗi hành vi → code tối thiểu để green → refactor; test tại seam và theo AC như phase 2. |
-| `code-review` (cả hai loại của Claude) | Thực hiện đủ ba trục Spec, Standards, Bug theo `S/phases/4-review.md`, cùng mốc `origin/dev`. Spec kiểm từng AC và chất lượng assertion; Standards đối chiếu tài liệu chi phối; Bug soi diff và code liên quan để tìm lỗi hành vi. Mỗi finding có mã, `file:line`, bằng chứng và kết luận. |
+| `mattpocock-skills:code-review` + sub-agent trục Bug | Thực hiện đủ ba trục Spec, Standards, Bug theo `S/phases/4-review.md`, cùng mốc `origin/dev`. Spec kiểm từng AC và chất lượng assertion; Standards đối chiếu tài liệu chi phối; Bug soi diff và code liên quan để tìm lỗi hành vi. Mỗi finding có mã, `file:line`, bằng chứng và kết luận. |
 | `domain-modeling` | Đọc `docs/agents/domain.md`, cập nhật `GLOSSARY.md` cho thuật ngữ mới và ADR cho quyết định kiến trúc lâu dài, đối chiếu tên trong code. |
-| `improve-codebase-architecture` | Khảo sát khu vực nóng và các caller, chỉ ra vấn đề bằng code cụ thể, đề xuất phạm vi cải thiện và đánh đổi. Người dùng chọn trước khi tạo ticket `needs-triage` theo phase 0. |
+| `improve-codebase-architecture` (người dùng gọi) | Khảo sát khu vực nóng và các caller, chỉ ra vấn đề bằng code cụ thể, đề xuất phạm vi cải thiện và đánh đổi. Người dùng chọn trước khi tạo ticket `needs-triage` theo phase 0. |
+| `research` | Tra tài liệu gốc (docs chính thức, source của thư viện đúng phiên bản trong `backend/uv.lock`), ghi kết quả có trích nguồn vào `.scratch/<feature>/research/<chủ-đề>.md`. |
+| `diagnosing-bugs` | Dựng một lệnh đỏ đúng lỗi (test, script) và chạy được trước, rồi mới đặt giả thuyết và sửa; không dựng được thì báo rõ đã thử gì. |
+| `pr` | Giữ khung `.github/pull_request_template.md`; *Giải pháp* dùng pseudocode / call tree nhỏ nhất, *Cách kiểm* ghi Before/After, *Reviewer cần chú ý* ghi Door và Blast Radius. |
+| `triage`, `retro`, `handoff` (người dùng gọi) | Bỏ đề xuất gõ lệnh: triage hỏi trực tiếp như phase 1; retro dùng nguồn bằng chứng ở mục Retro; handoff thay bằng state + thông báo mở phiên mới. |
 | `writing-for-agents` | Ghi đúng cải tiến retro đã chọn: mỗi ý một chỗ, chỉ dẫn hành động cụ thể; bỏ dòng trùng hoặc lỗi thời. Giữ quy tắc và ví dụ theo cùng một nguồn. |
 
 ## Shell và GitHub
