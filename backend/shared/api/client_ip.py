@@ -3,6 +3,9 @@
 Mọi request đi qua Next.js nên `REMOTE_ADDR` là IP của BFF. Chỉ tin `X-Client-IP` khi
 `X-BFF-Secret` khớp một secret trong `BFF_SHARED_SECRETS` và giá trị là IPv4/IPv6 hợp lệ;
 ngược lại dùng `REMOTE_ADDR`.
+
+`bff_secret_matches` là quy tắc tin BFF dùng chung: `shared.api.request_id` cũng chỉ tin
+`X-Request-ID` khi hàm này đúng.
 """
 
 import hmac
@@ -20,7 +23,11 @@ logger = structlog.get_logger(__name__)
 CLIENT_IP_ATTR = "client_ip"
 
 
-def _secret_matches(provided: str) -> bool:
+def bff_secret_matches(request: HttpRequest) -> bool:
+    """`X-BFF-Secret` khớp một secret trong `BFF_SHARED_SECRETS`: request đến từ BFF."""
+    provided = request.headers.get("X-BFF-Secret")
+    if provided is None:
+        return False
     # So với mọi secret, không dừng sớm, để thời gian không lộ secret nào khớp
     matched = False
     for secret in settings.BFF_SHARED_SECRETS:
@@ -30,8 +37,7 @@ def _secret_matches(provided: str) -> bool:
 
 def resolve_client_ip(request: HttpRequest) -> str:
     remote_addr: str = request.META.get("REMOTE_ADDR", "")
-    provided = request.headers.get("X-BFF-Secret")
-    if provided is None or not _secret_matches(provided):
+    if not bff_secret_matches(request):
         return remote_addr
     claimed = request.headers.get("X-Client-IP")
     if claimed is None:
