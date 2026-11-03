@@ -234,6 +234,7 @@ Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
 | `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`) | M0 (ticket 12) |
+| `make br-report` | Liệt kê các mã `BR-xxx` trong `docs/business/04-business-rules.md` chưa có test gắn marker `br` ([12](./12-testing-strategy.md) mục 3) | M0 (ticket 02) |
 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu, Voucher mẫu | M1 (Voucher mẫu từ M2) |
 | `make tunnel` | Mở Cloudflare Tunnel để nghiệm thu với sandbox ([06](./06-integrations.md) mục 8) | M7 |
 
