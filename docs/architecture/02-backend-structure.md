@@ -186,13 +186,13 @@ backend/
 │   ├── events/
 │   │   ├── __init__.py             # API công khai: DomainEvent, publish(), handles(), get_delivery_outcomes(), delivery_lag() (tuổi của công việc giao sự kiện đã tới hạn mà chưa xử lý, không tính failed hay pending đang chờ retry; job T4 dùng, 07 mục 1.1.1)
 │   │   ├── base.py                 # DomainEvent (pydantic): event_id, event_type, schema_version, occurred_at, correlation_id (request_id của request gốc). Payload không chứa secret hay PII
-│   │   ├── models.py               # OutboxEvent, EventDelivery (cũng là dấu đã xử lý và nơi lưu lỗi)
+│   │   ├── models.py               # OutboxEvent, EventDelivery (cũng là dấu đã xử lý và nơi lưu lỗi); vòng đời delivery là method của model (start_run, complete, reject, retry_or_fail, fail, reopen, mark_dispatched; lịch RETRY_DELAYS, ngưỡng MAX_INTERRUPTED_RUNS, 07 mục 1.3); vị từ là QuerySet primitive (attempt_due, dispatch_due, unfinished, listed, unlisted)
 │   │   ├── publisher.py            # EventPublisher: ghi sự kiện vào outbox trong transaction hiện tại; gọi ngoài transaction.atomic thì ném RuntimeError
 │   │   ├── registry.py             # decorator @handles(event_type, version=, name=) đăng ký handler; name là ID ổn định (cột handler, tối đa 100 ký tự), trùng thì lỗi lúc import; autodiscover(package) nạp events.py, handlers.py của package con
-│   │   ├── relay.py                # tạo delivery từng handler; quét pending tới hạn và giao lại qua Celery, lịch lưu ở DB; build_deliveries(event, handlers, now) dựng delivery dùng chung với replay
+│   │   ├── relay.py                # tạo delivery từng handler; quét pending tới hạn và giao lại qua Celery, lịch lưu ở DB; build_deliveries(event, handlers, now) dựng delivery qua EventDelivery.new, dùng chung với replay
 │   │   ├── selectors.py            # delivery_lag() -> timedelta (tuổi theo occurred_at, 0 khi không tồn đọng), get_delivery_outcomes(event_id, handler_names) -> dict[str, DeliveryStatus | None] (None = chưa có delivery)
 │   │   ├── operations.py           # thao tác vận hành, command và task chỉ gọi vào đây: retry_failed_events, replay_events (lô 100 sự kiện, khoá sự kiện), purge_old_outbox_events (lô 1.000, OUTBOX_RETENTION 90 ngày)
-│   │   ├── consumer.py             # khoá EventDelivery; handler trong savepoint; commit trạng thái delivery cùng tác động DB; retry lưu trong DB (07 mục 1.3)
+│   │   ├── consumer.py             # khoá EventDelivery; handler trong savepoint; gọi method vòng đời của model và commit trạng thái delivery cùng tác động DB; log theo kết quả trả về (07 mục 1.3)
 │   │   └── tasks.py                # Celery task dispatch_event(event_id, handler_name)
 │   ├── geo/
 │   │   ├── models.py               # Province, Ward (2 cấp, theo vietnam-provinces)

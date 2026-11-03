@@ -349,6 +349,10 @@ class ShippingUtils:
   aggregate, provider hoặc event thuộc service, kể cả khi có thể viết ngắn hơn trong model method.
 - Custom `QuerySet`/manager chỉ chứa query primitive có thể compose và không che giấu side effect. Query
   theo use case vẫn được đặt sau selector để caller không phụ thuộc cấu trúc ORM.
+- Chuyển trạng thái hàng loạt của một model (`UPDATE` theo danh sách id mà caller đã khoá và lọc) là
+  `@classmethod` của model, không phải method của `QuerySet`: model quyết cột nào được ghi, còn
+  `QuerySet` giữ nguyên là primitive không side effect. Ví dụ: `EventDelivery.reopen`,
+  `EventDelivery.mark_dispatched`.
 - Không dùng signal cho workflow nghiệp vụ. Signal chỉ phù hợp với tích hợp hạ tầng cục bộ, bắt buộc có
   lý do vì sao explicit call không phù hợp và có test chứng minh transaction semantics.
 - Django Admin và management command là adapter: parse/validate input, gọi service/selector và trình bày
