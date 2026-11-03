@@ -169,7 +169,7 @@ Không dùng **rebase merge** trên GitHub.
 
 - **Tiêu đề** theo Conventional Commits, ví dụ `feat(ordering): add COD checkout`.
 - **Nội dung** theo template `.github/pull_request_template.md`:
-  - Vấn đề (vì sao) và giải pháp (làm gì, vì sao chọn cách đó); đường dẫn ticket trong `.scratch/`, user story (`US-xxx`), quy tắc (`BR-xxx`).
+  - Làm gì, vì sao (vấn đề cần giải quyết), giải pháp (cách làm, vì sao chọn cách đó) và kết quả đạt được (Before → After); đường dẫn ticket trong `.scratch/`, user story (`US-xxx`), quy tắc (`BR-xxx`).
   - Cách kiểm: test chứng minh từng acceptance criterion, bước kiểm tay nếu có.
   - **Gap và lưu ý** (bắt buộc, mục không có ghi "Không"): chưa làm, gap / rủi ro, quyết định tạm, ticket mới, chỗ reviewer cần chú ý, việc phải làm sau khi merge.
   - Checklist: có test; có migration (nếu đổi model); với thay đổi code đã chạy `make fmt`, `make lint`

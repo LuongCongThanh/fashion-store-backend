@@ -23,7 +23,7 @@ git push -u origin <nhánh>        # nhánh của mình: --force-with-lease sau 
 ## 2. Mở PR
 
 1. Tiêu đề Conventional Commits, scope là module (`shared`, `catalog`…); tiêu đề này thành commit squash trên `dev`.
-2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. Lấy từ `report.md`: *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A. Viết nội dung theo `mattpocock-skills:pr`, giữ khung template của repo: **Giải pháp** dùng hình nhỏ nhất của skill (pseudocode, call tree, diff-sketch); *Cách kiểm* ghi Before/After (test đỏ → xanh); *Reviewer cần chú ý* ghi Door (một chiều / hai chiều) và Blast Radius.
+2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. **Làm gì** và **Vì sao** lấy từ *Việc cần làm* và `## Quyết định` của `spec.md`. Lấy từ `report.md`: **Kết quả** ← mục *Đã làm*, viết thành Before → After của hành vi; *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A. Viết nội dung theo `mattpocock-skills:pr`, giữ khung template của repo: **Giải pháp** dùng hình nhỏ nhất của skill (pseudocode, call tree, diff-sketch); *Cách kiểm* ghi Before/After (test đỏ → xanh); *Reviewer cần chú ý* ghi Door (một chiều / hai chiều) và Blast Radius.
 3. Tạo, rồi ghi số PR vào state:
 
 ```bash
