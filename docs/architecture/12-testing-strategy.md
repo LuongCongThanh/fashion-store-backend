@@ -452,12 +452,17 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 
 ## 5. Hợp đồng API với frontend (OpenAPI)
 
-- Mục tiêu sau khi API được bootstrap: commit schema tại `backend/openapi.yaml`, sinh bằng
-  `manage.py spectacular --validate --file openapi.yaml`; frontend sinh TS client từ file này.
-- Ở mốc hiện tại chưa có `backend/openapi.yaml` và CI chưa có gate sinh/so sánh schema. PR không được
-  tuyên bố đã qua OpenAPI gate; contract đang được review theo [04-api-contract.md](./04-api-contract.md).
-- Khi bootstrap schema, thêm command tái sinh xác định vào `Makefile` và CI phải fail nếu output khác file
-  đã commit. Lúc đó mọi thay đổi API phải hiện trong diff của PR.
+- Schema commit tại `backend/openapi.yaml`; frontend sinh TS client từ file này. `make openapi` sinh lại
+  bằng `scripts/gen_openapi.py`, gọi `manage.py spectacular --validate --fail-on-warn` với
+  `config.settings.test` khi chưa đặt `DJANGO_SETTINGS_MODULE` (cùng settings với CI). `--fail-on-warn`
+  vì warning của drf-spectacular (serializer không đoán được, enum trùng tên) làm schema thiếu mà lệnh
+  vẫn exit 0.
+- `scripts/gen_openapi.py --check` chạy trong `make lint` và bước Lint của CI (mục 8): file đã commit lệch
+  với code thì in diff, nhắc chạy `make openapi` và exit 1; schema sai chuẩn OpenAPI hoặc có warning cũng
+  exit 1. Vì vậy mọi thay đổi API phải hiện trong diff của PR. Đổi API thì chạy `make openapi` và commit
+  `backend/openapi.yaml` cùng PR.
+- `backend/openapi.yaml` là file sinh: hook `trailing-whitespace` và `end-of-file-fixer` của pre-commit bỏ
+  qua nó, để hook không sửa lệch khỏi output của generator. Không sửa tay.
 - Chưa dùng công cụ phát hiện breaking change (`oasdiff`). Sau khi có schema, reviewer tự đọc diff;
   xoá field hay endpoint phải được nêu rõ và báo cho frontend.
 
@@ -485,12 +490,13 @@ Job `backend` trong `.github/workflows/ci.yml`:
 | `mypy` | Không lỗi (`--strict` cho `services`, `selectors`, `contracts`) |
 | `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp với cây `modules/` hiện tại; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 8) |
 | `lint-imports` | Không vi phạm ranh giới module, kể cả quy tắc factory (mục 4) |
+| `python scripts/gen_openapi.py --check` | `backend/openapi.yaml` khớp schema sinh từ code, schema hợp lệ theo chuẩn OpenAPI và drf-spectacular không có warning; lệch thì exit 1 kèm diff và nhắc `make openapi` (mục 5) |
 | `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`. Chạy `pytest -n auto --cov=modules --cov=shared --cov-report=` (`pytest-cov` gom coverage từ các worker của `pytest-xdist`) |
 | Coverage | Sau test, chạy `python scripts/check_module_coverage.py`: ≥ 80% **branch coverage riêng** (`[tool.coverage.run] branch = true`) cho nhóm `modules/<module>/services/**/*.py` + `modules/<module>/handlers.py` của **từng module**. Hạ tầng `shared/events/**/*.py` (bỏ các thư mục `tests`), `shared/idempotency.py`, `shared/api/idempotency.py`, `shared/tasks.py` là một nhóm riêng. Thư mục của Django app ở gốc `modules/` (`management`, `migrations`, `templates`, ADR 0006) không phải module. Script đọc dữ liệu và cấu hình coverage của project (`COVERAGE_FILE`, `[tool.coverage]` trong `pyproject.toml`, mặc định `.coverage`) bằng API public `Coverage.branch_stats`, cộng số nhánh đã chạy/tổng số nhánh theo nhóm và so số nguyên với 80%; không dùng tỷ lệ gộp dòng + nhánh của `coverage report --fail-under`. Module chưa có target được bỏ qua, target không có nhánh được báo rõ và qua; file chưa chạy vẫn được phân tích. Thiếu dữ liệu hoặc dữ liệu chỉ đo statement là lỗi. Không tính `shared/geo`, `shared/health` và phần định dạng của `shared/api`, vì ít nhánh nghiệp vụ. **Không** đặt ngưỡng cho toàn repo, để không ai phải viết test chỉ để lấp số |
 | `pip-audit` | Không có lỗ hổng |
 
-Gate migration và OpenAPI là mục tiêu đã mô tả ở mục 5–6 nhưng **chưa hoạt động** trong workflow hiện
-tại. Không tính chúng là required status check cho tới khi repository có artifact/script và job tương ứng.
+Gate migration là mục tiêu đã mô tả ở mục 6 nhưng **chưa hoạt động** trong workflow hiện tại. Không tính
+nó là required status check cho tới khi repository có script và job tương ứng.
 
 ## 9. Chưa làm ở MVP
 

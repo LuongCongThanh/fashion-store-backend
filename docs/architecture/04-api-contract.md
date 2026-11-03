@@ -1,6 +1,6 @@
 # 04. API contract
 
-> Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)). File này chốt hợp đồng dữ liệu và hành vi; khi có backend, OpenAPI được sinh bằng `drf-spectacular` tại `/api/schema/`, Swagger UI tại `/api/docs/` (chỉ local và staging nội bộ). Hiện chưa có backend hoặc `backend/openapi.yaml`; không coi bảng endpoint là bằng chứng API đã triển khai.
+> Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)). File này chốt hợp đồng dữ liệu và hành vi; khi có backend, OpenAPI được sinh bằng `drf-spectacular` tại `/api/schema/`, Swagger UI tại `/api/docs/` (chỉ local và staging nội bộ). Schema đã sinh được commit tại `backend/openapi.yaml` và CI chặn khi file lệch code ([12](./12-testing-strategy.md) mục 5); file này chỉ chứa endpoint đã triển khai, nên không coi bảng endpoint ở đây là bằng chứng API đã có.
 >
 > Mọi request của storefront và back-office đi qua Next.js BFF ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)). Từ internet chỉ có `/api/v1/webhooks/` gọi thẳng vào Django.
 
@@ -341,7 +341,7 @@ Các DTO đọc chỉ có field trong bảng này. Ký hiệu `Base + ...` kế 
 
 ### 5.6. Registry request/response của endpoint
 
-Các route trong bảng ở mục 4 có schema tại đây; path params giữ UUID/code/slug như mục 1. `Patch<X>` chỉ cho field ghi của X theo PATCH semantics; `None` không body. `ErrorDTO` áp cho lỗi mọi operation trừ webhook/HTML/CSV. Khi bootstrap, mỗi operation phải khai báo request/response/status/permission/error schemas trong OpenAPI và có ví dụ trước khi frontend dùng; CI kiểm schema sinh lại theo12. Không tự sinh OpenAPI từ field model để lấp chỗ còn chưa triển khai.
+Các route trong bảng ở mục 4 có schema tại đây; path params giữ UUID/code/slug như mục 1. `Patch<X>` chỉ cho field ghi của X theo PATCH semantics; `None` không body. `ErrorDTO` áp cho lỗi mọi operation trừ webhook/HTML/CSV. Khi bootstrap, mỗi operation phải khai báo request/response/status/permission/error schemas trong OpenAPI và có ví dụ trước khi frontend dùng; CI kiểm schema sinh lại theo [12](./12-testing-strategy.md) mục 5. Không tự sinh OpenAPI từ field model để lấp chỗ còn chưa triển khai.
 
 Response lỗi mặc định do `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối). View tự khai mã đặc thù (409, 422…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè. 401/403 và 503 `AUTH_STATE_UNAVAILABLE` chưa khai mặc định, thêm cùng JWT ở M1.
 
