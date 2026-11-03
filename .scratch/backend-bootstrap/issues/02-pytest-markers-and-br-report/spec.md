@@ -1,6 +1,8 @@
 # Khai báo marker pytest và lệnh `make br-report`
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #58
 
 Blocked by: 07
 
@@ -27,6 +29,6 @@ Chốt khi grilling ngày 02/11/2026.
 
 ## Acceptance criteria
 
-- [ ] Test dùng marker chưa khai báo thì pytest báo lỗi.
-- [ ] `pytest -m concurrency` và `pytest -m flow` chỉ chạy đúng nhóm test đó.
-- [ ] `make br-report` in đúng danh sách mã `BR-xxx` chưa có test và luôn thoát với mã 0.
+- [x] Test dùng marker chưa khai báo thì pytest báo lỗi.
+- [x] `pytest -m concurrency` và `pytest -m flow` chỉ chạy đúng nhóm test đó.
+- [x] `make br-report` in đúng danh sách mã `BR-xxx` chưa có test và luôn thoát với mã 0.

@@ -1,6 +1,6 @@
 # Báo cáo 03/11/2026
 
-**Nhánh:** `test/pytest-markers-and-br-report` · **PR:** chưa mở · **Mode:** lite
+**Nhánh:** `test/pytest-markers-and-br-report` · **PR:** #58 · **Mode:** lite
 
 #### Đã làm
 
