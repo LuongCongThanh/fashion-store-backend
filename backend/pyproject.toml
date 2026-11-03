@@ -112,6 +112,12 @@ django_settings_module = "config.settings.test"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
+addopts = "--strict-markers"
+markers = [
+    "br: Test kiểm tra một hay nhiều business rule (12 mục 3)",
+    "concurrency: Test chạy nhiều thread, cần transaction=True (12 mục 3)",
+    "flow: Flow xuyên module (12 mục 3)",
+]
 
 # Cổng branch coverage riêng từng module do scripts/check_module_coverage.py kiểm (12 mục 8);
 # không đặt fail_under vì không có ngưỡng cho toàn repo
