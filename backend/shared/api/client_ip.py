@@ -3,6 +3,9 @@
 Mọi request đi qua Next.js nên `REMOTE_ADDR` là IP của BFF. Chỉ tin `X-Client-IP` khi
 `X-BFF-Secret` khớp một secret trong `BFF_SHARED_SECRETS` và giá trị là IPv4/IPv6 hợp lệ;
 ngược lại dùng `REMOTE_ADDR`.
+
+`bff_secret_matches` là quy tắc tin BFF dùng chung: `shared.api.request_id` cũng chỉ tin
+`X-Request-ID` khi hàm này đúng.
 """
 
 import hmac

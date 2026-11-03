@@ -1,4 +1,5 @@
-import logging
+import json
+import logging.config
 from collections.abc import Iterator
 from typing import Any
 
@@ -11,6 +12,7 @@ from shared.tests._helpers import BFF_IP, BFF_SECRET, error_of
 pytestmark = pytest.mark.urls("shared.tests.api_urls")
 
 UPSTREAM_REQUEST_ID = "01JB8Z3K4M5N6P7Q8R9S0T1V2W"
+MALFORMED_REQUEST_IDS = [("a" * 65, "too_long"), ("id with space", "invalid_chars")]
 
 
 @pytest.fixture(autouse=True)
@@ -19,64 +21,88 @@ def _bff_secrets() -> Iterator[None]:
         yield
 
 
-def get_domain_error(
-    caplog: pytest.LogCaptureFixture, **headers: Any
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Gọi route ném lỗi nghiệp vụ; trả `error` và event dict của mọi log structlog.
+@pytest.fixture
+def get_domain_error(json_logging: dict[str, Any], capsys: pytest.CaptureFixture[str]) -> Any:
+    """Gọi route ném lỗi nghiệp vụ; trả `error`, các dòng log JSON và output thô.
 
-    Đọc qua `caplog` thay vì `capture_logs`: logger của structlog được cache ở lần dùng đầu
-    (`cache_logger_on_first_use`), nên logger mà test khác cùng worker đã dùng sẽ không vào
-    `capture_logs`. `record.msg` là event dict đã gộp contextvars, có `request_id`.
+    Log đọc qua chuỗi processor thật (`json_logging`, 12 mục 4): `request_id` do
+    `merge_contextvars` gắn nên `capture_logs` (thay cả chuỗi processor) không thấy.
     """
-    caplog.set_level(logging.INFO)
-    response = APIClient().get("/domain-error", REMOTE_ADDR=BFF_IP, **headers)
-    logs = [record.msg for record in caplog.records if isinstance(record.msg, dict)]
-    return error_of(response), logs
+
+    def call(**headers: Any) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
+        # Cấu hình trong pha call: handler giữ stderr do capsys thay ở pha này
+        logging.config.dictConfig(json_logging)
+        response = APIClient().get("/domain-error", REMOTE_ADDR=BFF_IP, **headers)
+        output = capsys.readouterr().err
+        lines = [json.loads(line) for line in output.splitlines()]
+        return error_of(response), lines, output
+
+    return call
 
 
-def request_ids_in(logs: list[dict[str, Any]]) -> set[str]:
-    return {log["request_id"] for log in logs if "request_id" in log}
+def request_ids_in(lines: list[dict[str, Any]]) -> set[str]:
+    return {line["request_id"] for line in lines if "request_id" in line}
 
 
-def test_trusted_request_id_is_used_in_error_and_logs(caplog: pytest.LogCaptureFixture) -> None:
-    error, logs = get_domain_error(
-        caplog, HTTP_X_BFF_SECRET=BFF_SECRET, HTTP_X_REQUEST_ID=UPSTREAM_REQUEST_ID
-    )
-
-    assert error["request_id"] == UPSTREAM_REQUEST_ID
-    assert request_ids_in(logs) == {UPSTREAM_REQUEST_ID}
-    assert "request_started" in [log["event"] for log in logs]
+def invalid_warnings_in(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [line for line in lines if line["event"] == "request_id_invalid"]
 
 
-@pytest.mark.parametrize("claimed", ["a" * 65, "id with space", "id;drop"])
-def test_malformed_request_id_is_replaced_and_logged_without_value(
-    caplog: pytest.LogCaptureFixture, claimed: str
+@pytest.mark.parametrize("claimed", [UPSTREAM_REQUEST_ID, "a" * 64])
+def test_trusted_request_id_is_used_in_error_and_logs(get_domain_error: Any, claimed: str) -> None:
+    error, lines, _ = get_domain_error(HTTP_X_BFF_SECRET=BFF_SECRET, HTTP_X_REQUEST_ID=claimed)
+
+    assert error["request_id"] == claimed
+    assert request_ids_in(lines) == {claimed}
+    assert "request_started" in [line["event"] for line in lines]
+
+
+@pytest.mark.parametrize(("claimed", "reason"), MALFORMED_REQUEST_IDS)
+def test_malformed_request_id_is_replaced_and_logged_with_reason(
+    get_domain_error: Any, claimed: str, reason: str
 ) -> None:
-    error, logs = get_domain_error(caplog, HTTP_X_BFF_SECRET=BFF_SECRET, HTTP_X_REQUEST_ID=claimed)
+    error, lines, _ = get_domain_error(HTTP_X_BFF_SECRET=BFF_SECRET, HTTP_X_REQUEST_ID=claimed)
 
     assert error["request_id"] != claimed
-    assert request_ids_in(logs) == {error["request_id"]}
-    warnings = [log for log in logs if log["event"] == "request_id_invalid"]
+    assert request_ids_in(lines) == {error["request_id"]}
+    warnings = invalid_warnings_in(lines)
     assert len(warnings) == 1
-    assert claimed not in repr(warnings)
-    assert BFF_SECRET not in repr(logs)
+    assert warnings[0]["reason"] == reason
 
 
-def test_request_id_header_ignored_when_bff_secret_missing(
-    caplog: pytest.LogCaptureFixture,
+@pytest.mark.parametrize(("claimed", "reason"), MALFORMED_REQUEST_IDS)
+def test_malformed_request_id_value_and_secret_are_not_logged(
+    get_domain_error: Any, claimed: str, reason: str
 ) -> None:
-    error, logs = get_domain_error(caplog, HTTP_X_REQUEST_ID=UPSTREAM_REQUEST_ID)
+    _, _, output = get_domain_error(HTTP_X_BFF_SECRET=BFF_SECRET, HTTP_X_REQUEST_ID=claimed)
+
+    assert claimed not in output
+    assert BFF_SECRET not in output
+
+
+@pytest.mark.parametrize("headers", [{}, {"HTTP_X_REQUEST_ID": ""}])
+def test_missing_or_empty_request_id_keeps_generated_id_without_warning(
+    get_domain_error: Any, headers: dict[str, str]
+) -> None:
+    error, lines, _ = get_domain_error(HTTP_X_BFF_SECRET=BFF_SECRET, **headers)
+
+    assert request_ids_in(lines) == {error["request_id"]}
+    assert invalid_warnings_in(lines) == []
+
+
+def test_request_id_header_ignored_when_bff_secret_missing(get_domain_error: Any) -> None:
+    error, lines, _ = get_domain_error(HTTP_X_REQUEST_ID=UPSTREAM_REQUEST_ID)
 
     assert error["request_id"] != UPSTREAM_REQUEST_ID
-    assert request_ids_in(logs) == {error["request_id"]}
+    assert request_ids_in(lines) == {error["request_id"]}
 
 
+@pytest.mark.parametrize("claimed", [UPSTREAM_REQUEST_ID, "id with space"])
 def test_request_id_header_ignored_when_bff_secret_wrong(
-    caplog: pytest.LogCaptureFixture,
+    get_domain_error: Any, claimed: str
 ) -> None:
-    error, logs = get_domain_error(
-        caplog, HTTP_X_BFF_SECRET="secret-wrong", HTTP_X_REQUEST_ID=UPSTREAM_REQUEST_ID
-    )
+    error, lines, _ = get_domain_error(HTTP_X_BFF_SECRET="secret-wrong", HTTP_X_REQUEST_ID=claimed)
 
-    assert error["request_id"] != UPSTREAM_REQUEST_ID
-    assert request_ids_in(logs) == {error["request_id"]}
+    assert error["request_id"] != claimed
+    assert request_ids_in(lines) == {error["request_id"]}
+    assert invalid_warnings_in(lines) == []

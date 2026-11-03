@@ -11,4 +11,6 @@ class SharedConfig(AppConfig):
         from shared import checks  # noqa: F401  # đăng ký system check
         from shared.api.request_id import bind_upstream_request_id
 
-        bind_extra_request_metadata.connect(bind_upstream_request_id)
+        bind_extra_request_metadata.connect(
+            bind_upstream_request_id, dispatch_uid="shared.bind_upstream_request_id"
+        )
