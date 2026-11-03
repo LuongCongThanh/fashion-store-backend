@@ -2,7 +2,7 @@
 
 ### Báo cáo 03/11/2026
 
-**Nhánh:** `feat/trusted-bff-request-id` · **PR:** chưa mở · **Mode:** lite
+**Nhánh:** `feat/trusted-bff-request-id` · **PR:** #60 · **Mode:** lite
 
 #### Đã làm
 

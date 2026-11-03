@@ -1,6 +1,8 @@
 # Dùng `X-Request-ID` từ BFF làm `request_id`
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #60
 
 Blocked by: 16
 
