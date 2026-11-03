@@ -13,10 +13,11 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from check_ship import SUBJECT
 from commit_map import TASK, read_commits
-from common import git, load_state, resolve, state_dir, ticket_ref
+from common import git, load_state, repo_root, resolve, state_dir, ticket_ref
 
 
 def foreign_commits(commits: list[dict], ticket: str) -> str | None:
@@ -44,10 +45,66 @@ def check_task(task: str, state: dict) -> str | None:
     return None
 
 
+def check_slice_paths(task: str, paths: list[str], state: dict) -> str | None:
+    """Commit slice chỉ nhận file đã duyệt trong plan; task khác không bị giới hạn này."""
+    if not task.startswith("S"):
+        return None
+    slice_ = next((s for s in state.get("slices", []) if s.get("id") == task), None)
+    if slice_ is None:
+        return f"slice {task} không có trong state"
+    root = repo_root().resolve()
+    actual = set()
+    for raw in paths:
+        path = (root / raw).resolve() if not os.path.isabs(raw) else Path(raw).resolve()
+        try:
+            actual.add(path.relative_to(root).as_posix())
+        except ValueError:
+            return f"path ngoài repo: {raw}"
+    planned = set(slice_.get("files", []))
+    unplanned = sorted(actual - planned)
+    if unplanned:
+        return f"slice {task} có file ngoài plan: {', '.join(unplanned)}"
+    missing = sorted(planned - actual)
+    if missing:
+        return f"slice {task} thiếu file trong plan: {', '.join(missing)}"
+    return None
+
+
+def check_slice_changes(task: str, state: dict) -> str | None:
+    """Mọi file đã duyệt phải thật sự có thay đổi trước khi tạo commit slice."""
+    if not task.startswith("S"):
+        return None
+    slice_ = next((s for s in state.get("slices", []) if s.get("id") == task), None)
+    if slice_ is None:
+        return f"slice {task} không có trong state"
+    unchanged = [
+        path
+        for path in slice_.get("files", [])
+        if not git(
+            "-C",
+            str(repo_root()),
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            path,
+            strip=False,
+        )
+    ]
+    if unchanged:
+        return f"slice {task} chưa đổi file trong plan: {', '.join(unchanged)}"
+    return None
+
+
 def run(args: list[str], log: list[str]) -> int:
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    proc = subprocess.run(
-        ["git", *args], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env
+    proc = subprocess.run(  # noqa: S603 -- git cố định, argv trực tiếp, không qua shell.
+        ["git", "-C", str(repo_root()), *args],  # noqa: S607 -- Git từ PATH dự án.
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
     )
     log.append(f"$ git {' '.join(args)}\n{proc.stdout}{proc.stderr}")
     return proc.returncode
@@ -66,6 +123,10 @@ def main() -> int:
     feature, ticket = resolve(args.ticket)
     state = load_state(feature.slug, ticket.num) or {}
     error = check_task(args.task, state)
+    if error is None:
+        error = check_slice_paths(args.task, args.paths, state)
+    if error is None:
+        error = check_slice_changes(args.task, state)
     if error is None and not SUBJECT.match(args.subject):
         error = f"subject sai Conventional Commits: {args.subject}"
     if error is None:

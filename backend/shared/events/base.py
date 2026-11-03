@@ -1,6 +1,6 @@
 """Class cơ sở của sự kiện miền (07 mục 1, 2).
 
-Class con đặt ở `events.py` của module phát, tên `<Danh từ><Động từ quá khứ>V<n>` (02 mục 9.2),
+Class con đặt ở `events.py` của module phát, tên `<Danh từ><Động từ quá khứ>V<n>` (13 mục 5),
 khai báo `event_type = "<module>.<kebab-case>"` và `schema_version`. Payload chỉ mang ID, Mã đơn,
 số tiền và mã trạng thái, không chứa secret hay PII (07 mục 2).
 """

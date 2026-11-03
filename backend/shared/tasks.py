@@ -1,4 +1,4 @@
-"""Đẩy Celery task sau khi transaction commit (02 mục 9.1, 07 mục 1.3) và job theo lịch của
+"""Đẩy Celery task sau khi transaction commit (13 mục 4, 07 mục 1.3) và job theo lịch của
 `shared` (07 mục 3.2)."""
 
 from typing import Any

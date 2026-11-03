@@ -1,4 +1,4 @@
-"""Cấu hình structlog và processor che PII (02 mục 9.6, 10 mục 2)."""
+"""Cấu hình structlog và processor che PII (13 mục 10, 10 mục 2)."""
 
 from collections.abc import MutableMapping
 from typing import Any

@@ -9,9 +9,13 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from pathlib import Path
+from typing import cast
 
-from common import load_state, resolve
+from check_ac_trace import trace
+from common import load_state, repo_root, resolve
 from progress import REPORT, SPEC, find_section
+from state import validate
 
 
 def fill_pr(text: str, pr: int) -> str:
@@ -50,6 +54,25 @@ def close(
     return text[: match.start(1)] + "\n".join(lines) + text[match.end(1) :], ticked, skipped
 
 
+def close_blockers(state: dict | None, pr: int, ac_total: int, backend: Path) -> list[str]:
+    """Điều kiện fail-closed trước khi ghi trạng thái resolved và tick AC."""
+    if state is None:
+        return ["không có state; không thể chứng minh AC đã hoàn tất"]
+    blockers = []
+    blockers.extend(validate(state, ac_total))
+    if state.get("phase") != "ship":
+        blockers.append(f"phase là {state.get('phase')}, cần phase ship")
+    if not state.get("gates", {}).get("g2"):
+        blockers.append("G2 chưa được duyệt")
+    if state.get("pr") != pr:
+        blockers.append(f"PR #{pr} khác PR trong state ({state.get('pr') or '—'})")
+    unfinished = [s.get("id", "?") for s in state.get("slices", []) if s.get("status") != "done"]
+    if unfinished:
+        blockers.append(f"slice chưa hoàn tất: {', '.join(unfinished)}")
+    blockers.extend(trace(state, ac_total, backend, planned=False))
+    return blockers
+
+
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -59,9 +82,14 @@ def main() -> int:
 
     feature, ticket = resolve(args.ticket)
     state = load_state(feature.slug, ticket.num)
-    if state is None:
-        print("WARN không có state: không biết AC nào untestable, tick tất cả")
-    untestable = {int(k) for k in (state or {}).get("untestable", {})}
+    blockers = close_blockers(state, args.pr, ticket.ac_total, repo_root() / "backend")
+    if blockers:
+        print("TỪ CHỐI: bằng chứng AC chưa đầy đủ")
+        for blocker in blockers:
+            print(f"  - {blocker}")
+        return 1
+    state = cast(dict, state)
+    untestable = {int(k) for k in state.get("untestable", {})}
 
     spec = ticket.path / SPEC
     new_text, ticked, skipped = close(spec.read_text(encoding="utf-8"), args.pr, untestable)

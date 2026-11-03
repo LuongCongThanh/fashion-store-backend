@@ -132,11 +132,18 @@ docs(adr): add 0007 events via outbox and celery
 |---|---|---|
 | `.github/workflows/ci.yml` | `secrets` | `gitleaks` quét toàn bộ lịch sử |
 | | `pr-title` | Tiêu đề PR đúng Conventional Commits (chỉ chạy trên PR) |
-| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `pytest`, coverage, kiểm tra OpenAPI lệch, `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
+| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `pytest`, coverage và `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
 | `.github/workflows/codeql.yml` | `codeql (actions)`, `codeql (python)` | CodeQL bộ `security-extended`, chạy trên PR, push lên `main` và mỗi thứ Hai |
 
 `ci.yml` chạy khi push lên `main`, `uat`, `dev` và trên mọi PR.
-| `.github/dependabot.yml` | — | Cập nhật `github-actions`, `uv`, `docker` hằng tuần, chỉ đề xuất bản đã phát hành ít nhất 7 ngày |
+
+`.github/dependabot.yml` cập nhật `github-actions`, `uv` và `docker` hằng tuần, chỉ đề xuất bản đã phát
+hành ít nhất 7 ngày; đây không phải workflow hoặc status check.
+
+Hai gate mục tiêu chưa hoạt động ở mốc hiện tại: kiểm tra migration lệch/trùng số và sinh/so sánh
+`backend/openapi.yaml` (file này chưa được bootstrap). Không đánh dấu hai mục này đã qua trong PR cho tới
+khi command và workflow tương ứng tồn tại. Khi thêm gate, cập nhật đồng thời mục này và
+[12 mục 8](./12-testing-strategy.md#8-cổng-chặn-trong-ci).
 
 Quy tắc cho mọi workflow, vì repo là public:
 
@@ -166,7 +173,9 @@ Không dùng **rebase merge** trên GitHub.
   - Vấn đề (vì sao) và giải pháp (làm gì, vì sao chọn cách đó); đường dẫn ticket trong `.scratch/`, user story (`US-xxx`), quy tắc (`BR-xxx`).
   - Cách kiểm: test chứng minh từng acceptance criterion, bước kiểm tay nếu có.
   - **Gap và lưu ý** (bắt buộc, mục không có ghi "Không"): chưa làm, gap / rủi ro, quyết định tạm, ticket mới, chỗ reviewer cần chú ý, việc phải làm sau khi merge.
-  - Checklist: có test; có migration (nếu đổi model); đã chạy `make lint` và `make test`; đã cập nhật tài liệu, GLOSSARY hoặc ADR nếu cần; không lộ secret.
+  - Checklist: có test; có migration (nếu đổi model); với thay đổi code đã chạy `make fmt`, `make lint`
+    và test tương xứng; full suite trước merge/release; đã cập nhật tài liệu, GLOSSARY hoặc ADR nếu cần;
+    không lộ secret.
 - PR nên nhỏ: **dưới khoảng 400 dòng thay đổi**, không tính migration và file sinh tự động.
 
 Các mục ở sidebar PR trên GitHub:
@@ -191,18 +200,43 @@ Các mục ở sidebar PR trên GitHub:
 
 ## 5. Quy trình làm việc hằng ngày
 
+### 5.0. Preflight an toàn
+
+Trước `rebase`, bump version, merge hoặc tag, dừng nếu worktree không sạch hoặc đang ở sai branch:
+
+```bash
+git status --short
+git branch --show-current
+git fetch --prune --tags origin
+```
+
+- `git status --short` phải không có output, trừ khi bước tiếp theo chủ ý commit đúng các file đang hiện.
+- Không stash ngầm trong runbook release. Commit hoặc cất thay đổi có chủ đích rồi chạy lại preflight.
+- Dùng `git pull --ff-only`; nếu không fast-forward được thì kiểm tra lịch sử, không tạo merge commit ngoài
+  quy trình chỉ để làm lệnh chạy qua.
+- Trước khi tag, xác nhận `HEAD`, `origin/main`, version trong `pyproject.toml` và commit đã nghiệm thu là
+  cùng phiên bản. Lệnh thành công không thay thế việc đọc SHA/commit message.
+- Các placeholder như `v0.2.0`, tên branch và số PR phải được thay bằng giá trị của release hiện tại;
+  không chạy nguyên văn.
+
 ### 5.1. Làm một tính năng
 
 ```bash
-git switch dev && git pull
+git switch dev
+git pull --ff-only origin dev
 git switch -c feat/checkout-cod
 # … code, commit …
-git fetch origin && git rebase origin/dev    # cập nhật thường xuyên, ít nhất mỗi ngày
-git push -u origin feat/checkout-cod  # mở PR vào dev
+git fetch origin
+git rebase origin/dev
+git push -u origin feat/checkout-cod
 ```
 
 - **Không giới hạn** thời gian sống của nhánh tính năng. Nhánh càng sống lâu thì càng phải cập nhật `dev` vào thường xuyên (như lệnh `rebase` ở trên) để tránh conflict lớn khi merge.
-- Trên nhánh tính năng của mình được phép `rebase` và `push --force-with-lease`. **Không bao giờ** force-push lên `dev` hoặc `main`.
+- Sau khi đã push mà phải rebase, dùng `git push --force-with-lease`; không dùng `--force`. Chỉ rewrite
+  branch cá nhân; branch có người khác cùng làm phải phối hợp trước.
+- Nếu rebase conflict: sửa file, `git add <file>`, `git rebase --continue`; không chắc cách giải thì
+  `git rebase --abort` để trở về trạng thái trước rebase.
+- **Không bao giờ** force-push lên `dev`, `uat` hoặc `main`.
 - Xoá nhánh sau khi merge (bật tự động xoá trên GitHub).
 
 ### 5.2. Push gấp vào `dev`
@@ -210,7 +244,7 @@ git push -u origin feat/checkout-cod  # mở PR vào dev
 Được phép push thẳng vào `dev` khi **cả hai** điều kiện sau đều đúng:
 
 1. Thay đổi **nhỏ và gấp**, ví dụ sửa một test hỏng đang chặn người khác.
-2. Đã chạy `make lint` và `make test` ở máy local.
+2. Với thay đổi code, đã chạy `make fmt`, `make lint` và full `make test` ở máy local.
 
 Commit vẫn phải đúng Conventional Commits. CI vẫn chạy sau khi push; nếu CI đỏ thì người push phải sửa ngay.
 
@@ -222,54 +256,112 @@ Commit `chore(release): vX.Y.Z` ở mục 5.3 cũng được push thẳng vào `
 
 ```bash
 # 1. Trên dev: cập nhật version và CHANGELOG, KHÔNG tạo tag
-git switch dev && git pull
+git switch dev
+git pull --ff-only origin dev
+git status --short               # phải sạch
 cd backend
 cz bump --version-files-only     # tính version mới từ commit kể từ tag trước, ghi vào pyproject.toml
-cz changelog --incremental --unreleased-version "v$(cz version --project)"
+version="v$(cz version --project)"
+cz changelog --incremental --unreleased-version "$version"
 git add pyproject.toml CHANGELOG.md
-git commit -m "chore(release): v0.2.0"
+git commit -m "chore(release): $version"
 git push
 # 2. Mở PR dev → uat, tiêu đề "chore(uat): promote v0.2.0", merge bằng merge commit
 #    → triển khai lên staging, người của doanh nghiệp nghiệm thu
 # 3. Mở PR uat → main, tiêu đề "chore(release): v0.2.0", merge bằng merge commit
-# 4. Gắn tag trên commit merge của main
-git switch main && git pull
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
+# 4. Sau khi PR đã merge và CI production commit xanh, xác minh rồi gắn tag
+git fetch --prune --tags origin
+git switch main
+git pull --ff-only origin main
+git status --short               # phải sạch
+git log -1 --oneline             # phải là merge commit của đúng PR release
+git merge-base --is-ancestor origin/uat HEAD
+version=v0.2.0                   # thay bằng version ghi trong PR release
+test "$(cz version --project)" = "${version#v}"
+test -z "$(git tag --list "$version")"
+git tag -a "$version" HEAD -m "$version"
+git push origin "$version"
 ```
+
+Không tag chỉ vì PR đã đóng: phải là trạng thái **Merged**, commit trên `main` phải chứa đúng tip `uat` đã
+nghiệm thu và version phải khớp. Ghi SHA được nghiệm thu vào PR release để người gắn tag đối chiếu.
 
 Cờ của `cz` ở trên đã kiểm tra với `commitizen` 4.19.3, bản pin trong `backend/pyproject.toml` và `.pre-commit-config.yaml`. Cờ `--files-only` cũ đã bị deprecate, thay bằng `--version-files-only`.
 
 ### 5.4. Hotfix
 
 ```bash
-git switch main && git pull
+git switch main
+git pull --ff-only origin main
+git status --short
 git switch -c hotfix/vnpay-signature
 # … sửa, commit …
 # cập nhật version và CHANGELOG ngay trong nhánh hotfix, như bước 1 của mục 5.3
 cd backend
 cz bump --version-files-only
-cz changelog --incremental --unreleased-version "v$(cz version --project)"
+version="v$(cz version --project)"
+cz changelog --incremental --unreleased-version "$version"
 git add pyproject.toml CHANGELOG.md
-git commit -m "chore(release): v0.2.1"
-# mở PR vào main, squash merge
-git switch main && git pull
-git tag -a v0.2.1 -m "v0.2.1" && git push origin v0.2.1
-# back-merge về uat qua PR main → uat (merge commit), vì uat cấm push thẳng; rồi về dev
-gh pr create --base uat --head main --title "chore: back-merge v0.2.1 into uat"
-git switch dev && git pull
-git merge --no-ff origin/uat -m "chore: back-merge v0.2.1 into dev"
-git push
+git commit -m "chore(release): $version"
+git push -u origin hotfix/vnpay-signature
+# mở PR hotfix/vnpay-signature → main, chờ CI xanh và squash merge trên GitHub
+
+# CHỈ chạy phần dưới sau khi PR ở trạng thái Merged
+git fetch --prune --tags origin
+git switch main
+git pull --ff-only origin main
+git log -1 --oneline             # phải là squash commit của đúng hotfix
+version=v0.2.1                   # thay bằng version của hotfix vừa merge
+test "$(cz version --project)" = "${version#v}"
+test -z "$(git tag --list "$version")"
+git tag -a "$version" HEAD -m "$version"
+git push origin "$version"
+
+# Back-merge tuần tự; mỗi PR phải được merge trước khi mở chặng tiếp theo
+gh pr create --base uat --head main --title "chore: back-merge $version into uat"
+# chờ CI xanh và merge PR main → uat bằng merge commit
+gh pr create --base dev --head uat --title "chore: back-merge $version into dev"
+# chờ CI xanh và merge PR uat → dev bằng merge commit
 ```
+
+Không chạy lệnh tạo PR `uat → dev` trước khi PR `main → uat` đã merge. Sau mỗi chặng, `git fetch origin`
+và dùng `git merge-base --is-ancestor <sha-hotfix-trên-main> origin/<nhánh-đích>` để xác nhận hotfix đã có
+trong nhánh đích.
 
 ### 5.5. PR xếp chồng
 
 Khi một PR mới cần dựa trên một PR khác chưa merge (ví dụ PR B sửa tiếp các file của PR A):
 
 1. Tạo nhánh B từ nhánh A, mở PR B với base là nhánh A, để reviewer chỉ thấy phần của B. Ghi "Merge sau #<A>" trong mô tả.
-2. Sau khi PR A được squash merge vào `dev`, chạy `git rebase --onto origin/dev <nhánh A> <nhánh B>`, `push --force-with-lease`, rồi đổi base của PR B sang `dev`.
+2. Sau khi PR A được squash merge vào `dev`, chạy các lệnh dưới rồi đổi base PR B sang `dev`:
+
+```bash
+git fetch origin
+git switch <nhánh-B>
+git rebase --onto origin/dev <nhánh-A> <nhánh-B>
+git diff --stat origin/dev...HEAD
+git diff origin/dev...HEAD
+git push --force-with-lease
+gh pr edit <PR-B> --base dev
+```
 
 Phải dùng `--onto` vì squash merge tạo trên `dev` một commit mới, nên các commit cũ của nhánh A không có trong lịch sử của `dev`.
+
+### 5.6. Dừng, phục hồi và hoàn tác
+
+| Tình huống | Cách xử lý an toàn |
+|---|---|
+| Rebase đang conflict, chưa chắc cách giải | `git rebase --abort` |
+| Merge local đang conflict, chưa commit | `git merge --abort` |
+| Nhánh tính năng đã rebase | Kiểm tra `git range-diff`, rồi `git push --force-with-lease`; không `--force` |
+| Squash commit đã merge cần hoàn tác | Tạo branch từ nhánh đích, chạy `git revert <sha>`, mở PR |
+| Merge commit release/back-merge cần hoàn tác | Không tự chạy ngay; xác định mainline rồi dùng `git revert -m 1 <sha>` trong PR riêng |
+| UAT không đạt | Không merge `uat → main`; sửa bằng branch từ `dev`, merge vào `dev`, rồi promote lại |
+| Tag mới tạo local, chưa push, bị sai | Xoá tag local rồi tạo lại sau khi xác minh SHA |
+| Tag đã push hoặc production đã deploy | Dừng; không tự xoá/di chuyển tag. Phối hợp release owner và tạo hotfix/release mới |
+
+Không dùng `git reset --hard` hoặc sửa lịch sử nhánh dùng chung để “rollback”. Production rollback là một
+quyết định deployment/data migration; Git revert chỉ tạo commit đảo code và không tự hoàn tác dữ liệu.
 
 ## 6. Bảo vệ nhánh (GitHub)
 
@@ -284,6 +376,10 @@ Phải dùng `--onto` vì squash merge tạo trên `dev` một commit mới, nê
 | Cấm xoá nhánh | ✅ | ✅ | ✅ |
 
 Mỗi nhánh có một ruleset cùng tên (Settings → Rules → Rulesets), không ai được bypass. Ruleset `dev` chỉ gồm cấm force-push và cấm xoá nhánh; push thẳng vẫn được phép (mục 5.2).
+
+Ruleset `dev` chưa bắt buộc status check để giữ ngoại lệ push gấp, nhưng PR thường vào `dev` **không được
+merge khi CI đỏ hoặc còn pending**. Đây là quy ước review; ngoại lệ duy nhất là push gấp đủ điều kiện tại
+mục 5.2, và người push phải theo dõi CI sau push.
 
 ## 7. Phiên bản và CHANGELOG
 

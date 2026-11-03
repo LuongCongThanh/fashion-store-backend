@@ -58,7 +58,7 @@
 
 ## ✅ Checklist
 
-- [ ] 🔨 Build pass: `make lint && make test`
+- [ ] 🔨 Build pass: với thay đổi code đã chạy `make fmt`, `make lint` và test tương xứng; full `make test` trước merge/release
 - [ ] 🧱 Ranh giới module: `lint-imports` xanh, chỉ gọi module khác qua `contracts.py`
 - [ ] 🧪 Tested: có test cho service, handler hoặc API, kể cả trường hợp biên
 - [ ] 🗄️ Migration: đã tạo nếu đổi model, tương thích ngược (hoặc N/A)

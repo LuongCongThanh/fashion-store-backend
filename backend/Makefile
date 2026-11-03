@@ -6,7 +6,7 @@
 # code page của máy (vd. cp1252) nên lint-imports dừng ở tên contract tiếng Việt.
 export PYTHONUTF8 := 1
 
-.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset
+.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset br-report
 
 # Cùng lệnh với job backend của CI: pytest-cov gom coverage từ các worker xdist, rồi cổng
 # branch coverage từng module (12 mục 8)
@@ -69,3 +69,7 @@ create-admin:
 db-reset:
 	uv run python manage.py reset_db
 	$(MAKE) migrate
+
+# Liệt kê các mã BR-xxx trong docs/business/04-business-rules.md chưa có test gắn marker `br` (12 mục 3)
+br-report:
+	uv run python scripts/br_report.py

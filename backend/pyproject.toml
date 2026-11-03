@@ -88,7 +88,7 @@ python_version = "3.14"
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 # `strict` chỉ đặt được ở mục chung, không đặt được theo module, nên liệt kê từng flag
-# tương đương --strict cho các phần bắt buộc kiểu chặt (02 mục 9.1)
+# tương đương --strict cho các phần bắt buộc kiểu chặt (13 mục 2)
 [[tool.mypy.overrides]]
 module = ["modules.*.services.*", "modules.*.selectors.*", "modules.*.contracts"]
 disallow_untyped_defs = true
@@ -112,6 +112,12 @@ django_settings_module = "config.settings.test"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
+addopts = "--strict-markers"
+markers = [
+    "br: Test kiểm tra một hay nhiều business rule (12 mục 3)",
+    "concurrency: Test chạy nhiều thread, cần transaction=True (12 mục 3)",
+    "flow: Flow xuyên module (12 mục 3)",
+]
 
 # Cổng branch coverage riêng từng module do scripts/check_module_coverage.py kiểm (12 mục 8);
 # không đặt fail_under vì không có ngưỡng cho toàn repo

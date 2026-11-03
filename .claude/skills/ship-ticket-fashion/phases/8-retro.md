@@ -12,7 +12,7 @@ State cũ ở `retro` nhưng chưa đủ đợt → `transition --to closed --ne
 
 ## Review và cải thiện
 
-1. **Bằng chứng.** Đọc `report.md`, đặc biệt *Ghi chú cho retro*, của đủ 10 ticket; bổ sung spec/plan, finding, commit → task trong thân squash commit và review/CI của PR khi cần xác minh. Log dùng chung bị lần chạy sau ghi đè, nên chỉ dùng khi còn khớp ticket. Claude Code có thể thêm `python S/scripts/user_prompts.py --last 3`; đây chỉ là các phiên gần nhất, không đại diện cả đợt. Codex lấy nguồn theo entrypoint Codex. Xong khi mỗi ghi chú có kết luận có bằng chứng hoặc ghi rõ chưa xác minh được.
+1. **Bằng chứng.** Đọc `report.md`, đặc biệt *Ghi chú cho retro*, của đủ 10 ticket; bổ sung spec/plan, finding, commit → task trong thân squash commit và review/CI của PR khi cần xác minh. Log dùng chung bị lần chạy sau ghi đè, nên chỉ dùng khi còn khớp ticket. Claude Code có thể thêm `python S/scripts/user_prompts.py --last 3`; script chỉ in prompt đã che credential từ số phiên gần nhất (`--last` phải ≥ 1), không đại diện cả đợt. Codex lấy nguồn theo entrypoint Codex. Xong khi mỗi ghi chú có kết luận có bằng chứng hoặc ghi rõ chưa xác minh được.
 2. **Gom vấn đề cùng nguyên nhân**, kèm ticket/PR và chi phí đã quan sát (lượt làm lại, debug, lệnh đắt, lời nhắc). Chọn nơi sửa hẹp nhất:
    - Máy kiểm được → test, script, lint hoặc hook hiện có; kiểm tra thứ đã có trước khi thêm mới.
    - Quy ước code hoặc thiết kế → `CONTRIBUTING.md` hoặc tài liệu architecture mà reviewer đọc.

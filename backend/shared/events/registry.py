@@ -108,7 +108,7 @@ def handles[F: Callable[[Any], None]](
 ) -> Callable[[F], F]:
     """Đăng ký hàm làm handler của `event_type` ở `version`.
 
-    `name` có dạng `<module>.<snake_case>` như tên Celery task (02 mục 9.2). Handler nhận
+    `name` có dạng `<module>.<snake_case>` như tên Celery task (13 mục 5). Handler nhận
     instance của class sự kiện đã parse từ payload.
     """
 

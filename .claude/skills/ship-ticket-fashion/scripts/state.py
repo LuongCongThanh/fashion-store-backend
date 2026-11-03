@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,6 +27,10 @@ PHASES = ["grill", "code", "report", "review", "sync", "ship", "done", "retro", 
 BACK_EDGES = {("review", "code"), ("sync", "code"), ("sync", "review")}
 GATE_EDGES = {"g1": ("grill", "code"), "g2": ("sync", "ship")}
 TRANSITION_ONLY = ("phase", "gates", "transitions")  # set/push không được ghi
+FORBIDDEN_RED = re.compile(
+    r"^(NameError|AttributeError|TypeError|ImportError|ModuleNotFoundError|SyntaxError|"
+    r"OperationalError|InterfaceError|ImproperlyConfigured)(?::|\s|$)"
+)
 PHASE_FILES = {
     "grill": "1-grill",
     "code": "2-code",
@@ -39,6 +44,50 @@ PHASE_FILES = {
 
 
 # ---- kiểm tra -------------------------------------------------------------
+
+
+def check_doc_ref(ref: str, root: Path | None = None) -> str | None:
+    """Reference có dạng `path.md` hoặc `path.md::số-mục`; file và heading phải tồn tại."""
+    if not isinstance(ref, str) or not ref.strip():
+        return "reference rỗng"
+    path_text, separator, section = ref.partition("::")
+    root = root or repo_root()
+    path = (root / path_text).resolve()
+    try:
+        path.relative_to(root.resolve())
+    except ValueError:
+        return f"reference ngoài repo: {ref}"
+    if path.suffix.lower() != ".md" or not path.is_file():
+        return f"không thấy tài liệu: {path_text}"
+    if separator:
+        if not section.strip():
+            return f"reference thiếu mục: {ref}"
+        heading = re.compile(rf"^#{{1,6}}\s+{re.escape(section.strip())}(?:\.|\s|$)", re.M)
+        if not heading.search(path.read_text(encoding="utf-8")):
+            return f"không thấy mục {section} trong {path_text}"
+    return None
+
+
+def governing_refs(state: dict) -> set[str]:
+    return {
+        ref
+        for slice_ in state.get("slices", [])
+        for refs in slice_.get("governingDocs", {}).values()
+        if isinstance(refs, list)
+        for ref in refs
+        if isinstance(ref, str)
+    }
+
+
+def carries_tdd_evidence(value: Any) -> bool:
+    """Phát hiện bằng chứng tdd lồng trong assignment thay cả slice/list slice."""
+    if isinstance(value, dict):
+        if value.get("tdd"):
+            return True
+        return any(carries_tdd_evidence(child) for child in value.values())
+    if isinstance(value, list):
+        return any(carries_tdd_evidence(child) for child in value)
+    return False
 
 
 def validate(state: dict, ac_total: int | None = None) -> list[str]:
@@ -56,14 +105,86 @@ def validate(state: dict, ac_total: int | None = None) -> list[str]:
     if len(ids) != len(set(ids)):
         errors.append("slice id bị trùng")
     for s in slices:
+        slice_id = s.get("id", "?")
         if s.get("status") not in ("todo", "code", "done"):
-            errors.append(f"slice {s.get('id')}: status lạ {s.get('status')}")
+            errors.append(f"slice {slice_id}: status lạ {s.get('status')}")
+        for key in ("acs", "dependsOn", "tests", "tddTests", "verificationTests", "files"):
+            if not isinstance(s.get(key), list) or not s.get(key):
+                if key in {"dependsOn", "tddTests", "verificationTests"} and isinstance(
+                    s.get(key), list
+                ):
+                    continue
+                requirement = (
+                    "list"
+                    if key in {"dependsOn", "tddTests", "verificationTests"}
+                    else "list không rỗng"
+                )
+                errors.append(f"slice {slice_id}: {key} phải là {requirement}")
+        tests = s.get("tests", []) if isinstance(s.get("tests"), list) else []
+        tdd_tests = s.get("tddTests", []) if isinstance(s.get("tddTests"), list) else []
+        verification = (
+            s.get("verificationTests", []) if isinstance(s.get("verificationTests"), list) else []
+        )
+        if set(tdd_tests) & set(verification):
+            errors.append(
+                f"slice {slice_id}: test không được nằm ở cả tddTests và verificationTests"
+            )
+        if set(tests) != set(tdd_tests) | set(verification):
+            errors.append(
+                f"slice {slice_id}: tests phải bằng hợp của tddTests và verificationTests"
+            )
+        if len(tests) != len(set(tests)):
+            errors.append(f"slice {slice_id}: tests bị trùng")
+        expected_red = s.get("expectedRed")
+        if not isinstance(expected_red, dict):
+            errors.append(f"slice {slice_id}: expectedRed phải là object test → exception")
+            expected_red = {}
+        for test_id in tdd_tests:
+            expected = expected_red.get(test_id)
+            if not isinstance(expected, str) or not expected.strip():
+                errors.append(f"slice {slice_id}: {test_id} thiếu expectedRed")
+            elif FORBIDDEN_RED.match(expected.strip()):
+                errors.append(f"slice {slice_id}: {test_id} expectedRed là lỗi hạ tầng/test setup")
+        if set(expected_red) != set(tdd_tests):
+            errors.append(f"slice {slice_id}: expectedRed phải có đúng key của tddTests")
+        if not isinstance(s.get("seam"), str) or not s.get("seam", "").strip():
+            errors.append(f"slice {slice_id}: thiếu seam")
+        files = s.get("files", []) if isinstance(s.get("files"), list) else []
+        governing = s.get("governingDocs")
+        if not isinstance(governing, dict):
+            errors.append(f"slice {slice_id}: governingDocs phải là object file → mục tài liệu")
+        else:
+            extra = sorted(set(governing) - set(files))
+            if extra:
+                errors.append(
+                    f"slice {slice_id}: governingDocs có file ngoài plan: {', '.join(extra)}"
+                )
+            for path in files:
+                refs = governing.get(path)
+                if not isinstance(refs, list) or not refs:
+                    errors.append(f"slice {slice_id}: {path} thiếu governingDocs")
+                else:
+                    for ref in refs:
+                        if problem := check_doc_ref(ref):
+                            errors.append(f"slice {slice_id}: {problem}")
         for dep in s.get("dependsOn", []):
             if dep not in ids:
-                errors.append(f"slice {s.get('id')}: dependsOn {dep} không tồn tại")
+                errors.append(f"slice {slice_id}: dependsOn {dep} không tồn tại")
         for ac in s.get("acs", []):
             if not isinstance(ac, int) or (ac_total is not None and not 1 <= ac <= ac_total):
-                errors.append(f"slice {s.get('id')}: AC {ac} không có trong ticket")
+                errors.append(f"slice {slice_id}: AC {ac} không có trong ticket")
+        if s.get("status") == "done":
+            evidence = s.get("tdd", {})
+            for test_id in tdd_tests:
+                record = evidence.get(test_id, {}) if isinstance(evidence, dict) else {}
+                if not record.get("redAt") or not record.get("greenAt"):
+                    errors.append(f"slice {slice_id}: {test_id} thiếu bằng chứng TDD red/green")
+            for test_id in verification:
+                record = evidence.get(test_id, {}) if isinstance(evidence, dict) else {}
+                if not record.get("verifiedAt"):
+                    errors.append(
+                        f"slice {slice_id}: {test_id} thiếu bằng chứng verification green"
+                    )
     if has_cycle(slices):
         errors.append("dependsOn giữa các slice có vòng lặp")
     current = state.get("currentSlice")
@@ -120,13 +241,20 @@ def check_transition(state: dict, to: str, gate: str | None) -> str | None:
     return None
 
 
-def plan_ready(spec_text: str, plan_text: str | None, ticket_dirty: bool) -> str | None:
+def plan_ready(
+    spec_text: str, plan_text: str | None, ticket_dirty: bool, state: dict | None = None
+) -> str | None:
     """grill → code: `spec.md` có `## Quyết định`, có `plan.md`, cả hai đã commit."""
     missing = [] if find_section(spec_text, "Quyết định") else [f"{SPEC} § Quyết định"]
     if not plan_text:
         missing.append(f"{PLAN} (plan.py)")
+    decisions = find_section(spec_text, "Quyết định")
+    if state and decisions:
+        missing_refs = sorted(ref for ref in governing_refs(state) if ref not in decisions.group(1))
+        if missing_refs:
+            missing.append("Tài liệu chi phối: " + ", ".join(missing_refs))
     if missing:
-        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 6, 7)"
+        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 6-10)"
     if ticket_dirty:
         return f"{SPEC} và {PLAN} chưa commit (commit.py --task plan)"
     return None
@@ -164,8 +292,12 @@ def apply(state: dict, assignments: list[str], push: bool) -> None:
         path, _, raw = item.partition("=")
         if path.split(".", 1)[0] in TRANSITION_ONLY:
             raise SystemExit(f"{path}: chỉ state.py transition được ghi")
+        if path.startswith("slices.") and ".tdd" in path:
+            raise SystemExit(f"{path}: chỉ tdd.py được ghi")
         container, key = locate(state, path)
         value = parse_value(raw)
+        if carries_tdd_evidence(value):
+            raise SystemExit(f"{path}: bằng chứng chỉ tdd.py được ghi")
         if push:
             target = container.setdefault(key, [])
             if not isinstance(target, list):
@@ -224,8 +356,12 @@ def cmd_set(args: argparse.Namespace, push: bool = False) -> int:
 
 
 def cmd_transition(args: argparse.Namespace) -> int:
-    state, _ = require(args.ticket)
-    error = check_transition(state, args.to, args.gate)
+    state, ac_total = require(args.ticket)
+    # Ticket đã tới done trước khi schema slice chặt hơn được thêm vẫn phải merge/close được.
+    invalid = [] if state.get("phase") in {"done", "closed"} else validate(state, ac_total)
+    error = "state chưa hợp lệ: " + "; ".join(invalid) if invalid else None
+    if error is None:
+        error = check_transition(state, args.to, args.gate)
     if error is None and (state["phase"], args.to) == ("grill", "code"):
         folder = repo_root() / state["ticket"]
         plan = folder / PLAN
@@ -235,6 +371,7 @@ def cmd_transition(args: argparse.Namespace) -> int:
             (folder / SPEC).read_text(encoding="utf-8"),
             plan.read_text(encoding="utf-8") if plan.exists() else None,
             dirty,
+            state,
         )
     if error:
         print(f"TỪ CHỐI: {error}")

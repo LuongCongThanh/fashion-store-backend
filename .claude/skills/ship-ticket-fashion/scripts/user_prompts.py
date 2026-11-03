@@ -14,6 +14,21 @@ from pathlib import Path
 
 from gitcmd import repo_root
 
+SECRET_PATTERNS = (
+    re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+\-/]+=*"),
+    re.compile(
+        r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,})\b"
+    ),
+    re.compile(r"(?i)\b(password|passwd|token|api[_-]?key|secret)\b(\s*[:=]\s*)([^\s,;]+)"),
+)
+
+
+def redact(text: str) -> str:
+    """Che credential phổ biến trước khi prompt rời transcript cục bộ."""
+    text = SECRET_PATTERNS[0].sub(r"\1 [REDACTED]", text)
+    text = SECRET_PATTERNS[1].sub("[REDACTED]", text)
+    return SECRET_PATTERNS[2].sub(r"\1\2[REDACTED]", text)
+
 
 def sessions_dir() -> Path:
     return Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(repo_root()))
@@ -50,7 +65,7 @@ def prompts(path: Path) -> list[str]:
             content = f"[{command.group(1)}] {command.group(2)}"
         elif len(content) > 1500:
             continue  # thân skill được nạp vào phiên
-        out.append(" ".join(content.split()))
+        out.append(redact(" ".join(content.split())))
     return out
 
 
@@ -61,6 +76,8 @@ def main() -> int:
         "--last", type=int, default=1, help="số phiên gần nhất (mặc định 1: phiên hiện tại)"
     )
     args = parser.parse_args()
+    if args.last < 1:
+        parser.error("--last phải lớn hơn hoặc bằng 1")
 
     directory = sessions_dir()
     files = sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)[-args.last :]

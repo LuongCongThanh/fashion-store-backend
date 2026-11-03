@@ -18,7 +18,7 @@ Cách đạt được:
 - Danh sách Sản phẩm dùng `catalog_variant.is_available` (bản sao) để lọc "còn hàng" mà không phải join sang `inventory`.
 - Cache trong Redis: cây danh mục (5 phút), báo giá GHN (10 phút), dữ liệu địa giới (1 ngày).
 - Checkout không gọi HTTP ra ngoài bên trong transaction. Phí ship lấy từ cache báo giá (thường đã có từ bước `checkout/quote`) trước khi mở transaction, nên khoá dòng chỉ được giữ trong lúc ghi DB.
-- Checkout tạo đơn mới khoá Cart → toàn bộ Tồn kho theo variant_id → toàn bộ Biến thể theo id → Voucher; mọi cart mutation/merge khoá Cart theo id, không lấy Cart sau Tồn kho. Transition của đơn đã có khoá Order → Tồn kho → Biến thể cần cập nhật → Voucher, không quay lại Cart. Xem [02 mục 9.1](./02-backend-structure.md#91-quy-ước-chung) và [ADR 0012](../adr/0012-checkout-price-snapshot.md). Auth state back-office/private storefront đọc DB theo 05, không dùng cache để cấp quyền ghi; p95 phải đo với policy này.
+- Checkout tạo đơn mới khoá Cart → toàn bộ Tồn kho theo variant_id → toàn bộ Biến thể theo id → Voucher; mọi cart mutation/merge khoá Cart theo id, không lấy Cart sau Tồn kho. Transition của đơn đã có khoá Order → Tồn kho → Biến thể cần cập nhật → Voucher, không quay lại Cart. Xem [13 mục 4](./13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài) và [ADR 0012](../adr/0012-checkout-price-snapshot.md). Auth state back-office/private storefront đọc DB theo 05, không dùng cache để cấp quyền ghi; p95 phải đo với policy này.
 
 ## 2. Độ sẵn sàng và phục hồi
 

@@ -40,5 +40,5 @@ class Command(BaseCommand):
             raise CommandError(f"{exc.message} {' '.join(exc.details['messages'])}") from exc
         except DomainError as exc:
             raise CommandError(str(exc.message)) from exc
-        # Không ghi email vào log (PII, 02 mục 9.6)
+        # Không ghi email vào log (PII, 13 mục 10)
         logger.info("staff_account_created", account_id=str(account.id), kind=account.kind)

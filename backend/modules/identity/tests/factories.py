@@ -1,4 +1,4 @@
-"""Factory của identity (02 mục 9.5, 12 mục 4)."""
+"""Factory của identity (13 mục 9, 12 mục 4)."""
 
 import factory
 from factory.django import DjangoModelFactory

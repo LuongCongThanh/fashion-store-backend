@@ -1,4 +1,4 @@
-"""Factory gốc dùng chung cho test (02 mục 5, mục 9.5)."""
+"""Factory gốc dùng chung cho test (02 mục 5, 13 mục 9)."""
 
 import factory
 from django.utils import timezone
