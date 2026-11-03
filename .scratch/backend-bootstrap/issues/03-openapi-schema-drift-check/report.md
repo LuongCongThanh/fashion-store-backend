@@ -2,7 +2,7 @@
 
 ### Báo cáo 03/11/2026
 
-**Nhánh:** `chore/openapi-schema-ci-gate` · **PR:** chưa mở · **Mode:** lite
+**Nhánh:** `chore/openapi-schema-ci-gate` · **PR:** #59 · **Mode:** lite
 
 #### Đã làm
 
@@ -26,7 +26,7 @@ Thêm ở review: `tests/test_gen_openapi.py::test_check_rejects_non_utf8_schema
 
 #### Thay đổi theo yêu cầu
 
-- Không
+- SonarCloud (PR #59, Quality Gate E Security): `gen_openapi.py:57`, `:72` Path Traversal vì đường dẫn đích đến từ cờ `--schema` → bỏ cờ, luôn dùng `openapi.yaml` của thư mục hiện tại như `gen_importlinter.py`; test đặt `cwd` là thư mục tạm. `gen_openapi.py:43` cú pháp suppression → lý do của `noqa: S603` về dòng riêng (SonarCloud đọc cả chỉ thị noqa), đảo lại S2 trong `scripts/`.
 
 #### Review
 
@@ -38,7 +38,7 @@ Thêm ở review: `tests/test_gen_openapi.py::test_check_rejects_non_utf8_schema
 | B5 | `backend/tests/test_gen_openapi.py:33` | đã sửa | Fixture `scope="module"` sinh schema gốc một lần |
 | S3 | `backend/scripts/gen_openapi.py:46` | đã sửa | `UnicodeDecodeError` → `GeneratorError`, `ERROR` + exit 2 như `gen_importlinter.py` |
 | S1 = B7 | `backend/scripts/gen_openapi.py:77` | đã sửa | `raise SystemExit(main())` |
-| S2 = B6 | `backend/scripts/gen_openapi.py:34` | đã sửa | `# noqa: S603 -- <lý do>` cùng dòng |
+| S2 = B6 | `backend/scripts/gen_openapi.py:34` | đã sửa, rồi đảo ở `ci` | SonarCloud báo lý do cùng dòng là sai cú pháp suppression; trong `scripts/` lý do ở dòng riêng |
 | B4 | `.pre-commit-config.yaml:18` | đã sửa | `end-of-file-fixer`, `trailing-whitespace` bỏ qua `backend/openapi.yaml` |
 | B3 | `docs/architecture/11-git-workflow.md:142` | đã sửa ở sync | Tài liệu cập nhật trong commit `sync` |
 | S5 | `backend/scripts/gen_openapi.py:_run` | chỉ báo | Khối so sánh/diff/ghi lặp với `gen_importlinter.py`; mới 2 lần, tách khi có generator thứ ba |

@@ -16,14 +16,15 @@ PREVIOUS_SCHEMA = "openapi: 3.0.3\n"
 
 
 def _generate(
-    schema: Path, *options: str, settings: str = "config.settings.test", pythonpath: str = ""
+    root: Path, *options: str, settings: str = "config.settings.test", pythonpath: str = ""
 ) -> subprocess.CompletedProcess[str]:
+    """Chạy script với `root` là thư mục hiện tại: script đọc và ghi `root/openapi.yaml`."""
     env = {**isolated_env(), "DJANGO_SETTINGS_MODULE": settings}
     if pythonpath:
         env["PYTHONPATH"] = pythonpath
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GENERATOR), "--schema", str(schema), *options],
-        cwd=BACKEND,
+        [sys.executable, str(GENERATOR), *options],
+        cwd=root,
         env=env,
         capture_output=True,
         text=True,
@@ -43,10 +44,10 @@ def _write_settings(root: Path, overrides: str) -> str:
 @pytest.fixture(scope="module")
 def current_schema(tmp_path_factory: pytest.TempPathFactory) -> str:
     """Schema sinh từ code hiện tại, dùng chung để mỗi test không phải khởi động Django lại."""
-    schema = tmp_path_factory.mktemp("openapi") / "openapi.yaml"
-    result = _generate(schema)
+    root = tmp_path_factory.mktemp("openapi")
+    result = _generate(root)
     assert result.returncode == 0, result.stdout + result.stderr
-    return schema.read_text(encoding="utf-8")
+    return (root / "openapi.yaml").read_text(encoding="utf-8")
 
 
 def test_check_fails_when_committed_schema_is_stale(tmp_path: Path, current_schema: str) -> None:
@@ -55,7 +56,7 @@ def test_check_fails_when_committed_schema_is_stale(tmp_path: Path, current_sche
     schema = tmp_path / "openapi.yaml"
     schema.write_text(edited, encoding="utf-8", newline="\n")
 
-    result = _generate(schema, "--check")
+    result = _generate(tmp_path, "--check")
 
     assert result.returncode == 1
     assert "make openapi" in result.stdout
@@ -65,7 +66,7 @@ def test_check_passes_when_schema_is_current(tmp_path: Path, current_schema: str
     schema = tmp_path / "openapi.yaml"
     schema.write_text(current_schema, encoding="utf-8", newline="\n")
 
-    result = _generate(schema, "--check")
+    result = _generate(tmp_path, "--check")
 
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -78,7 +79,7 @@ def test_generation_fails_when_schema_is_invalid(tmp_path: Path) -> None:
     schema = tmp_path / "openapi.yaml"
     schema.write_text(PREVIOUS_SCHEMA, encoding="utf-8")
 
-    result = _generate(schema, settings=settings, pythonpath=str(tmp_path))
+    result = _generate(tmp_path, settings=settings, pythonpath=str(tmp_path))
 
     assert result.returncode == 1
     assert GENERATION_FAILED in result.stderr
@@ -100,7 +101,7 @@ def test_generation_fails_on_spectacular_warning(tmp_path: Path) -> None:
     schema = tmp_path / "openapi.yaml"
     schema.write_text(PREVIOUS_SCHEMA, encoding="utf-8")
 
-    result = _generate(schema, settings=settings, pythonpath=str(tmp_path))
+    result = _generate(tmp_path, settings=settings, pythonpath=str(tmp_path))
 
     assert result.returncode == 1
     assert GENERATION_FAILED in result.stderr
@@ -111,7 +112,7 @@ def test_check_rejects_non_utf8_schema(tmp_path: Path) -> None:
     schema = tmp_path / "openapi.yaml"
     schema.write_bytes(b"title: \xff\n")
 
-    result = _generate(schema, "--check")
+    result = _generate(tmp_path, "--check")
 
     assert result.returncode == 2
     assert "ERROR" in result.stderr

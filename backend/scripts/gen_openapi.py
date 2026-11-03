@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
-DEFAULT_SCHEMA = BACKEND / "openapi.yaml"
+SCHEMA_NAME = "openapi.yaml"
 
 
 class GeneratorError(Exception):
@@ -40,15 +40,15 @@ def _render(target: Path) -> int:
     # máy trùng với schema CI kiểm
     env = {**os.environ}
     env.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
-    return subprocess.run(  # noqa: S603 -- Python, manage.py và tham số cố định, không qua shell.
-        command, cwd=BACKEND, env=env, check=False
-    ).returncode
+    # S603: Python, manage.py và tham số cố định, không qua shell. Lý do ghi ở dòng riêng vì
+    # SonarCloud cũng đọc chỉ thị noqa và coi phần chữ phía sau là sai cú pháp
+    return subprocess.run(command, cwd=BACKEND, env=env, check=False).returncode  # noqa: S603
 
 
 def _run(schema: Path, *, check: bool) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         # Sinh ra file tạm trước: lỗi giữa chừng không làm hỏng file đã commit
-        generated = Path(tmp) / "openapi.yaml"
+        generated = Path(tmp) / SCHEMA_NAME
         if _render(generated) != 0:
             print("ERROR: drf-spectacular failed to generate a valid schema", file=sys.stderr)
             return 1
@@ -77,10 +77,11 @@ def main() -> int:
     """Sinh lại `openapi.yaml`, hoặc chỉ báo lệch với `--check`."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="report drift, do not write")
-    parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA, help="schema file")
     args = parser.parse_args()
     try:
-        return _run(args.schema, check=args.check)
+        # Luôn dùng `openapi.yaml` của thư mục hiện tại (`backend/` ở Make và CI), như
+        # gen_importlinter.py: không nhận đường dẫn từ CLI
+        return _run(Path.cwd() / SCHEMA_NAME, check=args.check)
     except (GeneratorError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
