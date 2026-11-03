@@ -209,3 +209,13 @@ _Avoid_: User, profile, login
 **Yêu cầu xoá dữ liệu (Erasure Request)**:
 Yêu cầu của Người mua xoá dữ liệu cá nhân của mình. Hệ thống thực hiện bằng cách ẩn danh, vẫn giữ dữ liệu đơn cần cho kế toán và thuế. Đang xử lý nghĩa là việc ẩn danh chưa hoàn tất; chỉ hoàn thành khi mọi phần dữ liệu thuộc phạm vi yêu cầu đã được xử lý thành công.
 _Avoid_: Delete account, xoá tài khoản
+
+## Sự kiện nội bộ (Domain Events)
+
+**Event delivery**:
+Việc một handler phải làm với một sự kiện nội bộ đã ghi, đồng thời là dấu cho biết handler đó đã xử lý sự kiện hay chưa. Mỗi cặp sự kiện–handler có đúng một Event delivery. Không liên quan tới giao hàng; việc giao hàng gọi là Vận đơn.
+_Avoid_: Delivery (khi đứng một mình), job, task
+
+**Lập danh sách delivery (Delivery listing)**:
+Bước tạo Event delivery cho mọi handler đang đăng ký với một sự kiện, làm đúng một lần cho mỗi sự kiện. Sự kiện chưa lập danh sách thì chưa handler nào được giao.
+_Avoid_: Fan-out, phân phối, dispatch

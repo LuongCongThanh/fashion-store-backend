@@ -2,6 +2,8 @@
 
 Status: ready-for-agent
 
+Blocked by: 26
+
 Spec: [spec.md](../../spec.md)
 
 Tách từ review của ticket [18](../18-outbox-operations/spec.md) ngày 30/10/2026 (finding B3, B5, B7, B9). Các mục cần migration hoặc đổi consumer nên không làm trong ticket 18.

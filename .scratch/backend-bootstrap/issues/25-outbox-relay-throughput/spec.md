@@ -15,6 +15,13 @@ Tách từ review của ticket [10](../10-shared-events-outbox/spec.md) ngày 30
 - Trong một vòng, lặp lại từng bước khi bước trước trả đủ `batch`, có giới hạn thời gian mỗi vòng để vẫn dừng kịp khi nhận SIGTERM.
 - Đo trên staging cùng mục tiêu ở `docs/architecture/10-nfr.md` mục 1.
 
+Gợi ý thiết kế từ review kiến trúc `backend/shared/events` ngày 03/11/2026:
+
+- Đặt vòng xả tồn đọng trong module `relay`, ví dụ `relay.run_round(stop, budget)`: gồm batch, time budget, điểm dừng, và trả số liệu.
+- `run_outbox_relay` chỉ đăng ký signal và ngủ giữa các vòng.
+- `shared.testing.events.drain_events` dùng lại cùng hàm đó.
+- Như vậy acceptance criteria test được bằng cách gọi thẳng hàm với clock giả, không cần dựng management command.
+
 ## Acceptance criteria
 
 - [ ] Tồn đọng lớn hơn `batch` được xả trong một vòng tới khi hết hoặc hết thời gian vòng.
