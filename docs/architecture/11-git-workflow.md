@@ -132,7 +132,7 @@ docs(adr): add 0007 events via outbox and celery
 |---|---|---|
 | `.github/workflows/ci.yml` | `secrets` | `gitleaks` quét toàn bộ lịch sử |
 | | `pr-title` | Tiêu đề PR đúng Conventional Commits (chỉ chạy trên PR) |
-| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `pytest`, coverage và `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
+| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `gen_openapi.py --check`, `pytest`, coverage và `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
 | `.github/workflows/codeql.yml` | `codeql (actions)`, `codeql (python)` | CodeQL bộ `security-extended`, chạy trên PR, push lên `main` và mỗi thứ Hai |
 
 `ci.yml` chạy khi push lên `main`, `uat`, `dev` và trên mọi PR.
@@ -140,9 +140,8 @@ docs(adr): add 0007 events via outbox and celery
 `.github/dependabot.yml` cập nhật `github-actions`, `uv` và `docker` hằng tuần, chỉ đề xuất bản đã phát
 hành ít nhất 7 ngày; đây không phải workflow hoặc status check.
 
-Hai gate mục tiêu chưa hoạt động ở mốc hiện tại: kiểm tra migration lệch/trùng số và sinh/so sánh
-`backend/openapi.yaml` (file này chưa được bootstrap). Không đánh dấu hai mục này đã qua trong PR cho tới
-khi command và workflow tương ứng tồn tại. Khi thêm gate, cập nhật đồng thời mục này và
+Gate mục tiêu chưa hoạt động ở mốc hiện tại: kiểm tra migration lệch/trùng số. Không đánh dấu mục này đã
+qua trong PR cho tới khi command và workflow tương ứng tồn tại. Khi thêm gate, cập nhật đồng thời mục này và
 [12 mục 8](./12-testing-strategy.md#8-cổng-chặn-trong-ci).
 
 Quy tắc cho mọi workflow, vì repo là public:

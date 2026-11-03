@@ -118,6 +118,8 @@ jobs:
           mypy .
           python scripts/gen_importlinter.py --check
           lint-imports
+          # openapi.yaml đã commit phải khớp code, sai chuẩn OpenAPI cũng fail (12 mục 5)
+          python scripts/gen_openapi.py --check
       # pytest-cov gom coverage từ các worker xdist vào .coverage (12 mục 8)
       - name: Test
         if: steps.detect.outputs.present == 'true'

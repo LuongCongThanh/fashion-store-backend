@@ -230,10 +230,11 @@ Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó
 | `make makemigrations` / `make migrate` | Tạo / chạy migration; `make migrate` chạy thêm `manage.py sync_beat_schedule` để ghi lịch job vào DB ([07](./07-async-events-jobs.md) mục 3.2) | M0 (ticket 15) |
 | `make db-reset` | Xoá và tạo lại database `fashion` (`manage.py reset_db`, chỉ chạy khi `DEBUG` bật, host là `localhost` và server nghe ở loopback) rồi `make migrate` (mục 2.2) | M0 (ticket 15) |
 | `make test` | `pytest -n auto --cov=modules --cov=shared --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
-| `make lint` | `ruff check`, `ruff format --check`, `mypy`, `scripts/gen_importlinter.py --check` (contract `forbidden` trong `pyproject.toml` không lệch với generator), `lint-imports`; cùng thứ tự với bước Lint của job `backend` trong CI | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04) |
+| `make lint` | `ruff check`, `ruff format --check`, `mypy`, `scripts/gen_importlinter.py --check` (contract `forbidden` trong `pyproject.toml` không lệch với generator), `lint-imports`, `scripts/gen_openapi.py --check` (`openapi.yaml` không lệch với code); cùng thứ tự với bước Lint của job `backend` trong CI | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04; `gen_openapi.py --check` từ ticket 03) |
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
 | `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`) | M0 (ticket 12) |
+| `make openapi` | Sinh lại `backend/openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
 | `make br-report` | Liệt kê các mã `BR-xxx` trong `docs/business/04-business-rules.md` chưa có test gắn marker `br` ([12](./12-testing-strategy.md) mục 3) | M0 (ticket 02) |
 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu, Voucher mẫu | M1 (Voucher mẫu từ M2) |
 | `make tunnel` | Mở Cloudflare Tunnel để nghiệm thu với sandbox ([06](./06-integrations.md) mục 8) | M7 |
