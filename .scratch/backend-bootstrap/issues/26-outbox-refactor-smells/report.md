@@ -2,7 +2,7 @@
 
 ### Báo cáo 03/11/2026
 
-**Nhánh:** `refactor/outbox-delivery-lifecycle` · **PR:** chưa mở · **Mode:** lite
+**Nhánh:** `refactor/outbox-delivery-lifecycle` · **PR:** #62 · **Mode:** lite
 
 #### Đã làm
 

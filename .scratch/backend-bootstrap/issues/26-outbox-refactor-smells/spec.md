@@ -1,6 +1,8 @@
 # Gom vòng đời Event delivery và vị từ outbox vào model
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #62
 
 Spec: [spec.md](../../spec.md)
 
@@ -70,6 +72,6 @@ Chốt khi grilling ngày 03/11/2026.
 
 ## Acceptance criteria
 
-- [ ] Ngoài `shared/events/models.py`, không chỗ nào gán `status`, `completed_at`, `failed_at`, `attempts`, `interrupted_runs`, `next_attempt_at`, `next_dispatch_at` hay `last_dispatched_at` của `EventDelivery`, hay truyền `update_fields` cho `EventDelivery`. Factory và test dựng dữ liệu không tính.
-- [ ] Ngoài `models.py`, không chỗ nào tự viết lại điều kiện tới hạn, đã lập danh sách hay chưa kết thúc. Có test trực tiếp cho từng method chuyển trạng thái và từng vị từ.
-- [ ] `make lint` và `make test` xanh. Test hành vi cũ chỉ đổi đường import, không đổi assert.
+- [x] Ngoài `shared/events/models.py`, không chỗ nào gán `status`, `completed_at`, `failed_at`, `attempts`, `interrupted_runs`, `next_attempt_at`, `next_dispatch_at` hay `last_dispatched_at` của `EventDelivery`, hay truyền `update_fields` cho `EventDelivery`. Factory và test dựng dữ liệu không tính.
+- [x] Ngoài `models.py`, không chỗ nào tự viết lại điều kiện tới hạn, đã lập danh sách hay chưa kết thúc. Có test trực tiếp cho từng method chuyển trạng thái và từng vị từ.
+- [x] `make lint` và `make test` xanh. Test hành vi cũ chỉ đổi đường import, không đổi assert.

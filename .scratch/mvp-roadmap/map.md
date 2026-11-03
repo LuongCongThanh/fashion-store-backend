@@ -24,7 +24,7 @@ Cập nhật trong cùng PR đóng ticket. Nguồn sự thật vẫn là dòng `
 | Mốc / feature | Trạng thái | Ticket |
 |---|---|---|
 | [`dev-security-baseline`](../dev-security-baseline/spec.md) | Gần xong | ✅ 01, 02 · 🟡 03 chờ chủ repo tự kiểm tra 3 AC |
-| **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | Xong (mốc chính) | ✅ 06, 07, 08, 09, 16, 15, 17, 10, 18, 11, 12, 21, 24, 27, 23, 22, 01, 04, 02, 03, 19 · Backlog không chặn M0, làm xen kẽ: 14, 20 · ⏸ trước go-live: 13 macOS, 25, 26, 28 outbox (`ready-for-agent`) |
+| **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | Xong (mốc chính) | ✅ 06, 07, 08, 09, 16, 15, 17, 10, 18, 11, 12, 21, 24, 27, 23, 22, 01, 04, 02, 03, 19, 26 · Backlog không chặn M0, làm xen kẽ: 14, 20 · ⏸ trước go-live: 13 macOS, 25, 28, 29 outbox (`ready-for-agent`) |
 | **M1** `catalog-inventory` | Kế tiếp | Tạo spec (`/ship-ticket-fashion M1`) |
 | **M2** – **M6** | Chưa có spec | Tạo spec khi mốc trước gần xong |
 | **M7** `sandbox-acceptance` | Chưa có spec | ⏸ [01](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) k6, `needs-triage` |
@@ -67,6 +67,7 @@ Ký hiệu: ✅ `resolved` · 🟡 đang dở · ⬜ chưa làm · ⏸ để sau
 - 01/11/2026: Ticket 22 chốt OpenAPI lỗi cho mọi module: `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) tự thêm response `ErrorDTO` 400, 500 cho mọi operation, 429 khi view có throttle, 404 khi path có tham số hoặc có query `page`; view chỉ khai mã đặc thù (409, 422…) bằng `extend_schema(responses=…)`, mã đã khai không bị ghi đè. Ticket JWT của M1 thêm 401/403 và 503 vào bộ mặc định. Chi tiết ở [22](../backend-bootstrap/issues/22-openapi-error-responses/spec.md#quyết-định).
 - 01/11/2026: Ticket 23: `backend/Makefile` export `PYTHONUTF8=1` và hook `lint-imports` của pre-commit đặt `PYTHONUTF8=1`, vì Windows ghi output chuyển hướng theo ANSI code page. Entry point mới chạy Python và in tiếng Việt ra pipe (script, hook, `subprocess` trong test) phải tự đặt biến này; cách sửa tận gốc (tên contract ASCII hoặc đặt cho cả user ở 08 §2) nằm ở backlog, gắn ticket 04.
 - 01/11/2026: Ticket 01: `make test` và CI chặn branch coverage < 80% riêng cho `services/` + `handlers.py` của từng module và nhóm hạ tầng `shared` (`shared/events`, `shared/idempotency.py`, `shared/api/idempotency.py`, `shared/tasks.py`) bằng `scripts/check_module_coverage.py`; không có ngưỡng toàn repo (12 §8). Module mới có `services/` hoặc `handlers.py` tự vào cổng; thư mục Django app `management`/`migrations`/`templates` trong `modules/` không phải module.
+- 03/11/2026: Ticket 26 chốt quy ước cho mọi module (13 mục 7.1): chuyển trạng thái của model là method trên model, tự `save(update_fields=…)`, nhận `now`, không log; chuyển hàng loạt (`UPDATE` theo id caller đã khoá) là `@classmethod` của model; custom `QuerySet` chỉ chứa vị từ không side effect, đặt cùng file với `Meta.indexes`. Mẫu ở `shared/events/models.py` (`EventDelivery`). Chi tiết ở [26](../backend-bootstrap/issues/26-outbox-refactor-smells/spec.md#quyết-định).
 
 ## Fog
 
