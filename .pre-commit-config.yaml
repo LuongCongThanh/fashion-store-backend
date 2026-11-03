@@ -15,8 +15,11 @@ repos:
       - id: check-added-large-files
       - id: check-yaml
       - id: check-toml
+      # File sinh: hook sửa nó thì `gen_openapi.py --check` lệch mãi (12 mục 5)
       - id: end-of-file-fixer
+        exclude: ^backend/openapi\.yaml$
       - id: trailing-whitespace
+        exclude: ^backend/openapi\.yaml$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.2

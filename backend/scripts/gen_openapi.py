@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import os
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,10 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 DEFAULT_SCHEMA = BACKEND / "openapi.yaml"
+
+
+class GeneratorError(Exception):
+    """File schema hiện có không đọc được."""
 
 
 def _render(target: Path) -> int:
@@ -31,8 +36,13 @@ def _render(target: Path) -> int:
         "--file",
         str(target),
     ]
-    # S603: Python, manage.py và tham số cố định, không qua shell.
-    return subprocess.run(command, cwd=BACKEND, check=False).returncode  # noqa: S603
+    # manage.py mặc định settings `local`; dùng `test` như pytest, mypy và CI để schema sinh trên
+    # máy trùng với schema CI kiểm
+    env = {**os.environ}
+    env.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
+    return subprocess.run(  # noqa: S603 -- Python, manage.py và tham số cố định, không qua shell.
+        command, cwd=BACKEND, env=env, check=False
+    ).returncode
 
 
 def _run(schema: Path, *, check: bool) -> int:
@@ -43,7 +53,10 @@ def _run(schema: Path, *, check: bool) -> int:
             print("ERROR: drf-spectacular failed to generate a valid schema", file=sys.stderr)
             return 1
         expected = generated.read_text(encoding="utf-8")
-    current = schema.read_text(encoding="utf-8") if schema.exists() else ""
+    try:
+        current = schema.read_text(encoding="utf-8") if schema.exists() else ""
+    except UnicodeDecodeError as exc:
+        raise GeneratorError(f"{schema}: {exc}") from exc
     if current == expected:
         return 0
     if check:
@@ -68,10 +81,10 @@ def main() -> int:
     args = parser.parse_args()
     try:
         return _run(args.schema, check=args.check)
-    except OSError as exc:
+    except (GeneratorError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
