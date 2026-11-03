@@ -1,6 +1,8 @@
 # Commit `openapi.yaml` và chặn schema lệch trong CI
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #59
 
 Blocked by: 07
 
@@ -30,5 +32,5 @@ Chốt khi grilling ngày 03/11/2026.
 
 ## Acceptance criteria
 
-- [ ] PR đổi API mà không cập nhật `backend/openapi.yaml` bị CI chặn.
-- [ ] `--validate` báo lỗi schema thì CI cũng fail.
+- [x] PR đổi API mà không cập nhật `backend/openapi.yaml` bị CI chặn.
+- [x] `--validate` báo lỗi schema thì CI cũng fail.

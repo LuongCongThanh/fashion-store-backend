@@ -42,6 +42,7 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 17. [01](../../.scratch/backend-bootstrap/issues/01-services-coverage-gate/spec.md) · cổng branch coverage ≥ 80% riêng từng module và nhóm `shared` trong `make test` và CI (`scripts/check_module_coverage.py`) · PR #56 · 01/11/2026
 18. [04](../../.scratch/backend-bootstrap/issues/04-import-linter-test-factories/spec.md) · `scripts/gen_importlinter.py` sinh contract `forbidden` giữa các module, `--check` trong `make lint` và CI, test ranh giới factory · PR #57 · 02/11/2026
 19. [02](../../.scratch/backend-bootstrap/issues/02-pytest-markers-and-br-report/spec.md) · khai báo marker pytest (`br`, `concurrency`, `flow`), `--strict-markers` và `make br-report` · PR #58 · 03/11/2026
+20. [03](../../.scratch/backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md) · commit `backend/openapi.yaml`, `make openapi` và `scripts/gen_openapi.py --check` trong `make lint` và CI chặn schema lệch hoặc sai chuẩn · PR #59 · 03/11/2026
 
 ### Còn mở
 
@@ -50,7 +51,6 @@ Chia nhóm theo quyết định 30/10/2026 trong [roadmap](../../.scratch/mvp-ro
 Làm xen kẽ, không chặn mốc:
 
 
-- [03](../../.scratch/backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md) · commit `openapi.yaml` và chặn schema lệch · `ready-for-agent`
 - [14](../../.scratch/backend-bootstrap/issues/14-trivy-and-dependabot-backend/spec.md) · quét image bằng trivy, Dependabot cho `backend/` · `ready-for-agent`
 - [19](../../.scratch/backend-bootstrap/issues/19-trust-upstream-request-id/spec.md) · dùng `X-Request-ID` từ BFF làm `request_id` · `ready-for-agent`
 - [20](../../.scratch/backend-bootstrap/issues/20-dependabot-compose-images/spec.md) · Dependabot theo dõi image trong Compose · `ready-for-agent`
