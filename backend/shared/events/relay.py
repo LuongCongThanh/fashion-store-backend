@@ -12,7 +12,7 @@ from django.db import transaction
 from django.utils import timezone
 from kombu.exceptions import OperationalError
 
-from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.models import EventDelivery, OutboxEvent
 from shared.events.registry import Handler, registry
 from shared.events.tasks import dispatch_event
 
@@ -26,10 +26,7 @@ def build_deliveries(
     event: OutboxEvent, handlers: list[Handler], now: datetime
 ) -> list[EventDelivery]:
     """Dựng (chưa lưu) delivery `pending` tới hạn ngay cho từng handler của sự kiện."""
-    return [
-        EventDelivery(event=event, handler=handler.name, next_attempt_at=now, next_dispatch_at=now)
-        for handler in handlers
-    ]
+    return [EventDelivery.new(event=event, handler=handler.name, now=now) for handler in handlers]
 
 
 def create_deliveries(batch: int = 100) -> int:
@@ -40,7 +37,7 @@ def create_deliveries(batch: int = 100) -> int:
     with transaction.atomic():
         events = list(
             OutboxEvent.objects.select_for_update(skip_locked=True)
-            .filter(deliveries_created_at__isnull=True)
+            .unlisted()
             .order_by("occurred_at")[:batch]
         )
         if not events:
@@ -78,18 +75,16 @@ def dispatch_due(batch: int = 100) -> int:
         now = timezone.now()
         due = list(
             EventDelivery.objects.select_for_update(skip_locked=True)
-            .filter(
-                status=DeliveryStatus.PENDING,
-                next_attempt_at__lte=now,
-                next_dispatch_at__lte=now,
-            )
+            .dispatch_due(now)
             .order_by("next_dispatch_at")
             .values_list("id", "event_id", "handler")[:batch]
         )
         if not due:
             return 0
-        EventDelivery.objects.filter(id__in=[delivery_id for delivery_id, _, _ in due]).update(
-            next_dispatch_at=now + REDISPATCH_AFTER, last_dispatched_at=now
+        EventDelivery.mark_dispatched(
+            [delivery_id for delivery_id, _, _ in due],
+            now=now,
+            next_dispatch_at=now + REDISPATCH_AFTER,
         )
 
     # Không giữ transaction DB khi gọi broker; queue `events` do decorator của task định tuyến

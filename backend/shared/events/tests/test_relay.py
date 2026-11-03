@@ -14,8 +14,7 @@ from kombu.exceptions import OperationalError
 from structlog.testing import capture_logs
 
 from shared.events import handles, publish, relay
-from shared.events.consumer import MAX_INTERRUPTED_RUNS
-from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.models import MAX_INTERRUPTED_RUNS, DeliveryStatus, EventDelivery, OutboxEvent
 from shared.events.tasks import dispatch_event
 from shared.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from shared.management.commands import run_outbox_relay

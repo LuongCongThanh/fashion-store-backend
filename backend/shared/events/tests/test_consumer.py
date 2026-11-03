@@ -11,13 +11,13 @@ from structlog.testing import capture_logs
 
 from shared.events import handles
 from shared.events.base import DomainEvent
-from shared.events.consumer import (
+from shared.events.consumer import process_delivery
+from shared.events.models import (
     INTERRUPTED_ERROR,
     MAX_INTERRUPTED_RUNS,
     RETRY_DELAYS,
-    process_delivery,
+    DeliveryStatus,
 )
-from shared.events.models import DeliveryStatus
 from shared.events.tasks import dispatch_event
 from shared.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from shared.exceptions import DomainError, RetryLater

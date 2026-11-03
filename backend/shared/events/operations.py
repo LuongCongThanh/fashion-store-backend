@@ -53,14 +53,7 @@ def retry_failed_events(
         reopened = [row for row in locked if registry.get_handler(row[2]) is not None]
         skipped = [row for row in locked if registry.get_handler(row[2]) is None]
         now = timezone.now()
-        EventDelivery.objects.filter(id__in=[delivery_id for delivery_id, _, _ in reopened]).update(
-            status=DeliveryStatus.PENDING,
-            attempts=0,
-            interrupted_runs=0,
-            next_attempt_at=now,
-            next_dispatch_at=now,
-            retried_at=now,
-        )
+        EventDelivery.reopen([delivery_id for delivery_id, _, _ in reopened], now=now)
     for _, reopened_event_id, reopened_handler in reopened:
         logger.info(
             "event_delivery_retried", event_id=str(reopened_event_id), handler=reopened_handler
@@ -84,9 +77,11 @@ def replay_events(*, event_type: str, since: datetime, handler: str | None = Non
     khoá sự kiện theo thứ tự `id` để purge chạy đồng thời không xoá sự kiện giữa chừng. Log số
     sự kiện đã xét và số delivery tạo mới. Trả số delivery tạo mới.
     """
-    events = OutboxEvent.objects.filter(
-        event_type=event_type, deliveries_created_at__gte=since
-    ).order_by("id")
+    events = (
+        OutboxEvent.objects.listed()
+        .filter(event_type=event_type, deliveries_created_at__gte=since)
+        .order_by("id")
+    )
     examined = 0
     created = 0
     last_id: UUID | None = None
@@ -133,10 +128,8 @@ def purge_old_outbox_events() -> int:
     """
     cutoff = timezone.now() - OUTBOX_RETENTION
     old = OutboxEvent.objects.filter(occurred_at__lt=cutoff)
-    unfinished = EventDelivery.objects.filter(
-        event=OuterRef("pk"), status__in=[DeliveryStatus.PENDING, DeliveryStatus.FAILED]
-    )
-    purgeable = old.filter(deliveries_created_at__isnull=False).exclude(Exists(unfinished))
+    unfinished = EventDelivery.objects.filter(event=OuterRef("pk")).unfinished()
+    purgeable = old.listed().exclude(Exists(unfinished))
     purged = 0
     while True:
         with transaction.atomic():
