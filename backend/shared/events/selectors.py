@@ -18,12 +18,11 @@ def delivery_lag() -> timedelta:
     Tính theo `occurred_at` vì `OutboxEvent` không có `created_at`; cột này ghi cùng transaction.
     """
     now = timezone.now()
-    oldest_unlisted = OutboxEvent.objects.filter(deliveries_created_at__isnull=True).aggregate(
-        oldest=Min("occurred_at")
-    )["oldest"]
-    oldest_due = EventDelivery.objects.filter(
-        status=DeliveryStatus.PENDING, next_attempt_at__lte=now
-    ).aggregate(oldest=Min("next_attempt_at"))["oldest"]
+    oldest_unlisted = OutboxEvent.objects.unlisted().aggregate(oldest=Min("occurred_at"))["oldest"]
+    # Không xét `next_dispatch_at`: delivery đã giao mà chưa xong vẫn là tồn đọng
+    oldest_due = EventDelivery.objects.attempt_due(now).aggregate(oldest=Min("next_attempt_at"))[
+        "oldest"
+    ]
     lags = [now - oldest for oldest in (oldest_unlisted, oldest_due) if oldest is not None]
     return max(lags, default=timedelta(0))
 

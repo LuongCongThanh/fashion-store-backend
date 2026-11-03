@@ -7,8 +7,13 @@ from django.core.management.base import CommandError
 from structlog.testing import capture_logs
 
 from shared.events import handles
-from shared.events.consumer import INTERRUPTED_ERROR, MAX_INTERRUPTED_RUNS, process_delivery
-from shared.events.models import DeliveryStatus, EventDelivery
+from shared.events.consumer import process_delivery
+from shared.events.models import (
+    INTERRUPTED_ERROR,
+    MAX_INTERRUPTED_RUNS,
+    DeliveryStatus,
+    EventDelivery,
+)
 from shared.events.tests.conftest import SampleHappenedV1
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 

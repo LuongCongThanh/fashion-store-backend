@@ -5,8 +5,7 @@ import time_machine
 from django.db import transaction
 
 from shared.events import handles, publish
-from shared.events.consumer import RETRY_DELAYS
-from shared.events.models import DeliveryStatus, EventDelivery
+from shared.events.models import RETRY_DELAYS, DeliveryStatus, EventDelivery
 from shared.events.tasks import dispatch_event
 from shared.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from shared.exceptions import RetryLater
