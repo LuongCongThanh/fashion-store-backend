@@ -14,14 +14,24 @@ from pathlib import Path
 
 from check_ac_trace import test_exists, trace
 from check_ship import check_dirty, check_subjects, diff_size, dirty_paths, porcelain_z
-from close_ticket import close, fill_pr
-from commit import check_task, foreign_commits, message
+from close_ticket import close, close_blockers, fill_pr
+from commit import check_slice_paths, check_task, foreign_commits, message
 from commit_map import parse_log, problems, render
 from common import resolve, state_dir
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
 from run_logged import make_recipe
-from state import apply, check_transition, hooks_installed, pick_active, plan_ready, validate
+from state import (
+    apply,
+    check_doc_ref,
+    check_transition,
+    hooks_installed,
+    pick_active,
+    plan_ready,
+    validate,
+)
+from tdd import red_reason
+from user_prompts import redact
 
 TICKET = """# Lớp API
 
@@ -53,6 +63,32 @@ def make_state(**overrides) -> dict:
         "gates": {"g1": None, "g2": None},
         "slices": [],
         "pr": None,
+    }
+    state.update(overrides)
+    return state
+
+
+def complete_slice(**overrides) -> dict:
+    test_id = "tests/test_x.py::test_x"
+    state = {
+        "id": "S1",
+        "acs": [1],
+        "dependsOn": [],
+        "status": "todo",
+        "seam": "service result",
+        "tests": [test_id],
+        "tddTests": [test_id],
+        "verificationTests": [],
+        "expectedRed": {test_id: "AssertionError"},
+        "files": ["backend/x.py", "backend/tests/test_x.py"],
+        "governingDocs": {
+            "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"],
+            "backend/tests/test_x.py": [
+                "docs/architecture/02-backend-structure.md::9.5",
+                "docs/architecture/12-testing-strategy.md::2.1",
+            ],
+        },
+        "tdd": {},
     }
     state.update(overrides)
     return state
@@ -124,6 +160,51 @@ class TicketParsing(unittest.TestCase):
         self.assertIn("- [ ] cần Redis thật", text)
         self.assertEqual((ticked, skipped), (["lỗi trả ErrorDTO"], ["cần Redis thật"]))
 
+    def test_close_fails_closed_without_delivery_evidence(self):
+        backend = Path(tempfile.mkdtemp())
+        self.assertIn("không có state", close_blockers(None, 23, 1, backend)[0])
+        state = make_state(phase="sync", pr=22, slices=[{"id": "S1", "status": "code"}])
+        found = close_blockers(state, 23, 1, backend)
+        self.assertTrue(any("phase" in item for item in found))
+        self.assertTrue(any("G2" in item for item in found))
+        self.assertTrue(any("PR #23" in item for item in found))
+        self.assertTrue(any("slice chưa hoàn tất" in item for item in found))
+
+    def test_close_accepts_completed_ticket_with_test_evidence(self):
+        backend = Path(tempfile.mkdtemp())
+        (backend / "tests").mkdir()
+        (backend / "tests" / "test_x.py").write_text(
+            "def test_ac_one():\n    pass\n", encoding="utf-8"
+        )
+        state = make_state(
+            phase="ship",
+            pr=23,
+            gates={"g1": "2026-11-01", "g2": "2026-11-03"},
+            slices=[
+                complete_slice(
+                    status="done",
+                    tests=["tests/test_x.py::test_ac_one"],
+                    tddTests=["tests/test_x.py::test_ac_one"],
+                    expectedRed={"tests/test_x.py::test_ac_one": "AssertionError"},
+                    tdd={
+                        "tests/test_x.py::test_ac_one": {"redAt": "r", "greenAt": "g"}
+                    },
+                )
+            ],
+        )
+        self.assertEqual(close_blockers(state, 23, 1, backend), [])
+
+    def test_prompt_redaction_covers_common_credentials(self):
+        text = redact(
+            "Authorization: Bearer abc.def-123 password=hunter2 "
+            "token: secret-token ghp_abcdefghijklmnopqrstuvwxyz123456"
+        )
+        self.assertNotIn("abc.def-123", text)
+        self.assertNotIn("hunter2", text)
+        self.assertNotIn("secret-token", text)
+        self.assertNotIn("ghp_", text)
+        self.assertGreaterEqual(text.count("[REDACTED]"), 4)
+
     def test_blocked_by_reads_only_ticket_numbers(self):
         self.assertEqual(parse_blocked("07, 08"), ([7, 8], []))
         self.assertEqual(parse_blocked("[09-add-v2-api](./09-add-v2-api.md)"), ([9], []))
@@ -163,15 +244,51 @@ class StateMachine(unittest.TestCase):
                 apply(make_state(), [item], push=False)
         with self.assertRaises(SystemExit):
             apply(make_state(), ["transitions={}"], push=True)
+        with self.assertRaises(SystemExit):
+            apply(make_state(slices=[complete_slice()]), ["slices.S1.tdd={}"], push=False)
+        with self.assertRaises(SystemExit):
+            apply(
+                make_state(),
+                ['slices=[{"id":"S1","tdd":{"x":{"redAt":"forged"}}}]'],
+                push=False,
+            )
 
     def test_validate_rejects_cycles_and_unknown_acs(self):
         slices = [
-            {"id": "S1", "acs": [1], "dependsOn": ["S2"], "status": "todo"},
-            {"id": "S2", "acs": [5], "dependsOn": ["S1"], "status": "todo"},
+            complete_slice(id="S1", acs=[1], dependsOn=["S2"]),
+            complete_slice(id="S2", acs=[5], dependsOn=["S1"]),
         ]
         errors = validate(make_state(slices=slices), ac_total=2)
         self.assertTrue(any("vòng lặp" in e for e in errors))
         self.assertTrue(any("AC 5" in e for e in errors))
+
+    def test_validate_requires_plan_fields_docs_and_tdd_evidence(self):
+        missing = validate(make_state(slices=[{"id": "S1", "status": "todo"}]), ac_total=1)
+        self.assertTrue(any("thiếu seam" in e for e in missing))
+        self.assertTrue(any("governingDocs" in e for e in missing))
+        done = complete_slice(status="done")
+        self.assertTrue(any("red/green" in e for e in validate(make_state(slices=[done]), 1)))
+        test_id = done["tests"][0]
+        done["tdd"] = {test_id: {"redAt": "r", "greenAt": "g"}}
+        self.assertEqual(validate(make_state(slices=[done]), 1), [])
+
+    def test_validate_splits_tdd_and_verification_tests(self):
+        test_id = "tests/test_x.py::test_x"
+        slice_ = complete_slice(tddTests=[], verificationTests=[test_id], expectedRed={})
+        self.assertEqual(validate(make_state(slices=[slice_]), 1), [])
+        slice_["status"] = "done"
+        self.assertTrue(any("verification green" in e for e in validate(make_state(slices=[slice_]), 1)))
+        slice_["tdd"] = {test_id: {"verifiedAt": "v"}}
+        self.assertEqual(validate(make_state(slices=[slice_]), 1), [])
+        unsafe = complete_slice(expectedRed={test_id: "NameError"})
+        self.assertTrue(any("lỗi hạ tầng" in e for e in validate(make_state(slices=[unsafe]), 1)))
+
+    def test_doc_refs_require_real_file_and_heading(self):
+        self.assertIsNone(check_doc_ref("docs/architecture/02-backend-structure.md::9.1"))
+        self.assertIn(
+            "không thấy mục", check_doc_ref("docs/architecture/02-backend-structure.md::99")
+        )
+        self.assertIn("không thấy tài liệu", check_doc_ref("docs/missing.md"))
 
     def test_apply_selects_slice_by_id_and_parses_json(self):
         state = make_state(slices=[{"id": "S1", "status": "todo"}])
@@ -269,15 +386,35 @@ class PlanAndCommits(unittest.TestCase):
         self.assertIn("plan.md", plan_ready(spec, "", ticket_dirty=False))
         self.assertIn("chưa commit", plan_ready(spec, "# Kế hoạch", ticket_dirty=True))
         self.assertIsNone(plan_ready(spec, "# Kế hoạch", ticket_dirty=False))
+        self.assertIn(
+            "Tài liệu chi phối",
+            plan_ready(spec, "# Kế hoạch", ticket_dirty=False, state=make_state(slices=[complete_slice()])),
+        )
 
     def test_plan_renders_whole_plan_file(self):
         state = make_state(
-            slices=[{"id": "S1", "acs": [1, 2], "seam": "APIClient", "tests": ["t.py::a"]}],
+            slices=[
+                complete_slice(
+                    acs=[1, 2],
+                    seam="APIClient",
+                    tests=["t.py::a"],
+                    tddTests=["t.py::a"],
+                    expectedRed={"t.py::a": "AssertionError"},
+                    files=["backend/x.py"],
+                    governingDocs={
+                        "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"]
+                    },
+                )
+            ],
             untestable={"3": "cần Redis thật"},
         )
         text = render_plan(state)
         self.assertTrue(text.startswith("# Kế hoạch\n\nSinh"))
-        self.assertIn("| S1 | 1, 2 | APIClient | `t.py::a` | — | — |", text)
+        self.assertIn(
+            "| S1 | 1, 2 | APIClient | TDD `t.py::a` → AssertionError | "
+            "`backend/x.py` → docs/architecture/02-backend-structure.md::9.1 | — |",
+            text,
+        )
         self.assertIn("AC 3 không test tự động: cần Redis thật", text)
         self.assertIn("`plan` → `S1` → `R1 (khi review cần sửa)` → `sync` → `close`", text)
 
@@ -292,6 +429,27 @@ class PlanAndCommits(unittest.TestCase):
         self.assertIsNone(check_task("sync", state))
         self.assertIn("S2", check_task("S2", state))
         self.assertIn("task lạ", check_task("fix", state))
+
+    def test_slice_commit_rejects_paths_outside_plan(self):
+        state = make_state(slices=[complete_slice()])
+        self.assertIsNone(
+            check_slice_paths("S1", ["backend/x.py", "backend/tests/test_x.py"], state)
+        )
+        self.assertIn("thiếu file", check_slice_paths("S1", ["backend/x.py"], state))
+        self.assertIn("ngoài plan", check_slice_paths("S1", ["backend/y.py"], state))
+        self.assertIsNone(check_slice_paths("sync", ["backend/y.py"], state))
+
+    def test_tdd_red_rejects_collection_errors(self):
+        self.assertIsNone(
+            red_reason(1, "ERROR collecting tests/test_x.py\nImportError", "ImportError")
+        )
+        self.assertIsNone(red_reason(0, "1 passed", "AssertionError"))
+        self.assertIsNone(red_reason(4, "usage error", "AssertionError"))
+        self.assertIsNone(red_reason(1, "FAILED test_x - NameError", "AssertionError"))
+        self.assertIn(
+            "FAILED",
+            red_reason(1, "FAILED tests/test_x.py::test_x - AssertionError", "AssertionError"),
+        )
 
     def test_commit_problems_flag_missing_task_other_ticket_and_duplicates(self):
         found = problems(
@@ -412,7 +570,7 @@ class CommitOnlyListedPaths(unittest.TestCase):
         state_dir = repo / ".git" / "ship-ticket-fashion"
         state_dir.mkdir()
         (state_dir / "f-01.json").write_text(
-            '{"slices": [{"id": "S1"}]}', encoding="utf-8"
+            '{"slices": [{"id": "S1", "files": ["mine.txt"]}]}', encoding="utf-8"
         )
         (repo / "staged.txt").write_text("other task", encoding="utf-8")
         run("add", "staged.txt")

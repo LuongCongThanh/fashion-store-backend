@@ -5,15 +5,21 @@
 1. [GLOSSARY.md](./GLOSSARY.md): thuật ngữ dùng chung trong code và tài liệu.
 2. [Môi trường phát triển local](./docs/architecture/08-local-development.md): cài đặt trên macOS hoặc Windows.
 3. [Cấu trúc Backend](./docs/architecture/02-backend-structure.md): module, quy tắc từng file, ranh giới giữa các module.
-4. [Quy ước Git](./docs/architecture/11-git-workflow.md): nhánh, commit, PR, release.
+4. [Coding style Python/Django](./docs/architecture/13-python-django-coding-style.md): quy ước bắt buộc khi viết và review code.
+5. [Quy ước Git](./docs/architecture/11-git-workflow.md): nhánh, commit, PR, release.
 
 ## Tóm tắt quy trình
 
 ```bash
-git switch dev && git pull
+git switch dev
+git pull --ff-only origin dev
 git switch -c feat/<mo-ta-ngan>
 # code + test
-make lint && make test
+cd backend
+make fmt
+make lint
+make test
+cd ..
 git push -u origin feat/<mo-ta-ngan>
 # mở PR vào dev, tiêu đề theo Conventional Commits
 ```
@@ -24,13 +30,13 @@ git push -u origin feat/<mo-ta-ngan>
 | Commit, tên nhánh, tiêu đề PR | Tiếng Anh, theo Conventional Commits: `feat(ordering): add COD checkout` |
 | Merge vào `dev` | Squash merge |
 | Merge `dev` → `uat` và `uat` → `main` | Merge commit (không squash) |
-| Push thẳng vào `dev` | Chỉ khi thay đổi nhỏ, gấp và đã chạy `make lint`, `make test` |
+| Push thẳng vào `dev` | Chỉ khi thay đổi nhỏ, gấp và đã chạy `make fmt`, `make lint`, `make test` |
 | Push thẳng vào `uat` hoặc `main` | Không được |
 | Force-push | Chỉ trên nhánh tính năng của mình, không bao giờ trên `dev`, `uat` hoặc `main` |
 
 ## Quy ước code
 
-Chi tiết ở [Cấu trúc Backend §9](./docs/architecture/02-backend-structure.md#9-quy-ước-code). Tóm tắt:
+Chi tiết ở [Coding style Python/Django](./docs/architecture/13-python-django-coding-style.md). Tóm tắt:
 
 - Tên trong code bằng tiếng Anh; comment và docstring bằng tiếng Việt.
 - Hàm service đặt tên `<verb>_<noun>` (`place_order`); selector dùng `get_` / `find_` / `list_`.

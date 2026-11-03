@@ -11,8 +11,10 @@ import re
 import sys
 from pathlib import Path
 
+from check_ac_trace import trace
 from commit_map import problems, read_commits
 from common import git, load_state, repo_root, resolve, ticket_ref
+from state import validate
 
 BRANCH = re.compile(r"^(feat|fix|refactor|docs|chore|test|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$")
 TYPES = "feat|fix|perf|refactor|test|docs|build|ci|chore|revert"
@@ -103,8 +105,31 @@ def main() -> int:
     args = parser.parse_args()
 
     feature, ticket = resolve(args.ticket)
-    state = load_state(feature.slug, ticket.num) or {}
+    state = load_state(feature.slug, ticket.num)
     results: list[tuple[str, str]] = []
+
+    if state is None:
+        results.append(("FAIL", "không có state của ticket"))
+        state = {}
+    else:
+        state_problems = validate(state, ticket.ac_total)
+        results.append(
+            ("FAIL" if state_problems else "OK", f"state schema: {len(state_problems)} điểm thiếu")
+        )
+        results.extend(("FAIL", f"  {problem}") for problem in state_problems)
+        phase = state.get("phase")
+        results.append(
+            ("OK" if phase in {"sync", "ship"} else "FAIL", f"phase {phase}; cần sync hoặc ship")
+        )
+        if phase == "ship":
+            results.append(("OK" if state.get("gates", {}).get("g2") else "FAIL", "G2 đã duyệt"))
+        ac_problems = trace(state, ticket.ac_total, repo_root() / "backend", planned=False)
+        results.append(
+            ("FAIL" if ac_problems else "OK", f"AC trace: {len(ac_problems)} điểm thiếu")
+        )
+        results.extend(("FAIL", f"  {problem}") for problem in ac_problems)
+        report = ticket.path / "report.md"
+        results.append(("OK" if report.is_file() else "FAIL", "report.md tồn tại"))
 
     branch = git("branch", "--show-current")
     if state and branch != state.get("branch"):

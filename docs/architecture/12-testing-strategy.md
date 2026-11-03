@@ -2,7 +2,7 @@
 
 > Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)). Phạm vi: chỉ backend Django. Frontend Next.js là repo riêng ([ADR 0001](../adr/0001-nextjs-frontend-django-api.md)) và tự có chiến lược test; ở đây chỉ nói phần backend cam kết với frontend (OpenAPI, mục 5).
 
-Quy ước viết code test (factory, mock, thời gian) nằm ở [02-backend-structure.md](./02-backend-structure.md) mục 9.5. Cách chạy test ở máy local xem [08-local-development.md](./08-local-development.md) mục 5.
+Quy ước viết code test (factory, mock, thời gian) nằm ở [13-python-django-coding-style.md](./13-python-django-coding-style.md) mục 9. Cách chạy test ở máy local xem [08-local-development.md](./08-local-development.md) mục 5.
 
 ## 1. Nguyên tắc
 
@@ -31,7 +31,9 @@ Ngoài pytest, CI còn có các **cổng kiểm tra tĩnh** (mục 8).
 
 ### 2.1. Service
 
-- Mỗi hàm service có ít nhất 1 test cho trường hợp chạy đúng và 1 test cho mỗi lỗi nghiệp vụ nó ném ra.
+- Mỗi public service function phải có bằng chứng cho happy path và từng hành vi lỗi mà contract của nó
+  công bố. Ưu tiên service test; có thể dùng flow test khi đó là cấp duy nhất chứng minh đúng hành vi mà
+  không lặp lại setup lớn.
 - Test nào kiểm tra một quy tắc trong [04-business-rules.md](../business/04-business-rules.md) thì gắn marker `br` (mục 3).
 - Kiểm tra sự kiện: service ghi đúng sự kiện vào outbox, và khi service lỗi thì không có sự kiện nào được ghi (cùng transaction).
 - Mốc thời gian (Giữ hàng 15 phút, Hoàn tất sau 7 ngày, Đổi trả trong 7 ngày) dùng `time-machine`, test cả hai phía của mốc.
@@ -171,6 +173,257 @@ Bắt buộc có 6 flow:
 
 Ticket trong `.scratch/` trỏ về các mục này thay vì chép lại kịch bản.
 
+### 2.9. Mẫu test chuẩn
+
+Các mẫu dưới đây minh hoạ cấu trúc và assertion bắt buộc; tên service/model có thể chưa tồn tại ở mốc
+hiện tại. Khi implementation khác mẫu, giữ semantics test và dùng API thật của module. Quy ước đặt tên,
+factory, `pytest.raises` và thời gian nằm ở [13 mục 9](./13-python-django-coding-style.md#9-test).
+
+#### 2.9.1. Service: chứng minh kết quả và rollback
+
+```python
+@pytest.mark.django_db
+@pytest.mark.br("BR-INV-02")
+def test_reserve_stock_rejects_quantity_above_available(
+    stock_item: StockItem,
+) -> None:
+    requested_quantity = stock_item.on_hand + 1
+
+    with pytest.raises(OutOfStock):
+        reserve_stock(
+            order_id=uuid7(),
+            variant_id=stock_item.variant_id,
+            quantity=requested_quantity,
+            expires_at=timezone.now() + timedelta(minutes=15),
+        )
+
+    stock_item.refresh_from_db()
+    assert stock_item.reserved == 0
+    assert not StockReservation.objects.exists()
+    assert not OutboxEvent.objects.filter(event_type="inventory.stock-reserved").exists()
+```
+
+**Chứng minh:** caller nhận đúng domain exception, mọi thay đổi DB rollback và sự kiện không thoát khỏi
+transaction thất bại. Happy path tương ứng phải assert cả giá trị trả về, state bền vững và payload sự
+kiện; không chỉ assert “không ném lỗi”. Test service không cần gọi HTTP hoặc Celery worker.
+
+Không assert từng lời gọi ORM hay thứ tự helper private. Những assertion đó khoá test vào implementation
+mà không chứng minh thêm hành vi quan sát được.
+
+#### 2.9.2. `on_commit`, task và outbox
+
+Task được enqueue sau commit cần test rằng callback chưa chạy bên trong transaction, chạy đúng một lần
+sau commit và bị bỏ khi rollback:
+
+```python
+@pytest.mark.django_db
+def test_enqueue_runs_only_after_commit(
+    django_capture_on_commit_callbacks: CaptureOnCommit,
+) -> None:
+    with (
+        mock.patch.object(app.tasks[TASK_NAME], "apply_async") as apply_async,
+        django_capture_on_commit_callbacks(execute=True),
+        transaction.atomic(),
+    ):
+        enqueue_on_commit(TASK_NAME, order_id="order-1")
+        apply_async.assert_not_called()
+
+    apply_async.assert_called_once_with(kwargs={"order_id": "order-1"})
+
+
+@pytest.mark.django_db
+def test_enqueue_is_discarded_on_rollback(
+    django_capture_on_commit_callbacks: CaptureOnCommit,
+) -> None:
+    with (
+        mock.patch.object(app.tasks[TASK_NAME], "apply_async") as apply_async,
+        django_capture_on_commit_callbacks(execute=True) as callbacks,
+        pytest.raises(OutOfStock),
+    ):
+        with transaction.atomic():
+            enqueue_on_commit(TASK_NAME, order_id="order-1")
+            raise OutOfStock
+
+    assert callbacks == []
+    apply_async.assert_not_called()
+```
+
+**Phân biệt:** service phát domain event thì assert dòng `OutboxEvent` trong cùng transaction. Test helper
+`enqueue_on_commit` mới patch `apply_async` để quan sát broker boundary. Handler test chạy consumer thật;
+flow test dùng `drain_events()`. Không bật eager task rồi coi đó là bằng chứng callback chỉ chạy sau commit.
+
+#### 2.9.3. Concurrency với connection riêng
+
+```python
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.concurrency
+def test_two_reservations_cannot_oversell(stock_item: StockItem) -> None:
+    barrier = threading.Barrier(2, timeout=5)
+    outcomes: list[str] = []
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        close_old_connections()
+        try:
+            barrier.wait()
+            reserve_stock(
+                order_id=uuid7(),
+                variant_id=stock_item.variant_id,
+                quantity=1,
+                expires_at=timezone.now() + timedelta(minutes=15),
+            )
+            outcomes.append("reserved")
+        except OutOfStock:
+            outcomes.append("out_of_stock")
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            connection.close()
+
+    threads = [threading.Thread(target=run) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert errors == []
+    assert sorted(outcomes) == ["out_of_stock", "reserved"]
+    stock_item.refresh_from_db()
+    assert stock_item.on_hand - stock_item.reserved == 0
+```
+
+Factory của test này phải tạo đúng một đơn vị Số lượng bán được. `transaction=True` để thread khác thấy
+dữ liệu setup đã commit; `close_old_connections()` buộc mỗi thread lấy connection riêng; `Barrier` tạo
+tranh chấp thật. Luôn có timeout và thu exception từ thread, nếu không test có thể treo hoặc xanh dù worker
+đã chết. Không dùng `sleep()` để giả định thứ tự; dùng `Barrier`/`Event` khi cần điểm dừng xác định.
+
+#### 2.9.4. Handler và giao sự kiện lặp
+
+```python
+@pytest.mark.django_db
+def test_payment_succeeded_handler_is_idempotent(
+    pending_order: Order,
+    payment_succeeded_event: PaymentSucceededV1,
+) -> None:
+    with transaction.atomic():
+        publish(payment_succeeded_event)
+    drain_events()
+
+    delivery = EventDelivery.objects.get(
+        event_id=payment_succeeded_event.event_id,
+        handler="ordering.handle_payment_succeeded",
+    )
+    dispatch_event.apply_async(
+        args=(str(payment_succeeded_event.event_id), delivery.handler),
+        queue="events",
+    )
+
+    pending_order.refresh_from_db()
+    delivery.refresh_from_db()
+    assert pending_order.status == OrderStatus.PLACED
+    assert delivery.status == DeliveryStatus.COMPLETED
+    assert Order.objects.filter(id=pending_order.id).count() == 1
+    assert OutboxEvent.objects.filter(event_type="ordering.order-placed").count() == 1
+```
+
+**Chứng minh:** lần giao đầu tạo effect và hoàn tất delivery; lần giao lặp không chạy nghiệp vụ lần nữa.
+Test riêng cho `RetryLater`, `DomainError` và exception bất ngờ phải assert cả state nghiệp vụ rollback,
+trạng thái delivery, `attempts`, `next_attempt_at` và việc log không chứa PII. Chi tiết ma trận lỗi thuộc
+[07 mục 5](./07-async-events-jobs.md#5-kiểm-thử-bắt-buộc).
+
+#### 2.9.5. API permission và error contract
+
+```python
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("client_fixture", "expected_status"),
+    [
+        ("api_client", status.HTTP_401_UNAUTHORIZED),
+        ("customer_client", status.HTTP_403_FORBIDDEN),
+        ("staff_client", status.HTTP_200_OK),
+        ("admin_client", status.HTTP_200_OK),
+    ],
+)
+def test_stock_list_permissions(
+    request: pytest.FixtureRequest,
+    client_fixture: str,
+    expected_status: int,
+) -> None:
+    client = request.getfixturevalue(client_fixture)
+
+    response = client.get("/api/v1/backoffice/inventory/stock/")
+
+    assert response.status_code == expected_status
+```
+
+Permission class có unit test cho toàn bộ ma trận `kind`/`aud`; mỗi endpoint vẫn cần integration test để
+chứng minh nó gắn đúng permission. Với response lỗi, assert `status`, `code` và shape chuẩn; không snapshot
+toàn bộ message đã dịch. API test không lặp lại mọi nhánh nghiệp vụ đã được service test chứng minh.
+
+#### 2.9.6. Flow HTTP và `drain_events()`
+
+```python
+@pytest.mark.django_db
+@pytest.mark.flow
+def test_cod_checkout_flow(
+    api_client: APIClient,
+    staff_client: APIClient,
+    fake_shipping_provider: FakeShippingProvider,
+) -> None:
+    checkout = api_client.post(
+        "/api/v1/store/checkout",
+        CHECKOUT_PAYLOAD | {"payment_method": "cod"},
+        headers={"Idempotency-Key": "00000000-0000-7000-8000-000000000001"},
+        format="json",
+    )
+    assert checkout.status_code == status.HTTP_201_CREATED
+    order_code = checkout.json()["code"]
+
+    drain_events()
+    order = get_order_for_test(code=order_code)
+    assert order.status == OrderStatus.PLACED
+
+    hand_over = staff_client.post(f"/api/v1/backoffice/orders/{order_code}/hand-over")
+    assert hand_over.status_code == status.HTTP_202_ACCEPTED
+    drain_events()
+
+    order = get_order_for_test(code=order_code)
+    assert order.status == OrderStatus.SHIPPING
+    assert fake_shipping_provider.created_references == [order_code]
+```
+
+Flow đi qua HTTP ở các entry point và gọi `drain_events()` sau bước có thể phát event/task. Assert các
+mốc nghiệp vụ quan trọng, không chép mọi assertion của service test. Khi cần đọc module khác, dùng public
+test helper/contract theo mục 4; không import model nội bộ chỉ vì flow nằm ở `backend/tests/flows/`.
+
+#### 2.9.7. Data migration và database constraint
+
+Data migration phải được test từ state ngay trước migration sang state cần kiểm tra:
+
+```python
+@pytest.mark.django_db(transaction=True)
+def test_shipping_settings_data_migration(migrator: Migrator) -> None:
+    before = migrator.apply_initial_migration(("modules", "0008_create_shipping_settings"))
+    OldSettings = before.apps.get_model("modules", "ShippingSettings")
+    assert not OldSettings.objects.exists()
+
+    after = migrator.apply_tested_migration(("modules", "0009_seed_shipping_settings"))
+    ShippingSettings = after.apps.get_model("modules", "ShippingSettings")
+    settings = ShippingSettings.objects.get(singleton=1)
+
+    assert settings.fallback_fee == 35_000
+```
+
+Tên migration trong ví dụ là placeholder; test thật dùng đúng node trong migration graph. Dùng model từ
+`state.apps`, không import model hiện hành. Test cả dữ liệu cũ, giá trị NULL/không hợp lệ và tính idempotent
+nếu migration được phép chạy lại.
+
+Schema migration Django thông thường không cần test lại việc `AddField` tạo cột. Constraint phức tạp vẫn
+cần model/database test ghi trực tiếp dữ liệu sai như [03 mục 0.10.6](./03-data-model.md#0106-test-constraint-tại-database).
+Migration đổi type, backfill, raw SQL, extension/function hoặc expand/contract cần test upgrade/reverse
+theo rủi ro, ngoài `makemigrations --check`.
+
 ## 3. Marker của pytest
 
 Khai báo trong `pyproject.toml` (`--strict-markers`):
@@ -199,14 +452,24 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 
 ## 5. Hợp đồng API với frontend (OpenAPI)
 
-- Schema được commit tại `backend/openapi.yaml`, sinh bằng `manage.py spectacular --validate --file openapi.yaml`. Frontend sinh TS client từ file này.
-- CI sinh lại schema và fail nếu khác file đã commit. Vì vậy mọi thay đổi API đều hiện trong diff của PR.
-- Chưa dùng công cụ phát hiện breaking change (`oasdiff`). Reviewer tự đọc diff của `openapi.yaml`; diff có xoá field hay endpoint thì PR phải nêu rõ và báo cho frontend.
+- Mục tiêu sau khi API được bootstrap: commit schema tại `backend/openapi.yaml`, sinh bằng
+  `manage.py spectacular --validate --file openapi.yaml`; frontend sinh TS client từ file này.
+- Ở mốc hiện tại chưa có `backend/openapi.yaml` và CI chưa có gate sinh/so sánh schema. PR không được
+  tuyên bố đã qua OpenAPI gate; contract đang được review theo [04-api-contract.md](./04-api-contract.md).
+- Khi bootstrap schema, thêm command tái sinh xác định vào `Makefile` và CI phải fail nếu output khác file
+  đã commit. Lúc đó mọi thay đổi API phải hiện trong diff của PR.
+- Chưa dùng công cụ phát hiện breaking change (`oasdiff`). Sau khi có schema, reviewer tự đọc diff;
+  xoá field hay endpoint phải được nêu rõ và báo cho frontend.
 
 ## 6. Migration
 
-- Migration chỉ đổi schema: không cần test; `makemigrations --check` và kiểm tra trùng số trong CI là đủ.
-- Data migration (có `RunPython`): bắt buộc có test bằng `django-test-migrations`, chạy migration trên dữ liệu mẫu rồi kiểm tra kết quả.
+- Schema migration Django thông thường (`AddField`, `AddIndex`...) không cần migration test riêng;
+  constraint vẫn cần model/database test. Khi đổi model, chạy
+  `python manage.py makemigrations --check --dry-run` để phát hiện migration còn thiếu.
+- Data migration (`RunPython`), raw SQL, extension/function, đổi type có dữ liệu và chuỗi expand/contract
+  bắt buộc có migration test tương xứng bằng `django-test-migrations`; xem mẫu tại mục 2.9.7.
+- Mốc hiện tại chưa có gate migration trong `.github/workflows/ci.yml`. Khi thêm gate kiểm migration lệch
+  và trùng leaf node, cập nhật đồng thời bảng mục 8 và [11 mục 3.5](./11-git-workflow.md#35-ci-trên-github-actions).
 
 ## 7. Sandbox thật của nhà cung cấp
 
@@ -224,9 +487,10 @@ Job `backend` trong `.github/workflows/ci.yml`:
 | `lint-imports` | Không vi phạm ranh giới module, kể cả quy tắc factory (mục 4) |
 | `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`. Chạy `pytest -n auto --cov=modules --cov=shared --cov-report=` (`pytest-cov` gom coverage từ các worker của `pytest-xdist`) |
 | Coverage | Sau test, chạy `python scripts/check_module_coverage.py`: ≥ 80% **branch coverage riêng** (`[tool.coverage.run] branch = true`) cho nhóm `modules/<module>/services/**/*.py` + `modules/<module>/handlers.py` của **từng module**. Hạ tầng `shared/events/**/*.py` (bỏ các thư mục `tests`), `shared/idempotency.py`, `shared/api/idempotency.py`, `shared/tasks.py` là một nhóm riêng. Thư mục của Django app ở gốc `modules/` (`management`, `migrations`, `templates`, ADR 0006) không phải module. Script đọc dữ liệu và cấu hình coverage của project (`COVERAGE_FILE`, `[tool.coverage]` trong `pyproject.toml`, mặc định `.coverage`) bằng API public `Coverage.branch_stats`, cộng số nhánh đã chạy/tổng số nhánh theo nhóm và so số nguyên với 80%; không dùng tỷ lệ gộp dòng + nhánh của `coverage report --fail-under`. Module chưa có target được bỏ qua, target không có nhánh được báo rõ và qua; file chưa chạy vẫn được phân tích. Thiếu dữ liệu hoặc dữ liệu chỉ đo statement là lỗi. Không tính `shared/geo`, `shared/health` và phần định dạng của `shared/api`, vì ít nhánh nghiệp vụ. **Không** đặt ngưỡng cho toàn repo, để không ai phải viết test chỉ để lấp số |
-| Migration | `makemigrations --check`, không trùng số |
-| OpenAPI | Schema sinh ra trùng với `backend/openapi.yaml` |
 | `pip-audit` | Không có lỗ hổng |
+
+Gate migration và OpenAPI là mục tiêu đã mô tả ở mục 5–6 nhưng **chưa hoạt động** trong workflow hiện
+tại. Không tính chúng là required status check cho tới khi repository có artifact/script và job tương ứng.
 
 ## 9. Chưa làm ở MVP
 

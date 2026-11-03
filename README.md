@@ -28,7 +28,7 @@ Toàn bộ tài liệu trong `docs/` ở trạng thái **Đã chốt cho MVP** t
 
 - Tài liệu được cập nhật **cùng PR với code** khi code chạm tới phần đó. Code và tài liệu lệch nhau thì sửa cho khớp trong cùng PR, không để tài liệu đi sau.
 - Quyết định khó đảo ngược, có đánh đổi thật thì thêm ADR mới trong `docs/adr/`; không sửa lại ADR cũ để đổi quyết định.
-- Mỗi quy tắc có **một nơi sở hữu**; nơi khác chỉ tóm tắt một câu và dẫn link. Ví dụ checkout: luồng ở [02 mục 6.2](./docs/architecture/02-backend-structure.md#62-ví-dụ-luồng-một-request), thứ tự khoá ở [02 mục 9.1](./docs/architecture/02-backend-structure.md#91-quy-ước-chung), `quote_token` ở [04 mục 5.3](./docs/architecture/04-api-contract.md#53-vòng-đời-quote_token).
+- Mỗi quy tắc có **một nơi sở hữu**; nơi khác chỉ tóm tắt một câu và dẫn link. Ví dụ checkout: luồng ở [02 mục 6.2](./docs/architecture/02-backend-structure.md#62-ví-dụ-luồng-một-request), thứ tự khoá ở [13 mục 4](./docs/architecture/13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài), `quote_token` ở [04 mục 5.3](./docs/architecture/04-api-contract.md#53-vòng-đời-quote_token).
 
 Hai loại nhãn còn lại trong tài liệu:
 

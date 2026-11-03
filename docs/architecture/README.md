@@ -19,7 +19,7 @@ Mọi file ở trạng thái **Đã chốt cho MVP**, riêng [09](./09-deploymen
 
 ## Đọc gì trước
 
-Dev mới vào dự án nên đọc theo thứ tự **01 → 02 → 08 → 11**: hiểu bức tranh chung, nắm cấu trúc code, dựng được môi trường local, rồi biết cách tạo nhánh và PR. Các file còn lại đọc khi làm tới phần liên quan.
+Dev mới vào dự án nên đọc theo thứ tự **01 → 02 → 13 → 08 → 11**: hiểu bức tranh chung, nắm cấu trúc và coding style, dựng được môi trường local, rồi biết cách tạo nhánh và PR. Các file còn lại đọc khi làm tới phần liên quan.
 
 ## Tổng quan
 
@@ -37,7 +37,7 @@ Backend là modular monolith: một Django project gồm hai app. App `modules` 
 - cây thư mục;
 - khuôn mẫu một module theo HackSoft Styleguide (`models`, `services`, `selectors`, `contracts`, `events`…);
 - quy tắc FK sang module khác và cách `import-linter` kiểm tra ranh giới module;
-- quy ước code: đặt tên, format/lint, comment, test, logging.
+- liên kết tới coding style Python/Django được sở hữu bởi tài liệu 13.
 
 Đây là file dài nhất và hay tra cứu nhất khi viết code.
 Liên quan: [ADR 0006](../adr/0006-modular-monolith.md), [ADR 0007](../adr/0007-events-outbox-celery-no-kafka.md).
@@ -105,3 +105,9 @@ Mô hình nhánh `main`/`uat`/`dev`, cách đặt tên nhánh và commit message
 ### [12. Chiến lược test](./12-testing-strategy.md)
 
 Test chạy trên PostgreSQL thật, chỉ giả lập hệ thống bên ngoài, và kiểm tra nghiệp vụ ở tầng service. Các loại test gồm service, concurrency, handler/outbox, API, auth/JWT, adapter và flow xuyên module. File còn mô tả marker của pytest, dữ liệu test, hợp đồng OpenAPI với frontend, test migration và các cổng chặn trong CI.
+
+### [13. Coding style Python/Django](./13-python-django-coding-style.md)
+
+Nguồn chuẩn duy nhất cho code Python/Django: ngôn ngữ, type hints, ranh giới tầng, transaction, naming,
+Ruff/mypy, model và migration, docstring, test, logging và checklist dành cho AI agent. Tài liệu không
+định nghĩa style TypeScript/Next.js khi frontend chưa được bootstrap.

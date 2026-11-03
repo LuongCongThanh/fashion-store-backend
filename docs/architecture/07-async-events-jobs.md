@@ -124,7 +124,7 @@ Thanh toán COD (`start_cod_payment`, `record_cod_collected`, `cancel_cod_paymen
 
 Lần gọi nhà cung cấp ngay trong request API (tạo link thanh toán, báo giá GHN) không đi qua queue `integrations`, nên `rate_limit` không áp cho chúng. Tần suất của các lần gọi này được giới hạn gián tiếp bằng throttle theo Người mua ([05-auth-security.md](./05-auth-security.md) mục 5).
 
-Code nghiệp vụ đẩy task bằng `shared.tasks.enqueue_on_commit`, không gọi `.delay()` trực tiếp ([02-backend-structure.md](./02-backend-structure.md) mục 9.1).
+Code nghiệp vụ đẩy task bằng `shared.tasks.enqueue_on_commit`, không gọi `.delay()` trực tiếp ([13-python-django-coding-style.md](./13-python-django-coding-style.md) mục 4).
 
 ### 3.2. Lịch job (Celery Beat, lưu bằng `django-celery-beat`)
 

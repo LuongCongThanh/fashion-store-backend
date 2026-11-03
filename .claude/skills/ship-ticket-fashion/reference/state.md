@@ -13,9 +13,20 @@
     { "id": "S1", "acs": [4], "dependsOn": [], "status": "done",
       "seam": "GET list endpoint qua APIClient",
       "tests": ["tests/shared/api/test_pagination.py::test_page_size_capped_at_100"],
+      "tddTests": ["tests/shared/api/test_pagination.py::test_page_size_capped_at_100"],
+      "verificationTests": [],
+      "expectedRed": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100": "AssertionError"},
       "files": ["backend/shared/api/pagination.py"],
+      "governingDocs": {"backend/shared/api/pagination.py": ["docs/architecture/02-backend-structure.md::9.1"]},
+      "tdd": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100":
+        {"redAt": "2026-10-29T10:10:00+07:00", "redReason": "FAILED …", "greenAt": "2026-10-29T10:20:00+07:00"}},
       "handoff": ["StandardPagination trong shared/api/pagination.py"] },
-    { "id": "S2", "acs": [1], "dependsOn": ["S1"], "status": "code", "seam": "…", "tests": ["…"] }
+    { "id": "S2", "acs": [1], "dependsOn": ["S1"], "status": "code", "seam": "service result",
+      "tests": ["modules/x/tests/test_services_x.py::test_x"], "tddTests": [],
+      "verificationTests": ["modules/x/tests/test_services_x.py::test_x"], "expectedRed": {},
+      "files": ["backend/modules/x/services/x.py"],
+      "governingDocs": {"backend/modules/x/services/x.py": ["docs/architecture/02-backend-structure.md::9.3"]},
+      "tdd": {} }
   ],
   "currentSlice": "S2",
   "untestable": { "3": "cần Redis thật; kiểm tay bằng make up rồi tắt redis" },
@@ -27,8 +38,11 @@
 ```
 
 - `acs`: số thứ tự của AC trong mục `## Acceptance criteria` của `spec.md`, đếm từ 1.
-- `tests`: id pytest tính từ `backend/` (`<file>::<test>` hoặc `<file>::<Class>::<test>`). `check_ac_trace.py` kiểm tra file và hàm tồn tại.
+- `tests`: hợp không trùng của `tddTests` và `verificationTests`; id pytest tính từ `backend/`.
+- `tddTests`: test mới cho hành vi, cần `expectedRed`, red rồi green. `verificationTests`: test sẵn có chỉ cần verify green.
 - `files`: file slice sẽ đổi, ghi ở phase 1 cho `plan.md`; một slice là một commit gồm đúng các file này.
+- `governingDocs`: mỗi key là file trong `files`, value là reference `path.md::số-mục`; script kiểm file và heading tồn tại, đồng thời reference phải xuất hiện trong `## Quyết định`.
+- `tdd`: chỉ `tdd.py` ghi. `tddTests` cần `redAt` + `greenAt`; `verificationTests` cần `verifiedAt` trước khi slice `done`.
 - `untestable`: AC không test tự động được ở đây, kèm lý do và cách kiểm tay; báo cáo liệt kê chúng ở mục *Chưa làm*.
 - `status` của slice: `todo` → `code` → `done`. Slice phụ thuộc nhau tạo thành DAG; `state.py check` từ chối id trùng, `dependsOn` không tồn tại và vòng lặp.
 - `handoff`: tối đa 5 dòng mỗi slice, chỉ những gì slice sau dùng lại (tên export, quyết định). Không ghi nhật ký làm việc.
@@ -42,8 +56,8 @@ Lệnh:
 
 ```bash
 python S/scripts/state.py init <T> --branch <nhánh> --mode lite|full
-python S/scripts/state.py set <T> mode=lite slices.S1.status=done 'next=S2: …' currentSlice=S2
-python S/scripts/state.py push <T> 'slices=[{"id":"S3","acs":[2],"dependsOn":[],"status":"todo"}]'
+python S/scripts/state.py set <T> mode=lite slices.S1.status=code 'next=S1: chạy test red' currentSlice=S1
+# Push một object đầy đủ theo schema S1/S2 ở trên; state.py từ chối field thiếu.
 python S/scripts/state.py check <T>
 ```
 

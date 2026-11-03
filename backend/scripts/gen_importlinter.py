@@ -94,7 +94,7 @@ def render(root: Path) -> str:
             "Modules publish events only via shared.events.publish",
             ["modules"],
             list(OUTBOX_INTERNALS),
-            # Chỉ cấm import trực tiếp: shared.tasks.enqueue_on_commit (02 mục 9.1) đi qua
+            # Chỉ cấm import trực tiếp: shared.tasks.enqueue_on_commit (13 mục 4) đi qua
             # shared.events.operations → relay → tasks
             indirect=True,
         )

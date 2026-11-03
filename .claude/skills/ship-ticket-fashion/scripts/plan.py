@@ -20,6 +20,18 @@ def cell(items: list) -> str:
     return "<br>".join(f"`{i}`" for i in items) or "—"
 
 
+def governing_cell(slice_: dict) -> str:
+    governing = slice_.get("governingDocs", {})
+    return "<br>".join(f"`{path}` → {', '.join(refs)}" for path, refs in governing.items()) or "—"
+
+
+def tests_cell(slice_: dict) -> str:
+    expected = slice_.get("expectedRed", {})
+    tdd = [f"TDD `{test}` → {expected.get(test, '?')}" for test in slice_.get("tddTests", [])]
+    verification = [f"Verify `{test}`" for test in slice_.get("verificationTests", [])]
+    return "<br>".join([*tdd, *verification]) or "—"
+
+
 def render(state: dict) -> str:
     slices = state.get("slices", [])
     lines = [
@@ -28,12 +40,12 @@ def render(state: dict) -> str:
         "Sinh bằng `plan.py` từ state của skill. Mỗi task là đúng một commit có trailer "
         "`Task: <task>`.",
         "",
-        "| Task | AC | Seam | Test dự kiến | File | Sau |",
+        "| Task | AC | Seam | Test dự kiến | File → tài liệu chi phối | Sau |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     lines += [
         f"| {s['id']} | {', '.join(str(a) for a in s.get('acs', [])) or '—'} "
-        f"| {s.get('seam', '—')} | {cell(s.get('tests', []))} | {cell(s.get('files', []))} "
+        f"| {s.get('seam', '—')} | {tests_cell(s)} | {governing_cell(s)} "
         f"| {', '.join(s.get('dependsOn', [])) or '—'} |"
         for s in slices
     ]

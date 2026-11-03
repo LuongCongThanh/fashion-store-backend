@@ -113,7 +113,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
-# Log JSON ra stdout, đã che PII; local ghi đè bằng log dễ đọc (02 mục 9.6)
+# Log JSON ra stdout, đã che PII; local ghi đè bằng log dễ đọc (13 mục 10)
 LOGGING = configure_logging(json=True)
 # django-structlog mặc định gắn `ip` thô (đọc cả X-Client-IP chưa xác minh) vào contextvars,
 # nên mọi dòng log của request mang IP; IP chỉ được log dạng pii_hmac (05 mục 5, ADR 0016)

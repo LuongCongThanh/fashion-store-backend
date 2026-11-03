@@ -116,6 +116,267 @@ Một Order online có nhiều Payment tra theo `reference`; `Order.payment_id` 
 
 Khi bootstrap, xuất danh sách bảng từ DB sau migrate để đối chiếu cả bảng dự án và framework. Không chép mọi cột thư viện vào tài liệu này hoặc sửa migration bên thứ ba để ép theo quy ước nghiệp vụ.
 
+### 0.10. Chuyển đặc tả thành Django model và migration
+
+Mục này minh hoạ cách dịch các ký hiệu trong tài liệu sang Django. Đây không phải implementation đầy đủ
+của từng bảng: danh sách cột và ràng buộc tại mục 1–9 vẫn là nguồn chuẩn. Quy tắc đặt tên, type hints,
+service và test nằm ở [13](./13-python-django-coding-style.md) và [12](./12-testing-strategy.md).
+
+#### 0.10.1. Field, enum, constraint và index
+
+Ví dụ dưới đây là trích đoạn của `catalog_variant`; các FK và field còn lại vẫn phải triển khai theo mục
+3.7.
+
+```python
+class VariantStatus(models.TextChoices):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class Variant(BaseModel):
+    sku = models.CharField(max_length=64, unique=True)
+    price = models.BigIntegerField()
+    status = models.CharField(
+        max_length=32,
+        choices=VariantStatus.choices,
+        default=VariantStatus.ACTIVE,
+    )
+
+    class Meta:
+        db_table = "catalog_variant"
+        constraints = (
+            models.CheckConstraint(
+                condition=models.Q(price__gt=0),
+                name="catalog_variant_price_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=VariantStatus.values),
+                name="catalog_variant_status_valid",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=["updated_at"],
+                condition=models.Q(status=VariantStatus.ACTIVE),
+                name="catalog_variant_active_updated_idx",
+            ),
+        )
+```
+
+**Ánh xạ:** `enum(active | archived)` trở thành `TextChoices` + `CharField(choices=...)` và một
+`CheckConstraint`; `CHECK(price > 0)` trở thành lookup `price__gt=0`; partial index dùng `condition`.
+`choices` chỉ validate ở Python/form, còn `CHECK` mới chặn giá trị lạ khi ghi trực tiếp hoặc khi code bỏ
+qua validation.
+
+Tên constraint/index phải duy nhất trong toàn database, có tiền tố module và model, diễn tả invariant
+thay vì số thứ tự như `check_1`. Chỉ tạo index đã được đặc tả hoặc có query plan chứng minh nhu cầu; FK
+không mặc nhiên cần index ghép bổ sung ngoài index Django/PostgreSQL đã tạo.
+
+#### 0.10.2. Constraint khoảng thời gian không chồng nhau
+
+`catalog_sale_price` lưu `starts_at` và `ends_at` ở hai cột nhưng so sánh chúng như khoảng `[start, end)`.
+`btree_gist` phải được bật bằng `BtreeGistExtension` trong migration trước khi thêm constraint.
+
+```python
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateTimeRangeField, RangeOperators
+from django.db import models
+
+from modules.catalog.models import Variant
+from shared.models import BaseModel
+
+
+sale_period = models.Func(
+    models.F("starts_at"),
+    models.F("ends_at"),
+    models.Value("[)"),
+    function="TSTZRANGE",
+    output_field=DateTimeRangeField(),
+)
+
+
+class SalePrice(BaseModel):
+    variant = models.ForeignKey(Variant, on_delete=models.CASCADE, related_name="sale_prices")
+    price = models.BigIntegerField()
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "catalog_sale_price"
+        constraints = (
+            models.CheckConstraint(
+                condition=models.Q(price__gt=0),
+                name="catalog_sale_price_price_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(starts_at__lt=models.F("ends_at")),
+                name="catalog_sale_price_period_valid",
+            ),
+            ExclusionConstraint(
+                name="catalog_sale_price_period_no_overlap",
+                expressions=(
+                    ("variant", RangeOperators.EQUAL),
+                    (sale_period, RangeOperators.OVERLAPS),
+                ),
+            ),
+        )
+```
+
+**Vì sao:** kiểm tra trong serializer/service có race condition khi hai transaction cùng thấy chưa có
+khoảng trùng rồi cùng insert. `ExclusionConstraint` để PostgreSQL phân xử tại thời điểm ghi. Biên `[)`
+cho phép một Giá khuyến mãi bắt đầu đúng lúc giá trước kết thúc mà không bị coi là chồng nhau.
+
+Migration bật extension phải đứng trước operation tạo constraint:
+
+```python
+from django.contrib.postgres.operations import BtreeGistExtension
+
+
+class Migration(migrations.Migration):
+    operations = [
+        BtreeGistExtension(),
+        # migrations.AddConstraint(...) do `makemigrations` serialize từ Meta ở trên.
+    ]
+```
+
+Đoạn migration chỉ minh hoạ thứ tự dependency: đặt `BtreeGistExtension()` trước `AddConstraint` mà
+`makemigrations` sinh từ `Meta`. Không import model hiện hành hoặc chép `SalePrice._meta` vào file
+migration bằng tay.
+
+#### 0.10.3. FK thật và liên kết logic không FK
+
+```python
+from modules.catalog.models import Variant
+
+
+class StockItem(BaseModel):
+    # FK tới module lớp dưới: database giữ toàn vẹn, service không traversal sang catalog.
+    variant = models.ForeignKey(Variant, on_delete=models.PROTECT)
+
+
+class StockReservation(BaseModel):
+    # Mã đơn thuộc module không được phép phụ thuộc: chỉ là liên kết logic.
+    reference = models.CharField(max_length=16)
+```
+
+**Vì sao:** FK được phép theo chiều dependency của [02 mục 6.3](./02-backend-structure.md#63-fk-sang-module-khác)
+để database chặn bản ghi mồ côi. `reference` không có FK vì `inventory` không được phụ thuộc ngược vào
+`ordering`; service kiểm tra Mã đơn qua public contract và giữ idempotency bằng natural key/constraint.
+Có FK không đồng nghĩa được phép `select_related()` hoặc lookup xuyên vào field nội bộ của module kia.
+
+Khai báo FK xuyên module bằng class import thật để `import-linter` thấy dependency. Liên kết logic dùng
+`UUIDField`/mã đúng độ dài, ghi comment `không FK` và có constraint/index phục vụ lookup nếu bảng tương ứng
+yêu cầu.
+
+#### 0.10.4. JSON có schema
+
+`JSONField` không biến payload thành dữ liệu tự do. Schema `invoice_info` ở mục 8.3 được validate bằng
+Pydantic tại boundary và kiểm tra quan hệ NULL bằng database constraint.
+
+```python
+from pydantic import BaseModel as PydanticModel
+from pydantic import Field
+
+
+class InvoiceInfoDTO(PydanticModel):
+    company_name: str = Field(min_length=1, max_length=255)
+    tax_code: str = Field(min_length=1, max_length=14)
+    company_address: str = Field(min_length=1, max_length=255)
+    invoice_email: str = Field(min_length=1, max_length=254)
+
+
+class Order(BaseModel):
+    invoice_requested = models.BooleanField(default=False)
+    invoice_info = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        constraints = (
+            models.CheckConstraint(
+                condition=(
+                    models.Q(invoice_requested=True, invoice_info__isnull=False)
+                    | models.Q(invoice_requested=False, invoice_info__isnull=True)
+                ),
+                name="ordering_order_invoice_info_matches_request",
+            ),
+        )
+
+
+invoice_info = InvoiceInfoDTO.model_validate(raw_invoice_info).model_dump(mode="json")
+```
+
+**Vì sao:** Pydantic bảo vệ key, type và độ dài trước khi ghi; `CHECK` bảo vệ quan hệ giữa JSON và trạng
+thái ngay cả khi một đường ghi bỏ qua Pydantic. Không nhét field thường xuyên lọc/sort/join vào JSON để
+tránh khai báo cột và migration.
+
+#### 0.10.5. Default, rolling deploy và data migration
+
+`default` chạy trong Python; `db_default` tồn tại ở database. Khi code phiên bản cũ còn có thể insert
+trong rolling deploy, cột `NOT NULL` mới cần `db_default` cho tới khi mọi writer đã gửi giá trị.
+
+```python
+status = models.CharField(
+    max_length=32,
+    choices=DeliveryStatus.choices,
+    db_default=DeliveryStatus.PENDING,
+)
+```
+
+Không dùng một migration vừa thêm cột bắt buộc không default, vừa giả định mọi process cũ đã dừng. Với
+bảng lớn, tách expand/backfill/enforce/contract thành các migration có thể deploy độc lập; kiểm tra lock
+và thời gian chạy trên dữ liệu gần production.
+
+Data migration dùng historical model và không gọi service hiện hành:
+
+```python
+def seed_shipping_settings(apps, schema_editor) -> None:
+    ShippingSettings = apps.get_model("modules", "ShippingSettings")
+    ShippingSettings.objects.get_or_create(
+        singleton=1,
+        defaults={"fallback_fee": 35_000},
+    )
+
+
+class Migration(migrations.Migration):
+    operations = [migrations.RunPython(seed_shipping_settings, migrations.RunPython.noop)]
+```
+
+**Vì sao:** historical model khớp migration state tại thời điểm chạy, còn service hiện hành có thể đã
+đổi field hoặc dependency. `get_or_create` làm seed chạy lại an toàn và không ghi đè cấu hình Admin đã
+sửa. Reverse là no-op vì xoá singleton đã được dữ liệu nghiệp vụ sử dụng có thể phá hệ thống.
+
+#### 0.10.6. Test constraint tại database
+
+Service test chứng minh lỗi domain; model/constraint test phải thử ghi dữ liệu sai trực tiếp để chứng
+minh PostgreSQL vẫn bảo vệ invariant khi validation Python bị bỏ qua.
+
+```python
+from datetime import UTC, datetime
+
+import pytest
+from django.db import IntegrityError, transaction
+
+
+@pytest.mark.django_db
+def test_sale_price_rejects_overlapping_periods(variant: Variant) -> None:
+    SalePriceFactory(
+        variant=variant,
+        starts_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ends_at=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        SalePriceFactory(
+            variant=variant,
+            starts_at=datetime(2026, 1, 15, tzinfo=UTC),
+            ends_at=datetime(2026, 2, 15, tzinfo=UTC),
+        )
+```
+
+`transaction.atomic()` bên trong giữ transaction của test dùng được sau `IntegrityError`. Test cần thêm
+case biên hai khoảng liền nhau được chấp nhận, vì constraint dùng `[)`. Các constraint phức tạp, partial
+index quan trọng và migration dữ liệu phải chạy trên PostgreSQL thật; không thay bằng SQLite hoặc chỉ gọi
+`full_clean()`.
+
 ## 1. `shared`
 
 ```mermaid
@@ -557,7 +818,7 @@ Ràng buộc và index: `UNIQUE(product_color_id, size_id)` (BR-CAT-02); index t
 Ghi chú:
 
 - `checkout_version` có mặt trong `VariantForSaleDTO`. Tăng phiên bản khi Giá bán, SKU, dữ liệu snapshot, cân nặng hoặc điều kiện bán thay đổi; thay đổi liên quan ở Product/Size/Color cũng phải tăng phiên bản các Biến thể bị ảnh hưởng. `is_available` là bản sao tồn kho, không làm đổi phiên bản; `inventory` vẫn quyết định đủ hàng hay không.
-- `checkout_version` và hash snapshot được đưa vào `quote_token` ([04 mục 5.3](./04-api-contract.md#53-vòng-đời-quote_token)) và được kiểm tra lại dưới khoá Variant khi checkout ([02 mục 6.2](./02-backend-structure.md#62-ví-dụ-luồng-một-request)). Writer của catalog khoá Variant theo [02 mục 9.1](./02-backend-structure.md#91-quy-ước-chung); không gọi inventory khi đang giữ khoá Variant.
+- `checkout_version` và hash snapshot được đưa vào `quote_token` ([04 mục 5.3](./04-api-contract.md#53-vòng-đời-quote_token)) và được kiểm tra lại dưới khoá Variant khi checkout ([02 mục 6.2](./02-backend-structure.md#62-ví-dụ-luồng-một-request)). Writer của catalog khoá Variant theo [13 mục 4](./13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài); không gọi inventory khi đang giữ khoá Variant.
 - Đổi `price` bị từ chối khi có `catalog_sale_price` đang hoặc sắp hiệu lực với `price` ≥ giá mới (BR-PRC-05), kiểm tra ở service.
 
 ### 3.8. `catalog_sale_price`: Giá khuyến mãi
@@ -734,7 +995,7 @@ Ràng buộc:
 - `CHECK(usage_limit IS NULL OR usage_limit > 0)`, `CHECK(per_customer_limit IS NULL OR per_customer_limit > 0)`.
 - `CHECK(starts_at < ends_at)`.
 
-Đếm lượt dùng: khoá dòng Voucher bằng `select_for_update` khi redeem để không vượt `usage_limit` lúc nhiều người dùng cùng lúc. Dòng Voucher được khoá **sau** các dòng Tồn kho (thứ tự khoá cố định, xem [02](./02-backend-structure.md) mục 9.1). Số lượt đã dùng đếm từ `promotions_voucher_redemption`, không lưu cột đếm riêng.
+Đếm lượt dùng: khoá dòng Voucher bằng `select_for_update` khi redeem để không vượt `usage_limit` lúc nhiều người dùng cùng lúc. Dòng Voucher được khoá **sau** các dòng Tồn kho (thứ tự khoá cố định, xem [13](./13-python-django-coding-style.md) mục 4). Số lượt đã dùng đếm từ `promotions_voucher_redemption`, không lưu cột đếm riêng.
 
 Số tiền giảm tính bằng số nguyên theo BR-VCH-10: giảm theo % làm tròn xuống đến đồng trước khi áp `max_discount` và giới hạn bằng Tạm tính. Kiểm tra Tổng tiền đơn > 0 thuộc `ordering` (BR-ORD-09), không đổi giá trị Voucher để né điều kiện này.
 

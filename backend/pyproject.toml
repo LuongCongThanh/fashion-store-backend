@@ -88,7 +88,7 @@ python_version = "3.14"
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 # `strict` chỉ đặt được ở mục chung, không đặt được theo module, nên liệt kê từng flag
-# tương đương --strict cho các phần bắt buộc kiểu chặt (02 mục 9.1)
+# tương đương --strict cho các phần bắt buộc kiểu chặt (13 mục 2)
 [[tool.mypy.overrides]]
 module = ["modules.*.services.*", "modules.*.selectors.*", "modules.*.contracts"]
 disallow_untyped_defs = true
