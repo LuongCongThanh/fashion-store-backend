@@ -27,6 +27,7 @@ Thêm ở review: `tests/test_gen_openapi.py::test_check_rejects_non_utf8_schema
 #### Thay đổi theo yêu cầu
 
 - SonarCloud (PR #59, Quality Gate E Security): `gen_openapi.py:57`, `:72` Path Traversal vì đường dẫn đích đến từ cờ `--schema` → bỏ cờ, luôn dùng `openapi.yaml` của thư mục hiện tại như `gen_importlinter.py`; test đặt `cwd` là thư mục tạm. `gen_openapi.py:43` cú pháp suppression → lý do của `noqa: S603` về dòng riêng (SonarCloud đọc cả chỉ thị noqa), đảo lại S2 trong `scripts/`.
+- SonarCloud lần 2: `gen_openapi.py:72` Path Traversal via file content (ghi nội dung file tạm ra `openapi.yaml`) → chế độ ghi để `spectacular --file` ghi thẳng file đích (spectacular chỉ ghi khi sinh và kiểm xong); chỉ `--check` dùng file tạm.
 
 #### Review
 

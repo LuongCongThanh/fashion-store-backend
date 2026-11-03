@@ -46,12 +46,13 @@ def _render(target: Path) -> int:
 
 
 def _run(schema: Path, *, check: bool) -> int:
+    if not check:
+        # spectacular chỉ ghi file khi đã sinh và kiểm xong: lỗi thì file đã commit giữ nguyên
+        return _report_failure() if _render(schema) != 0 else 0
     with tempfile.TemporaryDirectory() as tmp:
-        # Sinh ra file tạm trước: lỗi giữa chừng không làm hỏng file đã commit
         generated = Path(tmp) / SCHEMA_NAME
         if _render(generated) != 0:
-            print("ERROR: drf-spectacular failed to generate a valid schema", file=sys.stderr)
-            return 1
+            return _report_failure()
         expected = generated.read_text(encoding="utf-8")
     try:
         current = schema.read_text(encoding="utf-8") if schema.exists() else ""
@@ -59,18 +60,20 @@ def _run(schema: Path, *, check: bool) -> int:
         raise GeneratorError(f"{schema}: {exc}") from exc
     if current == expected:
         return 0
-    if check:
-        diff = difflib.unified_diff(
-            current.splitlines(keepends=True),
-            expected.splitlines(keepends=True),
-            fromfile=schema.name,
-            tofile="manage.py spectacular",
-        )
-        sys.stdout.writelines(diff)
-        print(f"{schema.name} is stale: run `make openapi` and commit the result")
-        return 1
-    schema.write_text(expected, encoding="utf-8", newline="\n")
-    return 0
+    diff = difflib.unified_diff(
+        current.splitlines(keepends=True),
+        expected.splitlines(keepends=True),
+        fromfile=schema.name,
+        tofile="manage.py spectacular",
+    )
+    sys.stdout.writelines(diff)
+    print(f"{schema.name} is stale: run `make openapi` and commit the result")
+    return 1
+
+
+def _report_failure() -> int:
+    print("ERROR: drf-spectacular failed to generate a valid schema", file=sys.stderr)
+    return 1
 
 
 def main() -> int:
