@@ -441,7 +441,8 @@ def cmd_start(args: argparse.Namespace) -> int:
                         f"FRONTIER {slug}: {front[0].num:02d} ({front[0].title})"
                         + (f", {rest}" if rest else "")
                     )
-            print("Chạy progress.py để xem toàn bộ tiến độ.")
+            print(f"READ {SKILL}/reference/rules.md")
+            print(f"READ {SKILL}/reference/pick-ticket.md")
             return 0
 
     flags = []

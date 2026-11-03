@@ -15,7 +15,7 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 ## Đầu mỗi lần chạy
 
 1. `python3 S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
-   - `NO STATE` kèm frontier → chưa có ticket đang làm: báo tiến độ (`python3 S/scripts/progress.py`), hỏi người dùng chọn ticket (khuyên dùng theo thứ tự ưu tiên mới nhất trong *Decisions-so-far* của `.scratch/mvp-roadmap/map.md`; chưa có thì đề xuất thứ tự, lỗi thật trước rồi tới cổng chặn CI, và ghi vào đó khi người dùng duyệt), rồi vào phase 1. Có ticket `needs-triage` → cùng lần hỏi, đề xuất người dùng gõ `/mattpocock-skills:triage <thư mục ticket>` (skill chỉ người dùng gọi được); người dùng muốn trả lời ngay thì hỏi từng ticket: `ready-for-agent`, `ready-for-human`, `wontfix` hay để sau (`docs/agents/triage-labels.md`). Ghi dòng `Status:` theo kết quả và commit cùng ticket ở phase 1 bước 12 (commit `plan`). Một package đã có từ 3 ticket trở lên sửa (`git log --oneline origin/dev -- <package>`) và frontier còn ticket ở đó → cùng lần hỏi, đề xuất theo `phases/0-plan.md` mục *Điểm nóng*. Frontier rỗng, hoặc mốc chỉ còn ticket bị chặn hay cần người → `phases/0-plan.md`.
+   - `NO STATE` kèm `FRONTIER` → chưa có ticket đang làm: làm theo `reference/pick-ticket.md` (script in dòng `READ`).
    - `retro #<PR>` → bỏ qua state, làm `phases/8-retro.md` mục *Retro một PR*.
 2. Đọc mọi file sau `READ` bằng Read tool, mỗi file một lần gọi.
 3. Bắt đầu từ `next`. Tham số `[phase]` ghi đè phase, trừ khi gate chưa được duyệt.
@@ -37,11 +37,13 @@ Phase 7 chỉ vào **8 retro** khi `retro_batch.py status` báo đủ 10 ticket 
 | 1 | grill | `phases/1-grill.md` | `grilling`; `codebase-design` khi ticket có interface public; `research` khi ticket bọc việc của thư viện bên thứ ba | nhánh, *spec* + *plan* đã commit, ⛔G1 |
 | 2 | code | `phases/2-code.md` | `tdd`; `diagnosing-bugs` khi test đỏ sai dự kiến | mọi slice xanh, mỗi slice một commit |
 | 3 | report | `phases/3-report.md` | — | `report.md` (commit ở sync) |
-| 4 | review | `phases/4-review.md` | `/mattpocock-skills:code-review` (trục Spec, Standards) + sub-agent trục Bug; `diagnosing-bugs` xác minh finding Bug | mọi finding có kết luận |
+| 4 | review | `phases/4-review.md` | `code-review` (trục Spec, Standards) + sub-agent trục Bug; `diagnosing-bugs` xác minh finding Bug | mọi finding có kết luận |
 | 5 | sync | `phases/5-sync.md` | `domain-modeling` khi có thuật ngữ / ADR mới | tài liệu khớp code, ⛔G2 |
 | 6 | ship | `phases/6-ship.md` | `pr` (thân PR); `diagnosing-bugs` khi CI đỏ chưa rõ nguyên nhân | PR mở, ticket đóng trong PR, CI xanh |
 | 7 | done | `phases/7-done.md` | — | merge khi người dùng bảo |
 | 8 | retro (đủ đợt / theo yêu cầu) | `phases/8-retro.md` | `writing-for-agents`; người dùng gõ `/mattpocock-skills:retro` | kết luận đợt 10 ticket + một PR skill/checkpoint |
+
+Skill viết dạng `/mattpocock-skills:<tên>` là skill chỉ người dùng gọi được (`disable-model-invocation`): agent đề xuất người dùng gõ lệnh, không tự gọi. Skill không có `/` thì agent gọi bằng Skill tool.
 
 Quy tắc chung cho mọi phase: `reference/rules.md`.
 
@@ -80,7 +82,7 @@ python3 S/scripts/state.py transition <T> --to <phase> --next "<một việc c�
 
 Script từ chối nhảy cóc phase, vào `code` khi chưa có G1, vào `ship` khi chưa có G2, vào `report` khi còn slice chưa xong.
 
-**Điểm clear** (các file phase chỉ ra chỗ): sau khi state và ticket đã giữ mọi quyết định, in `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục. Cần mang ngữ cảnh ngoài state sang phiên mới thì gõ /mattpocock-skills:handoff <T> <phase>.`, rồi làm tiếp trừ khi người dùng ngắt.
+**Điểm clear** (các file phase chỉ ra chỗ): sau khi state và ticket đã giữ mọi quyết định, in `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục.`, rồi làm tiếp trừ khi người dùng ngắt. Chỉ khi phiên còn ngữ cảnh chưa ghi vào state hay ticket (grilling dở, điều người dùng vừa nói chưa ghi), thêm: `Cần mang ngữ cảnh đó sang phiên mới thì gõ /mattpocock-skills:handoff <T> <phase>.`
 
 ## Gate
 

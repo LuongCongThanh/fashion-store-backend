@@ -52,7 +52,7 @@ Chỉ gọi skill thực sự có trong danh sách của phiên; tên `mattpococ
 | `research` | Tra tài liệu gốc (docs chính thức, source của thư viện đúng phiên bản trong `backend/uv.lock`), ghi kết quả có trích nguồn vào `.scratch/<feature>/research/<chủ-đề>.md`. |
 | `diagnosing-bugs` | Dựng một lệnh đỏ đúng lỗi (test, script) và chạy được trước, rồi mới đặt giả thuyết và sửa; không dựng được thì báo rõ đã thử gì. |
 | `pr` | Giữ khung `.github/pull_request_template.md`; *Giải pháp* dùng pseudocode / call tree nhỏ nhất, *Cách kiểm* ghi Before/After, *Reviewer cần chú ý* ghi Door và Blast Radius. |
-| `triage`, `retro`, `handoff` (người dùng gọi) | Bỏ đề xuất gõ lệnh: triage hỏi trực tiếp như phase 1; retro dùng nguồn bằng chứng ở mục Retro; handoff thay bằng state + thông báo mở phiên mới. |
+| `triage`, `retro`, `handoff` (người dùng gọi) | Bỏ đề xuất gõ lệnh: triage hỏi trực tiếp theo `S/reference/pick-ticket.md` bước 3; retro dùng nguồn bằng chứng ở mục Retro; handoff thay bằng state + thông báo mở phiên mới. |
 | `writing-for-agents` | Ghi đúng cải tiến retro đã chọn: mỗi ý một chỗ, chỉ dẫn hành động cụ thể; bỏ dòng trùng hoặc lỗi thời. Giữ quy tắc và ví dụ theo cùng một nguồn. |
 
 ## Shell và GitHub
