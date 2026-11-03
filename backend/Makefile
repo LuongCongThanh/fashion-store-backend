@@ -6,7 +6,7 @@
 # code page của máy (vd. cp1252) nên lint-imports dừng ở tên contract tiếng Việt.
 export PYTHONUTF8 := 1
 
-.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset br-report
+.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset br-report openapi
 
 # Cùng lệnh với job backend của CI: pytest-cov gom coverage từ các worker xdist, rồi cổng
 # branch coverage từng module (12 mục 8)
@@ -20,6 +20,7 @@ lint:
 	uv run mypy .
 	uv run python scripts/gen_importlinter.py --check
 	uv run lint-imports
+	uv run python scripts/gen_openapi.py --check
 
 fmt:
 	uv run ruff format .
@@ -73,3 +74,8 @@ db-reset:
 # Liệt kê các mã BR-xxx trong docs/business/04-business-rules.md chưa có test gắn marker `br` (12 mục 3)
 br-report:
 	uv run python scripts/br_report.py
+
+# Sinh lại openapi.yaml (spectacular --validate --fail-on-warn) sau khi đổi API; commit file này
+# cùng PR. make lint và CI fail khi file đã commit lệch với code (12 mục 5)
+openapi:
+	uv run python scripts/gen_openapi.py

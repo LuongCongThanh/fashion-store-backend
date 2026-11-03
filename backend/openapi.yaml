@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: Fashion Store API
+  version: 0.1.0
+paths:
+  /api/v1/store/geo/provinces:
+    get:
+      operationId: v1_store_geo_provinces_list
+      tags:
+      - v1
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeoDTO'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Vượt giới hạn request (`THROTTLED`).
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+  /api/v1/store/geo/provinces/{code}/wards:
+    get:
+      operationId: v1_store_geo_provinces_wards_list
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeoDTO'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Không tìm thấy (`NOT_FOUND`).
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Vượt giới hạn request (`THROTTLED`).
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+components:
+  schemas:
+    ErrorDTO:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Mã lỗi ổn định, frontend dịch theo mã.
+            message:
+              type: string
+              description: Thông báo mặc định theo `Accept-Language`.
+            details:
+              type: object
+              additionalProperties: {}
+              description: 'Chi tiết theo mã. `VALIDATION_ERROR`: `{fields: {field_path:
+                string[]}}`; mã không có chi tiết: `{}`.'
+            request_id:
+              type: string
+              description: Mã request để tra log.
+          required:
+          - code
+          - message
+          - details
+          - request_id
+      required:
+      - error
+    GeoDTO:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 10
+        name:
+          type: string
+          maxLength: 255
+      required:
+      - code
+      - name
