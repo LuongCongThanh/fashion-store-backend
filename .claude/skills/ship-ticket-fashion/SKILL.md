@@ -14,6 +14,8 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 
 ## Đầu mỗi lần chạy
 
+Máy Windows (PowerShell, Git Bash): đọc `gotchas/windows-shell.md` trước bước 1, và thay `python3` bằng `python` trong mọi lệnh mẫu của skill.
+
 1. `python3 S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
    - `NO STATE` kèm `FRONTIER` → chưa có ticket đang làm: làm theo `reference/pick-ticket.md` (script in dòng `READ`).
    - `retro #<PR>` → bỏ qua state, làm `phases/8-retro.md` mục *Retro một PR*.

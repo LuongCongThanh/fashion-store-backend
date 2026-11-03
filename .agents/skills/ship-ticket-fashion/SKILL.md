@@ -51,7 +51,7 @@ Chỉ gọi skill thực sự có trong danh sách của phiên; tên `mattpococ
 | `improve-codebase-architecture` (người dùng gọi) | Khảo sát khu vực nóng và các caller, chỉ ra vấn đề bằng code cụ thể, đề xuất phạm vi cải thiện và đánh đổi. Người dùng chọn trước khi tạo ticket `needs-triage` theo phase 0. |
 | `research` | Tra tài liệu gốc (docs chính thức, source của thư viện đúng phiên bản trong `backend/uv.lock`), ghi kết quả có trích nguồn vào `.scratch/<feature>/research/<chủ-đề>.md`. |
 | `diagnosing-bugs` | Dựng một lệnh đỏ đúng lỗi (test, script) và chạy được trước, rồi mới đặt giả thuyết và sửa; không dựng được thì báo rõ đã thử gì. |
-| `pr` | Giữ khung `.github/pull_request_template.md` (Làm gì, Vì sao, Giải pháp, Kết quả); *Giải pháp* dùng pseudocode / call tree nhỏ nhất, *Cách kiểm* ghi Before/After, *Reviewer cần chú ý* ghi Door và Blast Radius. |
+| `pr` | Giữ khung `.github/pull_request_template.md`; *Giải pháp* dùng pseudocode / call tree nhỏ nhất, *Cách kiểm* ghi Before/After, *Reviewer cần chú ý* ghi Door và Blast Radius. |
 | `triage`, `retro`, `handoff` (người dùng gọi) | Bỏ đề xuất gõ lệnh: triage hỏi trực tiếp theo `S/reference/pick-ticket.md` bước 3; retro dùng nguồn bằng chứng ở mục Retro; handoff thay bằng state + thông báo mở phiên mới. |
 | `writing-for-agents` | Ghi đúng cải tiến retro đã chọn: mỗi ý một chỗ, chỉ dẫn hành động cụ thể; bỏ dòng trùng hoặc lỗi thời. Giữ quy tắc và ví dụ theo cùng một nguồn. |
 

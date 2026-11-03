@@ -19,4 +19,4 @@
   - Lệnh dài chạy qua `python3 S/scripts/run_logged.py --label <tên> --cwd backend -- <lệnh>`: log ghi vào `.git/ship-ticket-fashion/logs/`, chỉ in dòng tóm tắt; đỏ thì in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên file log. Mọi `make <target>` (`lint`, `test`, `load-geo`…) đi qua `run_logged.py`: máy không có `make` thì script tự chạy recipe trong `Makefile` với output UTF-8.
   - Ghi nhiều field state trong một lần `state.py set` / `push`.
   - Giữ nội dung `.env`, secret, token ngoài output.
-- **Chạy trên Windows** (PowerShell, Git Bash): trước lệnh đầu tiên và khi gặp lỗi đường dẫn, quoting hoặc lệnh → đọc `gotchas/windows-shell.md`.
+- **Windows**: gặp lỗi đường dẫn, quoting hoặc lệnh → đọc lại `gotchas/windows-shell.md` (`SKILL.md` → *Đầu mỗi lần chạy*).
