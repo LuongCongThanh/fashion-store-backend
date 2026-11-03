@@ -200,7 +200,7 @@ class EventDelivery(models.Model):
     def __str__(self) -> str:
         return f"{self.handler} {self.status} {self.event_id}"
 
-    # Mỗi method tự lưu đúng các cột nó đổi: bên gọi không cần biết tên cột (07 mục 1.3).
+    # Mỗi method tự lưu đúng các cột nó đổi: bên gọi không cần biết tên cột.
     # Method không log; bên gọi log theo kết quả trả về
 
     @classmethod
@@ -264,8 +264,7 @@ class EventDelivery(models.Model):
         self.attempts += 1
         self.last_error = describe_error(exc)
         if self.attempts > len(RETRY_DELAYS):
-            self.status = DeliveryStatus.FAILED
-            self.failed_at = now
+            self._mark_failed(now=now)
             self._save_outcome(["attempts", "last_error", "status", "failed_at"])
             return RetryOutcome.FAILED
         retry_at = now + RETRY_DELAYS[self.attempts - 1]
@@ -282,10 +281,13 @@ class EventDelivery(models.Model):
         self._fail(describe_error(exc), now=now)
 
     def _fail(self, last_error: str, *, now: datetime) -> None:
-        self.status = DeliveryStatus.FAILED
-        self.failed_at = now
+        self._mark_failed(now=now)
         self.last_error = last_error
         self.save(update_fields=["status", "failed_at", "last_error"])
+
+    def _mark_failed(self, *, now: datetime) -> None:
+        self.status = DeliveryStatus.FAILED
+        self.failed_at = now
 
     def _save_outcome(self, fields: list[str]) -> None:
         # Kết quả đã lưu được nghĩa là lần chạy này không dở: chuỗi chạy dở liên tiếp bị ngắt

@@ -98,11 +98,11 @@ def process_delivery(event_id: UUID | str, handler_name: str) -> None:
             delivery.reject(exc, now=timezone.now())
             log.warning("event_rejected", code=exc.code)
         except RetryLater as exc:
-            _retry_or_fail(log, delivery, exc)
+            _record_handler_error(log, delivery, exc)
         except Exception as exc:
             # Traceback chỉ đi vào log; `last_error` không mang message (03 mục 1.4)
             log.exception("event_handler_error")
-            _retry_or_fail(log, delivery, exc)
+            _record_handler_error(log, delivery, exc)
         else:
             delivery.complete(now=timezone.now())
 
@@ -116,7 +116,7 @@ def _lock_delivery(event_uuid: UUID, handler_name: str) -> EventDelivery | None:
     )
 
 
-def _retry_or_fail(
+def _record_handler_error(
     log: structlog.stdlib.BoundLogger, delivery: EventDelivery, exc: Exception
 ) -> None:
     if delivery.retry_or_fail(exc, now=timezone.now()) is RetryOutcome.FAILED:

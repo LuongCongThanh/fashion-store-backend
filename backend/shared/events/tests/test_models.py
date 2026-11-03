@@ -263,6 +263,12 @@ def test_dispatch_due_requires_dispatch_deadline() -> None:
     due = EventDeliveryFactory.create(next_attempt_at=EARLIER, next_dispatch_at=NOW)
     EventDeliveryFactory.create(next_attempt_at=EARLIER, next_dispatch_at=LATER)
     EventDeliveryFactory.create(next_attempt_at=LATER, next_dispatch_at=EARLIER)
+    EventDeliveryFactory.create(
+        status=DeliveryStatus.FAILED,
+        failed_at=NOW,
+        next_attempt_at=EARLIER,
+        next_dispatch_at=EARLIER,
+    )
 
     actual = list(EventDelivery.objects.dispatch_due(NOW))
     assert actual == [due]
