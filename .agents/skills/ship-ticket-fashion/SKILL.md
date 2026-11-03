@@ -13,7 +13,7 @@ Trước khi làm ticket, đọc `CLAUDE.md` (quy ước dự án) và `GLOSSARY
 
 ## Bắt đầu và làm tiếp
 
-- Ticket, module hoặc tiến độ: chạy riêng `python .claude/skills/ship-ticket-fashion/scripts/state.py start [<T>]`, rồi đọc các file `READ` và làm theo `next`. State dùng chung với Claude; chỉ một phiên sở hữu ticket tại một thời điểm. Có dấu hiệu phiên khác đang làm cùng ticket thì xác minh với người dùng trước khi sửa state hoặc file của ticket.
+- Ticket, module hoặc tiến độ: chạy riêng `python3 .claude/skills/ship-ticket-fashion/scripts/state.py start [<T>]`, rồi đọc các file `READ` và làm theo `next`. State dùng chung với Claude; chỉ một phiên sở hữu ticket tại một thời điểm. Có dấu hiệu phiên khác đang làm cùng ticket thì xác minh với người dùng trước khi sửa state hoặc file của ticket.
 - `retro #<PR>`: bỏ qua `start`, đọc `S/phases/8-retro.md` và dùng nguồn bằng chứng Codex ở phần Retro bên dưới.
 - Sau khi lưu state và quyết định, thay thông báo `/clear` bằng: `Đã lưu state (<phase>/<slice>). Có thể mở phiên mới rồi gọi $ship-ticket-fashion <T> để tiếp tục.` Phiên mới đọc lại state, không giả định agent cũ còn tồn tại.
 

@@ -1,7 +1,7 @@
 """In các prompt người dùng đã gõ trong phiên Claude Code của repo này, làm bằng chứng cho retro.
 
 Bỏ qua kết quả tool, thân skill và thông báo hệ thống; lệnh skill in thành "[/tên] tham số".
-python .claude/skills/ship-ticket-fashion/scripts/user_prompts.py [--last N]
+python3 .claude/skills/ship-ticket-fashion/scripts/user_prompts.py [--last N]
 """
 
 from __future__ import annotations

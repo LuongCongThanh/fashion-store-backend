@@ -1,6 +1,6 @@
 ---
 name: ship-ticket-fashion
-description: Làm một ticket `.scratch/<feature>/issues/NN-*/` của Fashion Store từ grilling tới merge, retro mỗi đợt 10 ticket; tạo spec và ticket cho module chưa có ticket; retro một PR theo yêu cầu. Dùng khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo.
+description: Làm ticket `.scratch/` của Fashion Store khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo: grilling tới merge, lập spec + ticket cho module mới.
 argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done|retro] | retro #<PR>"
 ---
 
@@ -14,8 +14,8 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 
 ## Đầu mỗi lần chạy
 
-1. `python S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
-   - `NO STATE` kèm frontier → chưa có ticket đang làm: báo tiến độ (`python S/scripts/progress.py`), hỏi người dùng chọn ticket (khuyên dùng theo thứ tự ưu tiên mới nhất trong *Decisions-so-far* của `.scratch/mvp-roadmap/map.md`; chưa có thì đề xuất thứ tự, lỗi thật trước rồi tới cổng chặn CI, và ghi vào đó khi người dùng duyệt), rồi vào phase 1. Có ticket `needs-triage` → cùng lần hỏi, đề xuất người dùng gõ `/mattpocock-skills:triage <thư mục ticket>` (skill chỉ người dùng gọi được); người dùng muốn trả lời ngay thì hỏi từng ticket: `ready-for-agent`, `ready-for-human`, `wontfix` hay để sau (`docs/agents/triage-labels.md`). Ghi dòng `Status:` theo kết quả và commit cùng ticket ở phase 1 bước 9. Một package đã có từ 3 ticket trở lên sửa (`git log --oneline origin/dev -- <package>`) và frontier còn ticket ở đó → cùng lần hỏi, đề xuất theo `phases/0-plan.md` mục *Điểm nóng*. Frontier rỗng, hoặc mốc chỉ còn ticket bị chặn hay cần người → `phases/0-plan.md`.
+1. `python3 S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
+   - `NO STATE` kèm frontier → chưa có ticket đang làm: báo tiến độ (`python3 S/scripts/progress.py`), hỏi người dùng chọn ticket (khuyên dùng theo thứ tự ưu tiên mới nhất trong *Decisions-so-far* của `.scratch/mvp-roadmap/map.md`; chưa có thì đề xuất thứ tự, lỗi thật trước rồi tới cổng chặn CI, và ghi vào đó khi người dùng duyệt), rồi vào phase 1. Có ticket `needs-triage` → cùng lần hỏi, đề xuất người dùng gõ `/mattpocock-skills:triage <thư mục ticket>` (skill chỉ người dùng gọi được); người dùng muốn trả lời ngay thì hỏi từng ticket: `ready-for-agent`, `ready-for-human`, `wontfix` hay để sau (`docs/agents/triage-labels.md`). Ghi dòng `Status:` theo kết quả và commit cùng ticket ở phase 1 bước 12 (commit `plan`). Một package đã có từ 3 ticket trở lên sửa (`git log --oneline origin/dev -- <package>`) và frontier còn ticket ở đó → cùng lần hỏi, đề xuất theo `phases/0-plan.md` mục *Điểm nóng*. Frontier rỗng, hoặc mốc chỉ còn ticket bị chặn hay cần người → `phases/0-plan.md`.
    - `retro #<PR>` → bỏ qua state, làm `phases/8-retro.md` mục *Retro một PR*.
 2. Đọc mọi file sau `READ` bằng Read tool, mỗi file một lần gọi.
 3. Bắt đầu từ `next`. Tham số `[phase]` ghi đè phase, trừ khi gate chưa được duyệt.
@@ -61,8 +61,8 @@ Code chỉ bắt đầu khi *spec* và *plan* đã commit: `state.py transition 
 
 Một *task* là đúng một commit: `plan`, mỗi slice `S<n>`, mỗi vòng sửa review `R1` / `R2`, `sync` (tài liệu + report), `close`; thêm `ci` cho mỗi lần CI đỏ. PR squash vào `dev`, nên commit trên nhánh là dấu vết để đọc, không phải lịch sử lâu dài; mỗi commit thêm còn chạy lại hook `mypy` + `lint-imports`.
 
-- Commit qua `python S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…`: gắn trailer `Refs:` (ticket) và `Task:`, hook chạy trong log, hook sửa file thì tự add lại.
-- `python S/scripts/commit_map.py <T> [--md]` in commit → task → phase → AC; báo commit thiếu trailer và task có hai commit. Bảng `--md` đi vào report, thân PR và thân commit squash.
+- Commit qua `python3 S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…`: gắn trailer `Refs:` (ticket) và `Task:`, hook chạy trong log, hook sửa file thì tự add lại.
+- `python3 S/scripts/commit_map.py <T> [--md]` in commit → task → phase → AC; báo commit thiếu trailer và task có hai commit. Bảng `--md` đi vào report, thân PR và thân commit squash.
 
 ## Mode
 
@@ -75,7 +75,7 @@ State nằm ở `.git/ship-ticket-fashion/<feature>-<NN>.json`: trong `.git/` n�
 Ghi field bằng `state.py set` / `push`. Đổi phase chỉ qua:
 
 ```bash
-python S/scripts/state.py transition <T> --to <phase> --next "<một việc cụ thể>" --reason "<tiêu chí đã đạt / gate>" [--gate g1|g2]
+python3 S/scripts/state.py transition <T> --to <phase> --next "<một việc cụ thể>" --reason "<tiêu chí đã đạt / gate>" [--gate g1|g2]
 ```
 
 Script từ chối nhảy cóc phase, vào `code` khi chưa có G1, vào `ship` khi chưa có G2, vào `report` khi còn slice chưa xong.

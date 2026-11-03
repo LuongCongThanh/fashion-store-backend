@@ -1,6 +1,6 @@
 """Ghi `plan.md` của ticket từ slice trong state (phase 1, trước G1).
 
-python .claude/skills/ship-ticket-fashion/scripts/plan.py <T>
+python3 .claude/skills/ship-ticket-fashion/scripts/plan.py <T>
 Ghi đè cả file. Slice đổi thì sửa state rồi chạy lại: state là nguồn, `plan.md` là bản in
 cho người đọc ticket và PR.
 """

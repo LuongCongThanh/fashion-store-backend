@@ -5,18 +5,25 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
 1. **Check máy trước** (rẻ hơn reviewer; output của chúng đưa cho reviewer):
 
    ```bash
-   python S/scripts/state.py check <T>
-   python S/scripts/check_ac_trace.py <T>
-   python S/scripts/check_ship.py <T>
+   python3 S/scripts/state.py check <T>
+   python3 S/scripts/check_ac_trace.py <T>
+   python3 S/scripts/check_ship.py <T>
    ```
 
    `make lint` đã gồm `ruff`, `mypy`, `lint-imports` (ranh giới module). Lỗi → sửa trước khi review. `check_ship.py` báo `WARN ticket chưa commit` là đúng: `report.md` commit ở task `sync`.
-2. **Review.** `mattpocock-skills:code-review` với fixed point `origin/dev`, spec là `spec.md` của ticket (mục `## Quyết định` là một phần của spec) cùng `userRequested` trong state (thuộc phạm vi, không phải lan man). Nguồn chuẩn: `CONTRIBUTING.md`, `docs/architecture/02-backend-structure.md`, `docs/architecture/12-testing-strategy.md`, checklist trong `.github/pull_request_template.md`. Dặn thêm:
+2. **Review ba trục.** Trong cùng một lượt, gọi song song 2a và 2b; hai việc độc lập, không gộp brief.
+
+   **2a. Trục Spec + Standards**: `mattpocock-skills:code-review` với fixed point `origin/dev`, spec là `spec.md` của ticket (mục `## Quyết định` là một phần của spec) cùng `userRequested` trong state (thuộc phạm vi, không phải lan man). Nguồn chuẩn: `docs/architecture/13-python-django-coding-style.md`, `CONTRIBUTING.md`, `docs/architecture/02-backend-structure.md`, `docs/architecture/12-testing-strategy.md`, checklist trong `.github/pull_request_template.md`. Dặn thêm:
    - trục **Spec**: "Với mỗi AC, nêu test khẳng định kết quả của nó. Báo AC hoặc nhánh của AC không có test, và test chỉ kiểm mock được gọi thay vì kết quả." Đính kèm output `check_ac_trace.py`.
    - trục **Standards**: "File test thuộc phạm vi review. Đối chiếu diff với từng mục *Tài liệu chi phối* trong `## Quyết định`; báo chỗ code trái tài liệu mà ticket không ghi lý do. Soát từng gạch đầu dòng của `CONTRIBUTING.md` mục *Quy ước code* trên mọi file test đổi (`pytest.raises`, thứ tự assert)." `## Quyết định` có dòng `Interface / seam` → thêm: "Đối chiếu interface mới với dòng đó và áp _deletion test_; báo hàm public chỉ chuyển tiếp lời gọi, và seam chỉ có một adapter mà không ghi lý do."
-   - cả ba báo cáo tiếng Việt, dưới 600 từ, mỗi finding có `file:line` và dòng chuẩn / AC được trích.
-   - mọi reviewer ghi file tạm (schema sinh ra, output lệnh) vào `.git/ship-ticket-fashion/`; ba trục xong thì `git status --short` chỉ còn file của ticket.
-   - trục **Bug**: một sub-agent `general-purpose` gọi cùng lượt với `mattpocock-skills:code-review`, nhận `git diff origin/dev...HEAD`, danh sách commit và `spec.md` của ticket. Brief: "Săn lỗi chạy sai mà Spec và Standards không soi: dữ liệu bị bỏ khi ghi, guard an toàn bị lọt, logic viết lại thứ thư viện đã có. Đọc code quanh mỗi hunk và caller của nó. Commit plan đổi dòng `Status:` của ticket đã triage là đúng quy trình. Mỗi finding mã `B1`, `B2`…, kèm `file:line` và kịch bản cụ thể gây sai."
+
+   **2b. Trục Bug**: một sub-agent `general-purpose` riêng, nhận `git diff origin/dev...HEAD`, danh sách commit và `spec.md` của ticket. Brief: "Săn lỗi chạy sai mà Spec và Standards không soi: dữ liệu bị bỏ khi ghi, guard an toàn bị lọt, logic viết lại thứ thư viện đã có. Đọc code quanh mỗi hunk và caller của nó. Commit plan đổi dòng `Status:` của ticket đã triage là đúng quy trình. Mỗi finding mã `B1`, `B2`…, kèm `file:line` và kịch bản cụ thể gây sai."
+
+   Dặn chung cho cả ba trục:
+   - báo cáo tiếng Việt, dưới 600 từ, mỗi finding có `file:line` và dòng chuẩn / AC được trích.
+   - ghi file tạm (schema sinh ra, output lệnh) vào `.git/ship-ticket-fashion/`; ba trục xong thì `git status --short` chỉ còn file của ticket.
+
+   Xong khi đã nhận đủ báo cáo của 2a (Spec, Standards) và 2b (Bug).
 3. **Xác minh** finding sẽ đổi code: tự mở dòng được trích trước khi làm; reviewer có thể sai. Finding `B<n>` → `mattpocock-skills:diagnosing-bugs` tới hết phase 1 của skill: một test đỏ đúng kịch bản lỗi; không dựng được thì phân loại *chỉ báo*. Test đó là test red của vòng sửa.
 4. **Phân loại** mỗi finding:
    - *sửa*: vi phạm chuẩn trong diff; code trái AC hoặc `## Quyết định`; thiếu test hoặc test yếu cho một AC.

@@ -16,7 +16,7 @@ Repo `LuongCongThanh/fashion-store-backend`; remote `origin` dùng SSH alias `gi
 
 ```bash
 git fetch origin && git rebase origin/dev
-python S/scripts/run_logged.py --label test --cwd backend -- make test   # chỉ khi rebase kéo về commit mới
+python3 S/scripts/run_logged.py --label test --cwd backend -- make test   # chỉ khi rebase kéo về commit mới
 git push -u origin <nhánh>        # nhánh của mình: --force-with-lease sau rebase
 ```
 
@@ -28,7 +28,7 @@ git push -u origin <nhánh>        # nhánh của mình: --force-with-lease sau 
 
 ```bash
 GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr create -B dev -H <nhánh> -t "<tiêu đề>" -F .git/PR_BODY.md --assignee @me
-python S/scripts/state.py set <T> pr=<số>
+python3 S/scripts/state.py set <T> pr=<số>
 ```
 
 ## 3. CI
@@ -68,8 +68,8 @@ Mỗi lần push thêm vào PR đã mở: cập nhật thân PR (`gh pr edit <s�
 ## 4. Đóng ticket trong PR, khi CI xanh
 
 ```bash
-python S/scripts/close_ticket.py <T> --pr <số>
-python S/scripts/progress.py --feature <feature>
+python3 S/scripts/close_ticket.py <T> --pr <số>
+python3 S/scripts/progress.py --feature <feature>
 ```
 
 `close_ticket.py` fail-closed khi thiếu state, phase `ship`, G2, PR khớp state, slice hoàn tất hoặc AC trace. Script in các AC vừa tick; đối chiếu với bảng AC → bằng chứng. AC nằm trong `untestable` không được tick và in riêng: đã kiểm tay, hoặc là AC về CI mà mục 3 đã xanh, thì tự tick; chưa thì ghi vào Notes của PR.

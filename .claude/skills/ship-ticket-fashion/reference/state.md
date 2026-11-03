@@ -17,7 +17,7 @@
       "verificationTests": [],
       "expectedRed": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100": "AssertionError"},
       "files": ["backend/shared/api/pagination.py"],
-      "governingDocs": {"backend/shared/api/pagination.py": ["docs/architecture/02-backend-structure.md::9.1"]},
+      "governingDocs": {"backend/shared/api/pagination.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]},
       "tdd": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100":
         {"redAt": "2026-10-29T10:10:00+07:00", "redReason": "FAILED …", "greenAt": "2026-10-29T10:20:00+07:00"}},
       "handoff": ["StandardPagination trong shared/api/pagination.py"] },
@@ -25,7 +25,7 @@
       "tests": ["modules/x/tests/test_services_x.py::test_x"], "tddTests": [],
       "verificationTests": ["modules/x/tests/test_services_x.py::test_x"], "expectedRed": {},
       "files": ["backend/modules/x/services/x.py"],
-      "governingDocs": {"backend/modules/x/services/x.py": ["docs/architecture/02-backend-structure.md::9.3"]},
+      "governingDocs": {"backend/modules/x/services/x.py": ["docs/architecture/13-python-django-coding-style.md::4"]},
       "tdd": {} }
   ],
   "currentSlice": "S2",
@@ -55,10 +55,10 @@
 Lệnh:
 
 ```bash
-python S/scripts/state.py init <T> --branch <nhánh> --mode lite|full
-python S/scripts/state.py set <T> mode=lite slices.S1.status=code 'next=S1: chạy test red' currentSlice=S1
+python3 S/scripts/state.py init <T> --branch <nhánh> --mode lite|full
+python3 S/scripts/state.py set <T> mode=lite slices.S1.status=code 'next=S1: chạy test red' currentSlice=S1
 # Push một object đầy đủ theo schema S1/S2 ở trên; state.py từ chối field thiếu.
-python S/scripts/state.py check <T>
+python3 S/scripts/state.py check <T>
 ```
 
 Giá trị parse được thành JSON thì lưu dạng JSON (`[4]`, `null`, `true`), ngược lại lưu chuỗi. Đường dẫn `slices.S1.x` chọn slice theo `id`. `push` thêm từng phần tử của list vào cuối field list.

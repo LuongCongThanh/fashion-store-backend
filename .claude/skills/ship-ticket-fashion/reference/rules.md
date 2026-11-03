@@ -16,7 +16,7 @@
 - **Nói với người dùng**: một mã người dùng không tự viết thì kèm nghĩa bên cạnh: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
 - **Test**: gọi skill này nghĩa là đồng ý chạy test. Lệnh chạy trong `backend/`. Test đỏ ngoài ticket: chứng minh nó đỏ trên `origin/dev` (`git stash`, chạy, `git stash pop`) rồi ghi một dòng vào báo cáo.
 - **Tiết kiệm token**:
-  - Lệnh dài chạy qua `python S/scripts/run_logged.py --label <tên> --cwd backend -- <lệnh>`: log ghi vào `.git/ship-ticket-fashion/logs/`, chỉ in dòng tóm tắt; đỏ thì in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên file log. Mọi `make <target>` (`lint`, `test`, `load-geo`…) đi qua `run_logged.py`: máy không có `make` thì script tự chạy recipe trong `Makefile` với output UTF-8.
+  - Lệnh dài chạy qua `python3 S/scripts/run_logged.py --label <tên> --cwd backend -- <lệnh>`: log ghi vào `.git/ship-ticket-fashion/logs/`, chỉ in dòng tóm tắt; đỏ thì in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên file log. Mọi `make <target>` (`lint`, `test`, `load-geo`…) đi qua `run_logged.py`: máy không có `make` thì script tự chạy recipe trong `Makefile` với output UTF-8.
   - Ghi nhiều field state trong một lần `state.py set` / `push`.
   - Giữ nội dung `.env`, secret, token ngoài output.
-- **Windows**: shell là PowerShell và Git Bash. Gặp lỗi về đường dẫn, quoting hoặc lệnh → đọc `gotchas/windows-shell.md`.
+- **Chạy trên Windows** (PowerShell, Git Bash): trước lệnh đầu tiên và khi gặp lỗi đường dẫn, quoting hoặc lệnh → đọc `gotchas/windows-shell.md`.

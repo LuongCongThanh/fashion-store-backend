@@ -1,6 +1,6 @@
 """Chạy một lệnh, ghi toàn bộ output vào log, chỉ in tóm tắt (xanh) hoặc đoạn cuối (đỏ).
 
-python .claude/skills/ship-ticket-fashion/scripts/run_logged.py --label test --cwd backend \
+python3 .claude/skills/ship-ticket-fashion/scripts/run_logged.py --label test --cwd backend \
     -- make test
 Log: .git/ship-ticket-fashion/logs/<label>.log
 

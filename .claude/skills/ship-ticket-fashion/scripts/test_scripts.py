@@ -1,6 +1,6 @@
 """Test cho các script của skill (stdlib unittest, không cần môi trường backend).
 
-python -m unittest discover -s .claude/skills/ship-ticket-fashion/scripts
+python3 -m unittest discover -s .claude/skills/ship-ticket-fashion/scripts
 """
 
 # ruff: noqa: PT009, PT027
@@ -82,9 +82,9 @@ def complete_slice(**overrides) -> dict:
         "expectedRed": {test_id: "AssertionError"},
         "files": ["backend/x.py", "backend/tests/test_x.py"],
         "governingDocs": {
-            "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"],
+            "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"],
             "backend/tests/test_x.py": [
-                "docs/architecture/02-backend-structure.md::9.5",
+                "docs/architecture/13-python-django-coding-style.md::9",
                 "docs/architecture/12-testing-strategy.md::2.1",
             ],
         },
@@ -284,11 +284,13 @@ class StateMachine(unittest.TestCase):
         self.assertTrue(any("lỗi hạ tầng" in e for e in validate(make_state(slices=[unsafe]), 1)))
 
     def test_doc_refs_require_real_file_and_heading(self):
-        self.assertIsNone(check_doc_ref("docs/architecture/02-backend-structure.md::9.1"))
-        self.assertIn(
-            "không thấy mục", check_doc_ref("docs/architecture/02-backend-structure.md::99")
-        )
-        self.assertIn("không thấy tài liệu", check_doc_ref("docs/missing.md"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "docs").mkdir()
+            (root / "docs/style.md").write_text("# Style\n\n### 3.1. View\n", encoding="utf-8")
+            self.assertIsNone(check_doc_ref("docs/style.md::3.1", root))
+            self.assertIn("không thấy mục", check_doc_ref("docs/style.md::99", root))
+            self.assertIn("không thấy tài liệu", check_doc_ref("docs/missing.md", root))
 
     def test_apply_selects_slice_by_id_and_parses_json(self):
         state = make_state(slices=[{"id": "S1", "status": "todo"}])
@@ -402,7 +404,7 @@ class PlanAndCommits(unittest.TestCase):
                     expectedRed={"t.py::a": "AssertionError"},
                     files=["backend/x.py"],
                     governingDocs={
-                        "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"]
+                        "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]
                     },
                 )
             ],
@@ -412,7 +414,7 @@ class PlanAndCommits(unittest.TestCase):
         self.assertTrue(text.startswith("# Kế hoạch\n\nSinh"))
         self.assertIn(
             "| S1 | 1, 2 | APIClient | TDD `t.py::a` → AssertionError | "
-            "`backend/x.py` → docs/architecture/02-backend-structure.md::9.1 | — |",
+            "`backend/x.py` → docs/architecture/13-python-django-coding-style.md::3.1 | — |",
             text,
         )
         self.assertIn("AC 3 không test tự động: cần Redis thật", text)

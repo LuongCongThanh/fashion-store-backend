@@ -18,7 +18,7 @@ Mục tiêu: sau PR này, `docs/` và `.scratch/` mô tả đúng code trên nh�
 9. Người dùng yêu cầu sửa thêm → ghi `userRequested`, sửa (đổi hành vi thì `--to code` rồi đi lại các phase), trình G2 lại. Duyệt xong:
 
    ```bash
-   python S/scripts/state.py transition <T> --to ship --gate g2 --next "push và mở PR" --reason "G2 approved"
+   python3 S/scripts/state.py transition <T> --to ship --gate g2 --next "push và mở PR" --reason "G2 approved"
    ```
 
 ## Xong khi

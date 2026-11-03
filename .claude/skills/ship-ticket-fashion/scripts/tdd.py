@@ -1,8 +1,8 @@
 """Chạy test của slice và ghi bằng chứng TDD hoặc verification vào state.
 
-python .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> red <test-id>
-python .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> green <test-id>
-python .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> verify <test-id>
+python3 .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> red <test-id>
+python3 .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> green <test-id>
+python3 .claude/skills/ship-ticket-fashion/scripts/tdd.py <T> <slice> verify <test-id>
 """
 
 from __future__ import annotations
