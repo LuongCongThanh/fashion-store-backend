@@ -14,6 +14,19 @@ Spec: [spec.md](../../spec.md)
 - Thêm bước vào job `backend` của `.github/workflows/ci.yml`: sinh schema ra file tạm, so với `backend/openapi.yaml`, fail nếu khác và in hướng dẫn chạy `make openapi`.
 - Xem `docs/architecture/12-testing-strategy.md` mục 5.
 
+## Quyết định
+
+Chốt khi grilling ngày 03/11/2026.
+
+| Chủ đề | Quyết định |
+| --- | --- |
+| Lệnh sinh | `manage.py spectacular --validate --fail-on-warn --file openapi.yaml`. Thêm `--fail-on-warn` so với *Việc cần làm*: warning (serializer không đoán được, enum trùng tên) làm schema thiếu mà vẫn exit 0; `shared/tests/test_api_schema.py` đã dùng cùng cờ. `--validate` tự exit 1 khi schema sai chuẩn OpenAPI (đã thử với `VERSION` là số). |
+| Seam | Script `backend/scripts/gen_openapi.py`, cùng khuôn `gen_importlinter.py`: không cờ thì ghi `openapi.yaml`; `--check` sinh ra file tạm, so với file đã commit, lệch thì in diff và hướng dẫn chạy `make openapi`, exit 1. `--schema PATH` đổi file đích để test. Script gọi `manage.py spectacular` bằng subprocess nên dùng `DJANGO_SETTINGS_MODULE` của môi trường. |
+| Chỗ chạy `--check` | Bước Lint của job `backend` trong CI và `make lint`, cùng thứ tự ở hai nơi như `gen_importlinter.py --check`. Khác *Việc cần làm* (bước riêng trong CI) vì recipe `Makefile` không dùng cú pháp shell POSIX (ADR 0017) nên phép so sánh phải nằm trong script, và dev bắt được lệch trước khi push. |
+| Độ ổn định | Đã kiểm: sinh hai lần, và với `config.settings.local` / `config.settings.test`, cho cùng output. `.gitattributes` ép LF nên không lệch dòng trên Windows. |
+| Test | `backend/tests/test_gen_openapi.py`, chạy script bằng subprocess với `tests.helpers.isolated_env()` như `tests/test_gen_importlinter.py`. Schema sai chuẩn tạo bằng module settings tạm trong `tmp_path` đặt `SPECTACULAR_SETTINGS["VERSION"]` là số. |
+| Tài liệu chi phối | `docs/architecture/12-testing-strategy.md::5`, `docs/architecture/08-local-development.md::3`, `docs/architecture/11-git-workflow.md::3.4`, `docs/adr/0017-windows-native-dev-api-on-host.md` |
+
 ## Acceptance criteria
 
 - [ ] PR đổi API mà không cập nhật `backend/openapi.yaml` bị CI chặn.
