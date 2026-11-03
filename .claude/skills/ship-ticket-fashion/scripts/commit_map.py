@@ -1,6 +1,6 @@
 """Bản đồ commit → task của nhánh: mỗi commit thuộc task nào, phase nào, AC nào.
 
-python .claude/skills/ship-ticket-fashion/scripts/commit_map.py <T> [--md]
+python3 .claude/skills/ship-ticket-fashion/scripts/commit_map.py <T> [--md]
 Đọc trailer `Task:` và `Refs:` của commit trong origin/dev..HEAD (templates/commit-msg.md).
 --md: bảng markdown cho báo cáo, thân PR và thân commit squash.
 """

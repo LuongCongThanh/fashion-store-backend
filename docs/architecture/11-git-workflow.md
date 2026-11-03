@@ -169,7 +169,7 @@ Không dùng **rebase merge** trên GitHub.
 
 - **Tiêu đề** theo Conventional Commits, ví dụ `feat(ordering): add COD checkout`.
 - **Nội dung** theo template `.github/pull_request_template.md`:
-  - Vấn đề (vì sao) và giải pháp (làm gì, vì sao chọn cách đó); đường dẫn ticket trong `.scratch/`, user story (`US-xxx`), quy tắc (`BR-xxx`).
+  - Mục *Summary* theo đúng các trường của template; đường dẫn ticket trong `.scratch/`, user story (`US-xxx`), quy tắc (`BR-xxx`).
   - Cách kiểm: test chứng minh từng acceptance criterion, bước kiểm tay nếu có.
   - **Gap và lưu ý** (bắt buộc, mục không có ghi "Không"): chưa làm, gap / rủi ro, quyết định tạm, ticket mới, chỗ reviewer cần chú ý, việc phải làm sau khi merge.
   - Checklist: có test; có migration (nếu đổi model); với thay đổi code đã chạy `make fmt`, `make lint`
@@ -181,7 +181,7 @@ Các mục ở sidebar PR trên GitHub:
 
 | Mục | Quy ước |
 |---|---|
-| Reviewers | Không gắn khi mới có một người làm. Tự review bằng `/code-review` trước khi merge. Có người thứ hai thì gắn họ và nâng số người duyệt lên 1 (mục 6) |
+| Reviewers | Không gắn khi mới có một người làm. Tự review bằng `/mattpocock-skills:code-review` trước khi merge. Có người thứ hai thì gắn họ và nâng số người duyệt lên 1 (mục 6) |
 | Assignees | Luôn gán người mở PR: `gh pr create --assignee @me` |
 | Labels | Không dùng. Loại PR nằm ở tiêu đề, trạng thái ticket nằm ở dòng `Status:` trong `.scratch/` |
 | Projects, Milestone | Không dùng. Phiên bản theo tag và `CHANGELOG.md` (mục 7) |

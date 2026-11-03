@@ -1,7 +1,7 @@
 """Đóng ticket trong PR của nó: Status resolved, dòng **PR:**, tick acceptance criteria.
 
 Theo docs/agents/issue-tracker.md mục "Đóng ticket".
-python .claude/skills/ship-ticket-fashion/scripts/close_ticket.py <T> --pr 23
+python3 .claude/skills/ship-ticket-fashion/scripts/close_ticket.py <T> --pr 23
 """
 
 from __future__ import annotations

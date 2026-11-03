@@ -10,9 +10,13 @@
 
 ## 📌 Summary
 
-**Vấn đề:** <!-- Vì sao cần PR này: lỗi gì, thiếu gì, ticket yêu cầu gì. Người đọc không mở ticket vẫn hiểu -->
+**Làm gì:** <!-- Tóm tắt thay đổi trong 1–2 câu, theo hành vi mà người dùng hoặc hệ thống nhận thấy. Không liệt kê file (đã có ở Changes) -->
 
-**Giải pháp:** <!-- Làm gì, theo cách nào, và vì sao chọn cách đó thay vì cách khác -->
+**Vì sao:** <!-- Vấn đề PR giải quyết: lỗi gì, thiếu gì, ticket yêu cầu gì, và hậu quả nếu không sửa. Người đọc không cần mở ticket vẫn hiểu -->
+
+**Giải pháp:** <!-- Cách làm và lý do chọn cách đó thay vì phương án khác. Minh hoạ bằng pseudocode, call tree hoặc diff-sketch ngắn nhất đủ hiểu -->
+
+**Kết quả:** <!-- Những gì đạt được sau PR so với trước, dạng Before → After: hành vi, số test, thời gian, lỗi. Bằng chứng ghi ở Cách kiểm; phần chưa đạt ghi ở Gap và lưu ý -->
 
 **Module:** <!-- identity, catalog, inventory, promotions, payments, shipping, ordering, notifications, shared -->
 

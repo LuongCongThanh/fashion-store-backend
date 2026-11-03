@@ -1,6 +1,6 @@
 """Mỗi acceptance criterion có slice và test thật chứng minh, hoặc nằm trong `untestable`.
 
-python .claude/skills/ship-ticket-fashion/scripts/check_ac_trace.py <T> [--planned]
+python3 .claude/skills/ship-ticket-fashion/scripts/check_ac_trace.py <T> [--planned]
 --planned: chỉ kiểm mọi AC đều có chỗ (phase 1), chưa kiểm test tồn tại.
 """
 

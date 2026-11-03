@@ -1,7 +1,7 @@
 """Đếm ticket đã merge cho retro theo đợt; checkpoint được commit cùng PR retro.
 
-python S/scripts/retro_batch.py status
-python S/scripts/retro_batch.py complete --through <sha> --batch <id>
+python3 S/scripts/retro_batch.py status
+python3 S/scripts/retro_batch.py complete --through <sha> --batch <id>
 """
 
 from __future__ import annotations

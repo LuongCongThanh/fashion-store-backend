@@ -16,19 +16,19 @@ Repo `LuongCongThanh/fashion-store-backend`; remote `origin` dùng SSH alias `gi
 
 ```bash
 git fetch origin && git rebase origin/dev
-python S/scripts/run_logged.py --label test --cwd backend -- make test   # chỉ khi rebase kéo về commit mới
+python3 S/scripts/run_logged.py --label test --cwd backend -- make test   # chỉ khi rebase kéo về commit mới
 git push -u origin <nhánh>        # nhánh của mình: --force-with-lease sau rebase
 ```
 
 ## 2. Mở PR
 
 1. Tiêu đề Conventional Commits, scope là module (`shared`, `catalog`…); tiêu đề này thành commit squash trên `dev`.
-2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. Lấy từ `report.md`: *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A.
+2. Thân PR theo `.github/pull_request_template.md`, ghi vào `.git/PR_BODY.md` (lý do ở `gotchas/windows-shell.md`). **Closes** là thư mục ticket. **Làm gì** và **Vì sao** lấy từ *Việc cần làm* và `## Quyết định` của `spec.md`. Lấy từ `report.md`: **Kết quả** ← mục *Đã làm*, viết thành Before → After của hành vi; *Cách kiểm* ← bảng AC → bằng chứng; *Gap và lưu ý* ← Chưa làm, Gap, ticket mới, AC `untestable`, mỗi dòng có nội dung hoặc "Không"; **Notes** ← kết luận review và bảng *Commit*. Checklist tick theo sự thật, mục không áp dụng ghi N/A. Viết nội dung theo `mattpocock-skills:pr`, giữ khung template của repo: **Giải pháp** dùng hình nhỏ nhất của skill (pseudocode, call tree, diff-sketch); *Cách kiểm* ghi Before/After (test đỏ → xanh); *Reviewer cần chú ý* ghi Door (một chiều / hai chiều) và Blast Radius.
 3. Tạo, rồi ghi số PR vào state:
 
 ```bash
 GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr create -B dev -H <nhánh> -t "<tiêu đề>" -F .git/PR_BODY.md --assignee @me
-python S/scripts/state.py set <T> pr=<số>
+python3 S/scripts/state.py set <T> pr=<số>
 ```
 
 ## 3. CI
@@ -39,7 +39,7 @@ GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr checks <số> --watch
 
 In `no checks reported` (chạy ngay sau push, workflow chưa đăng ký check) → chạy lại lệnh trên.
 
-Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi, sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
+Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi (nguyên nhân chưa rõ hoặc chỉ đỏ trên CI → `mattpocock-skills:diagnosing-bugs`), sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
 
 Check SonarCloud xanh cả khi còn issue (Quality Gate vẫn passed), nên đọc thêm comment của bot:
 
@@ -68,8 +68,8 @@ Mỗi lần push thêm vào PR đã mở: cập nhật thân PR (`gh pr edit <s�
 ## 4. Đóng ticket trong PR, khi CI xanh
 
 ```bash
-python S/scripts/close_ticket.py <T> --pr <số>
-python S/scripts/progress.py --feature <feature>
+python3 S/scripts/close_ticket.py <T> --pr <số>
+python3 S/scripts/progress.py --feature <feature>
 ```
 
 `close_ticket.py` fail-closed khi thiếu state, phase `ship`, G2, PR khớp state, slice hoàn tất hoặc AC trace. Script in các AC vừa tick; đối chiếu với bảng AC → bằng chứng. AC nằm trong `untestable` không được tick và in riêng: đã kiểm tay, hoặc là AC về CI mà mục 3 đã xanh, thì tự tick; chưa thì ghi vào Notes của PR.

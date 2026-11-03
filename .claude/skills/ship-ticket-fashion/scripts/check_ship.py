@@ -1,6 +1,6 @@
 """Kiểm tra trước G2 và trước push theo docs/architecture/11-git-workflow.md.
 
-python .claude/skills/ship-ticket-fashion/scripts/check_ship.py <T>
+python3 .claude/skills/ship-ticket-fashion/scripts/check_ship.py <T>
 In OK / WARN / FAIL từng mục rồi SHIP OK hoặc SHIP FAIL. Mỗi WARN / FAIL là một điểm của G2.
 """
 

@@ -1,7 +1,7 @@
-# 08. Môi trường phát triển local (macOS và Windows)
+# 08. Môi trường phát triển local (macOS, Windows và Linux)
 
 > Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)).
-> **PostgreSQL cài trên máy** (macOS: Homebrew bằng `scripts/setup/postgres.sh`; Windows: bộ cài EDB rồi `scripts/setup/postgres.ps1`), theo [ADR 0015](../adr/0015-local-postgres-on-host.md) và [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md). **Django API chạy trên máy** bằng `uv run`. Worker, beat, relay, Redis, Mailpit chạy bằng **Docker Compose**. Trên máy cần Docker, `uv` ≥ 0.13 (uv tự tải Python 3.14 theo `backend/.python-version`), `git`, `make`. Windows không dùng WSL2.
+> **PostgreSQL cài trên máy** (macOS: Homebrew bằng `scripts/setup/postgres.sh`; Windows: bộ cài EDB rồi `scripts/setup/postgres.ps1`), theo [ADR 0015](../adr/0015-local-postgres-on-host.md) và [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md); Linux (Docker Engine, PostgreSQL cài bằng apt) có hướng dẫn ở mục 2.1 và 2.2 nhưng nằm ngoài phạm vi hỗ trợ chính thức. **Django API chạy trên máy** bằng `uv run`. Worker, beat, relay, Redis, Mailpit chạy bằng **Docker Compose**. Trên máy cần Docker, `uv` ≥ 0.13 (uv tự tải Python 3.14 theo `backend/.python-version`), `git`, `make`. Windows không dùng WSL2.
 
 ## 1. Tổng quan
 
@@ -75,6 +75,24 @@ Trên Windows làm thẳng trên Windows, **không dùng WSL2** ([ADR 0017](../a
 | Lỗi `/bin/sh^M: bad interpreter` trong container | File bị đổi sang CRLF; repo có `.gitattributes` ép LF, chạy `git add --renormalize .` |
 | Cổng 6379 đã bị Redis hoặc Memurai của project khác giữ | Không sao: Redis của Compose mở ra máy ở `REDIS_PORT` (mặc định 6380) |
 
+#### Linux
+
+Ngoài phạm vi hỗ trợ chính thức ([ADR 0015](../adr/0015-local-postgres-on-host.md) chỉ chốt macOS và Windows). Đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS, Docker Engine 29.9.2, PostgreSQL 18 cài bằng apt. Áp dụng cho Ubuntu/Debian dùng Docker Engine (không phải Docker Desktop).
+
+Mỗi lệnh dưới đây phải in ra số phiên bản; lệnh nào báo `command not found` thì cài công cụ đó trước:
+
+```bash
+git --version
+make --version
+docker --version
+docker compose version
+uv --version
+```
+
+Chạy được `docker` mà không cần `sudo`: `docker ps` không báo `permission denied`. Nếu có báo, chạy `sudo usermod -aG docker $USER`, đăng xuất rồi đăng nhập lại.
+
+PostgreSQL: xem mục 2.2.
+
 ### 2.2. Database
 
 PostgreSQL cài trên máy, không chạy trong Docker ([ADR 0015](../adr/0015-local-postgres-on-host.md), [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). Dù cài cách nào, kết quả cuối cùng phải giống nhau:
@@ -119,6 +137,78 @@ Script làm các việc sau, chạy lại nhiều lần vẫn an toàn:
    CREATE DATABASE fashion OWNER fashion;
    ```
 
+#### Linux
+
+Công cụ: xem mục 2.1. Làm đúng thứ tự dưới đây, mỗi máy một lần, trong cùng một terminal (bước 1 đặt biến `PGMAJOR` mà các bước sau dùng).
+
+**Bước 1. Kiểm tra PostgreSQL đã cài và đang chạy.**
+
+```bash
+pg_lsclusters
+```
+
+Kết quả đúng là một dòng có `Status` là `online`, ví dụ `18  main  5432  online`. Lệnh không tồn tại nghĩa là chưa cài PostgreSQL: cài bản major mới nhất từ apt PGDG hoặc chạy `bash scripts/setup/postgres.sh` từ gốc repo (mục macOS bước 2), rồi làm lại bước này. Ghi lại **cổng** (`5432`) để kiểm `.env` ở mục 2.3, và đặt **major** vào biến:
+
+```bash
+PGMAJOR=18   # thay bằng số ở cột Ver của pg_lsclusters
+```
+
+**Bước 2. Tạo role và database `fashion`.** Chạy lại nhiều lần vẫn an toàn. Bỏ qua bước này nếu đã chạy `scripts/setup/postgres.sh`.
+
+```bash
+sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'fashion') THEN CREATE ROLE fashion LOGIN CREATEDB PASSWORD 'fashion'; END IF; END \$\$;"
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'fashion'" | grep -q 1 || sudo -u postgres createdb -O fashion fashion
+sudo -u postgres psql -d fashion -tc "SELECT name FROM pg_available_extensions WHERE name IN ('unaccent', 'pg_trgm', 'btree_gist')"
+```
+
+Lệnh cuối phải in đủ ba tên `unaccent`, `pg_trgm`, `btree_gist`. Thử đăng nhập bằng role mới (mật khẩu `fashion`):
+
+```bash
+psql "postgres://fashion:fashion@localhost:5432/fashion" -c "SELECT current_user"
+```
+
+Kết quả đúng: in `fashion`.
+
+**Bước 3. Cho container trong Docker gọi được PostgreSQL.** Container gọi `host.docker.internal`, trên Linux là IP của `docker0`, còn PostgreSQL mặc định chỉ nghe ở `127.0.0.1`. Bỏ bước này thì `make up` (mục 2.4) dừng ở service `migrate` với lỗi `couldn't get a connection after 3.00 sec`.
+
+```bash
+# 3.1. Xem IP của docker0, thường là 172.17.0.1
+ip -4 addr show docker0 | grep inet
+
+# 3.2. Cho PostgreSQL nghe thêm ở IP đó (thay IP nếu khác)
+sudo sed -i "s/^#\?listen_addresses.*/listen_addresses = 'localhost,172.17.0.1'/" /etc/postgresql/$PGMAJOR/main/postgresql.conf
+
+# 3.3. Cho mạng Docker (172.16.0.0/12) đăng nhập role fashion bằng mật khẩu
+echo "host  fashion  fashion  172.16.0.0/12  scram-sha-256" | sudo tee -a /etc/postgresql/$PGMAJOR/main/pg_hba.conf
+
+# 3.4. Khởi động lại để nhận cấu hình mới
+sudo systemctl restart postgresql
+
+# 3.5. Kiểm tra
+ss -ltn | grep 5432
+```
+
+Kết quả đúng của 3.5 là **hai** dòng: `127.0.0.1:5432` và `172.17.0.1:5432`. Chỉ có một dòng thì xem lỗi bằng `sudo tail -20 /var/log/postgresql/postgresql-$PGMAJOR-main.log`. Lệnh 3.3 chạy hai lần chỉ thêm một dòng trùng, vô hại.
+
+Máy bật tường lửa `ufw` (`sudo ufw status` in `Status: active`) thì mở thêm cổng cho mạng Docker:
+
+```bash
+sudo ufw allow from 172.16.0.0/12 to any port 5432
+```
+
+Tiếp theo: tạo `.env` (mục 2.3), rồi chạy app (mục 2.4).
+
+**Lỗi thường gặp trên Linux**
+
+| Dấu hiệu | Xem bằng | Nguyên nhân và cách sửa |
+|---|---|---|
+| `service "migrate" didn't complete successfully: exit 1` | `docker compose logs migrate \| tail -5` | Đọc dòng lỗi cuối, so với các dòng dưới |
+| `couldn't get a connection after 3.00 sec` | `ss -ltn \| grep 5432` | PostgreSQL chưa nghe ở `172.17.0.1`: làm lại bước 3; đã nghe rồi thì kiểm `ufw` |
+| `no pg_hba.conf entry for host "172.…"` | `sudo grep fashion /etc/postgresql/<major>/main/pg_hba.conf` | Thiếu dòng ở bước 3.3 |
+| `password authentication failed for user "fashion"` | — | Mật khẩu trong `DATABASE_URL` của `.env` khác mật khẩu role; đặt lại bằng `sudo -u postgres psql -c "ALTER ROLE fashion PASSWORD 'fashion'"` |
+| `port is already allocated` (6380, 1025, 8025) | `ss -ltn \| grep <cổng>` | Cổng đang bị chương trình khác giữ; tắt chương trình đó hoặc đổi `REDIS_PORT` trong `.env` |
+| `permission denied ... docker.sock` | `docker ps` | User chưa thuộc nhóm `docker`: xem mục 2.1 → Linux |
+
 Production (RDS) và CI (`postgres:18`) có thể chạy bản major cũ hơn local: không dùng tính năng chỉ có ở bản mới; CI sẽ bắt lỗi này. Trên Windows, PostgreSQL là bản build cho Windows, còn CI và production chạy Linux: khác biệt về collation và locale có thể chỉ lộ ra trên CI.
 
 Kết nối:
@@ -127,6 +217,7 @@ Kết nối:
 - Container trong Compose (worker, beat, relay, migrate): `host.docker.internal:<PG_PORT>`, vì Compose đặt `DATABASE_HOST` thay host của `DATABASE_URL` (mục 7).
   - Windows (Docker Desktop, PostgreSQL 18 bản EDB): đã xác minh ngày 2026-10-29, không cần sửa cấu hình. Docker Desktop chuyển kết nối qua localhost của máy, nên PostgreSQL thấy client là `127.0.0.1`, và dòng `host all all 127.0.0.1/32` mặc định trong `pg_hba.conf` của EDB đã cho phép.
   - macOS **[Cần xác minh]**. Nếu container không kết nối được thì cách sửa (`listen_addresses`, `pg_hba.conf`) sẽ được ghi ở đây (ticket `.scratch/backend-bootstrap/issues/13-local-postgres-installer-macos/spec.md`).
+  - Linux (Docker Engine, PostgreSQL 18 cài bằng apt): đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS. PostgreSQL mặc định chỉ nghe ở `127.0.0.1`, container không gọi tới được; phải làm bước 3 của mục 2.2 → *Linux* ở trên.
 
 Dữ liệu nằm trên máy, nên `make down` không làm mất dữ liệu. Thường không cần xoá; chỉ xoá khi migration bị rối (đổi qua lại giữa các nhánh có migration xung đột) hoặc muốn seed lại từ đầu: `make db-reset` (drop và tạo lại database `fashion`, giữ role, rồi migrate).
 
@@ -207,6 +298,15 @@ Lần đầu, sau khi đã có PostgreSQL (mục 2.2) và `.env` (mục 2.3). M�
 | 7 | `make run` | Chạy API trên máy (`uv run python manage.py runserver`), tự reload khi sửa code | M0 (ticket 15) |
 
 `make migrate` chỉ cần khi đã có migration mới mà không muốn khởi động lại container.
+
+Kiểm tra sau lần chạy đầu:
+
+| Lệnh | Kết quả đúng |
+|---|---|
+| `uv run python manage.py check --database default` (sau bước 1) | `System check identified no issues`; lỗi kết nối thì xem lại mục 2.2 và `DATABASE_URL` ở mục 2.3 |
+| `docker compose ps` (sau bước 3) | `migrate` là `exited (0)`, `worker`, `beat`, `relay`, `redis`, `mailpit` là `running` |
+| `curl -s http://localhost:8000/healthz` (sau bước 7) | Tiến trình API sống |
+| `curl -s http://localhost:8000/readyz` (sau bước 7) | API kết nối được PostgreSQL |
 
 | Địa chỉ | Dùng để |
 |---|---|

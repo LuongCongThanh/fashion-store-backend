@@ -4,7 +4,7 @@ Mục tiêu: từ bằng chứng của một đợt ticket, sửa chỗ gây là
 
 ## Phạm vi đợt
 
-`python S/scripts/retro_batch.py status` trả `pending`, `due`, `batch`, `through` và `tickets` (tối đa 10 đường dẫn spec). Chỉ bắt đầu retro tự động khi `due: true`; dùng đúng 10 ticket trong `tickets`. Đợt mới: lưu output vào `notes` của state trước khi review. Làm tiếp: dùng snapshot đã lưu để giữ nguyên phạm vi qua phiên mới.
+`python3 S/scripts/retro_batch.py status` trả `pending`, `due`, `batch`, `through` và `tickets` (tối đa 10 đường dẫn spec). Chỉ bắt đầu retro tự động khi `due: true`; dùng đúng 10 ticket trong `tickets`. Đợt mới: lưu output vào `notes` của state trước khi review. Làm tiếp: dùng snapshot đã lưu để giữ nguyên phạm vi qua phiên mới.
 
 Checkpoint `S/reference/retro-batch.json` được commit cùng repo: `baseline` là mốc bắt đầu chính sách, `batches` giữ các đợt đã xử lý. Script lấy spec `Status: resolved` trong `origin/dev`, loại ticket đã resolved tại baseline và các đợt đã xử lý. Ticket chờ merge, PR tài liệu/retro và việc chạy lại cùng ticket không tăng bộ đếm. Thứ tự đợt theo đường dẫn ticket để chọn ổn định; nếu tồn hơn 10 thì phần dư ở đợt kế tiếp.
 
@@ -12,7 +12,7 @@ State cũ ở `retro` nhưng chưa đủ đợt → `transition --to closed --ne
 
 ## Review và cải thiện
 
-1. **Bằng chứng.** Đọc `report.md`, đặc biệt *Ghi chú cho retro*, của đủ 10 ticket; bổ sung spec/plan, finding, commit → task trong thân squash commit và review/CI của PR khi cần xác minh. Log dùng chung bị lần chạy sau ghi đè, nên chỉ dùng khi còn khớp ticket. Claude Code có thể thêm `python S/scripts/user_prompts.py --last 3`; script chỉ in prompt đã che credential từ số phiên gần nhất (`--last` phải ≥ 1), không đại diện cả đợt. Codex lấy nguồn theo entrypoint Codex. Xong khi mỗi ghi chú có kết luận có bằng chứng hoặc ghi rõ chưa xác minh được.
+1. **Bằng chứng.** Đọc `report.md`, đặc biệt *Ghi chú cho retro*, của đủ 10 ticket; bổ sung spec/plan, finding, commit → task trong thân squash commit và review/CI của PR khi cần xác minh. Log dùng chung bị lần chạy sau ghi đè, nên chỉ dùng khi còn khớp ticket. Claude Code: đề xuất người dùng gõ `/mattpocock-skills:retro` cho phiên hiện tại; ứng viên nó trình bày theo nhóm là bằng chứng cho bước 2. Có thể thêm `python3 S/scripts/user_prompts.py --last 3`; script chỉ in prompt đã che credential từ số phiên gần nhất (`--last` phải ≥ 1), không đại diện cả đợt. Codex lấy nguồn theo entrypoint Codex. Xong khi mỗi ghi chú có kết luận có bằng chứng hoặc ghi rõ chưa xác minh được.
 2. **Gom vấn đề cùng nguyên nhân**, kèm ticket/PR và chi phí đã quan sát (lượt làm lại, debug, lệnh đắt, lời nhắc). Chọn nơi sửa hẹp nhất:
    - Máy kiểm được → test, script, lint hoặc hook hiện có; kiểm tra thứ đã có trước khi thêm mới.
    - Quy ước code hoặc thiết kế → `CONTRIBUTING.md` hoặc tài liệu architecture mà reviewer đọc.
@@ -21,10 +21,10 @@ State cũ ở `retro` nhưng chưa đủ đợt → `transition --to closed --ne
    - Gotcha chỉ khi nguyên nhân đã xác minh, sẽ lặp lại và có cách sửa cụ thể mà các chỗ trên chưa mã hoá được. Ghi `triệu chứng → nguyên nhân → cách sửa (ticket/PR)`, tối đa 2 dòng; mỗi file `gotchas/` ≤ 4 KB.
 3. **Chọn cải tiến.** Trình một danh sách gọn: vấn đề, bằng chứng, nơi sửa, khuyến nghị theo chi phí/lần lặp. Hỏi bằng `AskUserQuestion` những đề xuất chưa được người dùng duyệt; chỉ sửa mục được chọn. Chưa có gì đáng sửa thì ghi kết luận đó và tiếp tục checkpoint, không hỏi chọn danh sách rỗng.
 4. **Viết theo `mattpocock-skills:writing-for-agents`.** Đọc skill nếu có; dùng fallback của entrypoint Codex khi thiếu. Mỗi ý một nguồn; chỉ dẫn hành động và điều kiện hoàn tất cụ thể; phần chỉ dùng ở một nhánh đặt sau con trỏ của nhánh đó. Cắt dòng trùng, không còn tác dụng hoặc đã được cấu hình/script diễn đạt. Cải tiến chung ở `S`; phần riêng của Codex ở `.agents/skills/ship-ticket-fashion/`.
-5. **Kiểm chứng và checkpoint.** Sửa script → `python -m unittest discover -s S/scripts`. Sửa hook/cấu hình backend → chạy lint/test liên quan qua `run_logged.py`. Luôn `git diff --check`. Khi mọi vấn đề đã có kết luận và sửa được chọn đã kiểm xong, dùng snapshot đã lưu:
+5. **Kiểm chứng và checkpoint.** Sửa script → `python3 -m unittest discover -s S/scripts`. Sửa hook/cấu hình backend → chạy lint/test liên quan qua `run_logged.py`. Luôn `git diff --check`. Khi mọi vấn đề đã có kết luận và sửa được chọn đã kiểm xong, dùng snapshot đã lưu:
 
    ```bash
-   python S/scripts/retro_batch.py complete --through <through> --batch <batch>
+   python3 S/scripts/retro_batch.py complete --through <through> --batch <batch>
    ```
 
    Lệnh chỉ ghi nhận 10 ticket của snapshot đó; chạy lại cùng `batch` giữ nguyên kết quả. Ticket merge sau `through` vẫn chờ đợt sau. Checkpoint không được ghi trước khi review xong.

@@ -1,16 +1,20 @@
 """Test cho các script của skill (stdlib unittest, không cần môi trường backend).
 
-python -m unittest discover -s .claude/skills/ship-ticket-fashion/scripts
+python3 -m unittest discover -s .claude/skills/ship-ticket-fashion/scripts
 """
 
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+import argparse
+import contextlib
+import io
 import subprocess
 import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from check_ac_trace import test_exists, trace
 from check_ship import check_dirty, check_subjects, diff_size, dirty_paths, porcelain_z
@@ -25,6 +29,7 @@ from state import (
     apply,
     check_doc_ref,
     check_transition,
+    cmd_start,
     hooks_installed,
     pick_active,
     plan_ready,
@@ -82,9 +87,9 @@ def complete_slice(**overrides) -> dict:
         "expectedRed": {test_id: "AssertionError"},
         "files": ["backend/x.py", "backend/tests/test_x.py"],
         "governingDocs": {
-            "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"],
+            "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"],
             "backend/tests/test_x.py": [
-                "docs/architecture/02-backend-structure.md::9.5",
+                "docs/architecture/13-python-django-coding-style.md::9",
                 "docs/architecture/12-testing-strategy.md::2.1",
             ],
         },
@@ -283,12 +288,43 @@ class StateMachine(unittest.TestCase):
         unsafe = complete_slice(expectedRed={test_id: "NameError"})
         self.assertTrue(any("lỗi hạ tầng" in e for e in validate(make_state(slices=[unsafe]), 1)))
 
-    def test_doc_refs_require_real_file_and_heading(self):
-        self.assertIsNone(check_doc_ref("docs/architecture/02-backend-structure.md::9.1"))
-        self.assertIn(
-            "không thấy mục", check_doc_ref("docs/architecture/02-backend-structure.md::99")
-        )
-        self.assertIn("không thấy tài liệu", check_doc_ref("docs/missing.md"))
+    def _doc_root(self) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        (root / "docs").mkdir()
+        (root / "docs/style.md").write_text("# Style\n\n### 3.1. View\n", encoding="utf-8")
+        return root
+
+    def test_doc_ref_accepts_existing_heading(self):
+        problem = check_doc_ref("docs/style.md::3.1", self._doc_root())
+        self.assertIsNone(problem)
+
+    def test_doc_ref_rejects_missing_heading(self):
+        problem = check_doc_ref("docs/style.md::99", self._doc_root())
+        self.assertIn("không thấy mục", problem)
+
+    def test_doc_ref_rejects_missing_file(self):
+        problem = check_doc_ref("docs/missing.md", self._doc_root())
+        self.assertIn("không thấy tài liệu", problem)
+
+    def test_start_without_state_points_to_pick_ticket(self):
+        out = io.StringIO()
+        with (
+            mock.patch("state.find_active", return_value=None),
+            mock.patch("state.load_features", return_value={}),
+            mock.patch("state.repo_root", return_value=Path(".")),
+            contextlib.redirect_stdout(out),
+        ):
+            cmd_start(argparse.Namespace(ticket=None))
+        lines = out.getvalue().splitlines()
+        expected = [
+            "NO STATE",
+            ".claude/skills/ship-ticket-fashion/reference/rules.md",
+            ".claude/skills/ship-ticket-fashion/reference/pick-ticket.md",
+        ]
+        actual = [lines[0], *(line.removeprefix("READ ") for line in lines[1:])]
+        self.assertEqual(actual, expected)
 
     def test_apply_selects_slice_by_id_and_parses_json(self):
         state = make_state(slices=[{"id": "S1", "status": "todo"}])
@@ -402,7 +438,7 @@ class PlanAndCommits(unittest.TestCase):
                     expectedRed={"t.py::a": "AssertionError"},
                     files=["backend/x.py"],
                     governingDocs={
-                        "backend/x.py": ["docs/architecture/02-backend-structure.md::9.1"]
+                        "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]
                     },
                 )
             ],
@@ -412,7 +448,7 @@ class PlanAndCommits(unittest.TestCase):
         self.assertTrue(text.startswith("# Kế hoạch\n\nSinh"))
         self.assertIn(
             "| S1 | 1, 2 | APIClient | TDD `t.py::a` → AssertionError | "
-            "`backend/x.py` → docs/architecture/02-backend-structure.md::9.1 | — |",
+            "`backend/x.py` → docs/architecture/13-python-django-coding-style.md::3.1 | — |",
             text,
         )
         self.assertIn("AC 3 không test tự động: cần Redis thật", text)

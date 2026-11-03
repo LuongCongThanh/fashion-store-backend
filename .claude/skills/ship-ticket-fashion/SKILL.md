@@ -1,6 +1,6 @@
 ---
 name: ship-ticket-fashion
-description: Làm một ticket `.scratch/<feature>/issues/NN-*/` của Fashion Store từ grilling tới merge, retro mỗi đợt 10 ticket; tạo spec và ticket cho module chưa có ticket; retro một PR theo yêu cầu. Dùng khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo.
+description: Làm ticket `.scratch/` của Fashion Store khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo: grilling tới merge, lập spec + ticket cho module mới.
 argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done|retro] | retro #<PR>"
 ---
 
@@ -14,8 +14,10 @@ Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đ
 
 ## Đầu mỗi lần chạy
 
-1. `python S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
-   - `NO STATE` kèm frontier → chưa có ticket đang làm: báo tiến độ (`python S/scripts/progress.py`), hỏi người dùng chọn ticket (khuyên dùng theo thứ tự ưu tiên mới nhất trong *Decisions-so-far* của `.scratch/mvp-roadmap/map.md`; chưa có thì đề xuất thứ tự, lỗi thật trước rồi tới cổng chặn CI, và ghi vào đó khi người dùng duyệt), rồi vào phase 1. Có ticket `needs-triage` → cùng lần hỏi, hỏi từng ticket: `ready-for-agent`, `ready-for-human`, `wontfix` hay để sau (`docs/agents/triage-labels.md`); ghi dòng `Status:` theo câu trả lời và commit cùng ticket ở phase 1 bước 9. Một package đã có từ 3 ticket trở lên sửa (`git log --oneline origin/dev -- <package>`) và frontier còn ticket ở đó → cùng lần hỏi, đề xuất theo `phases/0-plan.md` mục *Điểm nóng*. Frontier rỗng, hoặc mốc chỉ còn ticket bị chặn hay cần người → `phases/0-plan.md`.
+Máy Windows (PowerShell, Git Bash): đọc `gotchas/windows-shell.md` trước bước 1, và thay `python3` bằng `python` trong mọi lệnh mẫu của skill.
+
+1. `python3 S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
+   - `NO STATE` kèm `FRONTIER` → chưa có ticket đang làm: làm theo `reference/pick-ticket.md` (script in dòng `READ`).
    - `retro #<PR>` → bỏ qua state, làm `phases/8-retro.md` mục *Retro một PR*.
 2. Đọc mọi file sau `READ` bằng Read tool, mỗi file một lần gọi.
 3. Bắt đầu từ `next`. Tham số `[phase]` ghi đè phase, trừ khi gate chưa được duyệt.
@@ -33,15 +35,17 @@ Phase 7 chỉ vào **8 retro** khi `retro_batch.py status` báo đủ 10 ticket 
 
 | # | Phase | File | Skill (`mattpocock-skills:`) | Kết quả |
 | --- | --- | --- | --- | --- |
-| 0 | plan | `phases/0-plan.md` | `grilling`; người dùng gõ `to-spec`, `to-tickets`, `improve-codebase-architecture` (điểm nóng) | spec + ticket của mốc mới |
-| 1 | grill | `phases/1-grill.md` | `grilling`; `codebase-design` khi ticket có interface public | nhánh, *spec* + *plan* đã commit, ⛔G1 |
-| 2 | code | `phases/2-code.md` | `tdd` | mọi slice xanh, mỗi slice một commit |
+| 0 | plan | `phases/0-plan.md` | `grilling`; người dùng gõ `/mattpocock-skills:to-spec`, `/mattpocock-skills:to-tickets`, `/mattpocock-skills:improve-codebase-architecture` (điểm nóng) | spec + ticket của mốc mới |
+| 1 | grill | `phases/1-grill.md` | `grilling`; `codebase-design` khi ticket có interface public; `research` khi ticket bọc việc của thư viện bên thứ ba | nhánh, *spec* + *plan* đã commit, ⛔G1 |
+| 2 | code | `phases/2-code.md` | `tdd`; `diagnosing-bugs` khi test đỏ sai dự kiến | mọi slice xanh, mỗi slice một commit |
 | 3 | report | `phases/3-report.md` | — | `report.md` (commit ở sync) |
-| 4 | review | `phases/4-review.md` | `code-review`; `code-review` dựng sẵn (trục Bug) | mọi finding có kết luận |
+| 4 | review | `phases/4-review.md` | `code-review` (trục Spec, Standards) + sub-agent trục Bug; `diagnosing-bugs` xác minh finding Bug | mọi finding có kết luận |
 | 5 | sync | `phases/5-sync.md` | `domain-modeling` khi có thuật ngữ / ADR mới | tài liệu khớp code, ⛔G2 |
-| 6 | ship | `phases/6-ship.md` | — | PR mở, ticket đóng trong PR, CI xanh |
+| 6 | ship | `phases/6-ship.md` | `pr` (thân PR); `diagnosing-bugs` khi CI đỏ chưa rõ nguyên nhân | PR mở, ticket đóng trong PR, CI xanh |
 | 7 | done | `phases/7-done.md` | — | merge khi người dùng bảo |
-| 8 | retro (đủ đợt / theo yêu cầu) | `phases/8-retro.md` | `writing-for-agents` | kết luận đợt 10 ticket + một PR skill/checkpoint |
+| 8 | retro (đủ đợt / theo yêu cầu) | `phases/8-retro.md` | `writing-for-agents`; người dùng gõ `/mattpocock-skills:retro` | kết luận đợt 10 ticket + một PR skill/checkpoint |
+
+Skill viết dạng `/mattpocock-skills:<tên>` là skill chỉ người dùng gọi được (`disable-model-invocation`): agent đề xuất người dùng gõ lệnh, không tự gọi. Skill không có `/` thì agent gọi bằng Skill tool.
 
 Quy tắc chung cho mọi phase: `reference/rules.md`.
 
@@ -61,8 +65,8 @@ Code chỉ bắt đầu khi *spec* và *plan* đã commit: `state.py transition 
 
 Một *task* là đúng một commit: `plan`, mỗi slice `S<n>`, mỗi vòng sửa review `R1` / `R2`, `sync` (tài liệu + report), `close`; thêm `ci` cho mỗi lần CI đỏ. PR squash vào `dev`, nên commit trên nhánh là dấu vết để đọc, không phải lịch sử lâu dài; mỗi commit thêm còn chạy lại hook `mypy` + `lint-imports`.
 
-- Commit qua `python S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…`: gắn trailer `Refs:` (ticket) và `Task:`, hook chạy trong log, hook sửa file thì tự add lại.
-- `python S/scripts/commit_map.py <T> [--md]` in commit → task → phase → AC; báo commit thiếu trailer và task có hai commit. Bảng `--md` đi vào report, thân PR và thân commit squash.
+- Commit qua `python3 S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…`: gắn trailer `Refs:` (ticket) và `Task:`, hook chạy trong log, hook sửa file thì tự add lại.
+- `python3 S/scripts/commit_map.py <T> [--md]` in commit → task → phase → AC; báo commit thiếu trailer và task có hai commit. Bảng `--md` đi vào report, thân PR và thân commit squash.
 
 ## Mode
 
@@ -75,12 +79,12 @@ State nằm ở `.git/ship-ticket-fashion/<feature>-<NN>.json`: trong `.git/` n�
 Ghi field bằng `state.py set` / `push`. Đổi phase chỉ qua:
 
 ```bash
-python S/scripts/state.py transition <T> --to <phase> --next "<một việc cụ thể>" --reason "<tiêu chí đã đạt / gate>" [--gate g1|g2]
+python3 S/scripts/state.py transition <T> --to <phase> --next "<một việc cụ thể>" --reason "<tiêu chí đã đạt / gate>" [--gate g1|g2]
 ```
 
 Script từ chối nhảy cóc phase, vào `code` khi chưa có G1, vào `ship` khi chưa có G2, vào `report` khi còn slice chưa xong.
 
-**Điểm clear** (các file phase chỉ ra chỗ): sau khi state và ticket đã giữ mọi quyết định, in `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục.`, rồi làm tiếp trừ khi người dùng ngắt.
+**Điểm clear** (các file phase chỉ ra chỗ): sau khi state và ticket đã giữ mọi quyết định, in `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục.`, rồi làm tiếp trừ khi người dùng ngắt. Chỉ khi phiên còn ngữ cảnh chưa ghi vào state hay ticket (grilling dở, điều người dùng vừa nói chưa ghi), thêm: `Cần mang ngữ cảnh đó sang phiên mới thì gõ /mattpocock-skills:handoff <T> <phase>.`
 
 ## Gate
 
@@ -101,7 +105,8 @@ Phiên chính điều phối. Việc đọc nhiều file hoặc chạy nhiều l
 | --- | --- | --- |
 | Phase 1, bản đồ code (`Explore`) | một | như full |
 | Phase 2, mỗi slice | một cho mỗi slice | phiên chính |
-| Phase 4, ba trục review | do skill review tạo | như full |
+| Phase 4, trục Spec + Standards | do `mattpocock-skills:code-review` tạo | như full |
+| Phase 4, trục Bug | một, chạy song song với skill review | như full |
 | Phase 4, vòng sửa khi finding đổi code | một cho mọi vòng | phiên chính |
 
 Gate, tài liệu, ship, done, retro chạy ở phiên chính: retro cần thấy những gì phiên này đã vấp.

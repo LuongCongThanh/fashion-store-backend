@@ -2,7 +2,7 @@
 
 Nguồn sự thật là dòng `Status:` của từng ticket (docs/agents/issue-tracker.md).
 Chạy từ bất kỳ đâu trong repo:
-    python .claude/skills/ship-ticket-fashion/scripts/progress.py [--feature <slug>]
+    python3 .claude/skills/ship-ticket-fashion/scripts/progress.py [--feature <slug>]
 """
 
 from __future__ import annotations
