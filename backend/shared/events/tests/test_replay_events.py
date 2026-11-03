@@ -1,5 +1,5 @@
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -12,30 +12,15 @@ from structlog.testing import capture_logs
 
 from shared.events import handles, operations
 from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.tests._helpers import NOW, register_noop_handlers
 from shared.events.tests.conftest import SampleHappenedV1
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
 
-NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
 SINCE = NOW - timedelta(hours=1)
-
-
-def _register(*names: str) -> None:
-    for name in names:
-
-        @handles("shared.sample-happened", name=name)
-        def handler(event: SampleHappenedV1) -> None:
-            pass
-
-
-def _listed_event(**kwargs: object) -> OutboxEvent:
-    # Relay đã lập danh sách delivery cho sự kiện này, sau mốc `since`
-    fields = {
-        "occurred_at": SINCE + timedelta(minutes=4),
-        "deliveries_created_at": SINCE + timedelta(minutes=5),
-    }
-    return OutboxEventFactory.create(**(fields | kwargs))
+# Relay đã lập danh sách delivery sau mốc `since`
+LISTED_AT = SINCE + timedelta(minutes=5)
 
 
 def _handlers_of(event: OutboxEvent) -> list[str]:
@@ -44,18 +29,22 @@ def _handlers_of(event: OutboxEvent) -> list[str]:
 
 @time_machine.travel(NOW, tick=False)
 def test_replay_adds_delivery_for_new_handler() -> None:
-    _register("shared.old_handler", "shared.new_handler", "shared.other_new_handler")
-    event_row = _listed_event()
+    register_noop_handlers("shared.old_handler", "shared.new_handler", "shared.other_new_handler")
+    event_row = OutboxEventFactory.create(sample=True, listed=True, occurred_at=LISTED_AT)
     EventDeliveryFactory.create(
         event=event_row,
         handler="shared.old_handler",
         status=DeliveryStatus.COMPLETED,
         completed_at=SINCE,
     )
-    before_since = _listed_event(
-        occurred_at=SINCE - timedelta(seconds=2), deliveries_created_at=SINCE - timedelta(seconds=1)
+    before_since = OutboxEventFactory.create(
+        sample=True,
+        occurred_at=SINCE - timedelta(seconds=2),
+        deliveries_created_at=SINCE - timedelta(seconds=1),
     )
-    other_type = _listed_event(event_type="shared.other-happened")
+    other_type = OutboxEventFactory.create(
+        sample=True, listed=True, occurred_at=LISTED_AT, event_type="shared.other-happened"
+    )
 
     call_command(
         "replay_events",
@@ -82,10 +71,10 @@ def test_replay_adds_delivery_for_new_handler() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_replay_keeps_existing_deliveries(monkeypatch: pytest.MonkeyPatch) -> None:
-    _register("shared.failed_handler", "shared.done_handler", "shared.new_handler")
+    register_noop_handlers("shared.failed_handler", "shared.done_handler", "shared.new_handler")
     # Mỗi lô một sự kiện để kiểm cả việc đi qua nhiều lô
     monkeypatch.setattr(operations, "REPLAY_BATCH", 1)
-    event_row = _listed_event()
+    event_row = OutboxEventFactory.create(sample=True, listed=True, occurred_at=LISTED_AT)
     failed = EventDeliveryFactory.create(
         event=event_row,
         handler="shared.failed_handler",
@@ -101,7 +90,7 @@ def test_replay_keeps_existing_deliveries(monkeypatch: pytest.MonkeyPatch) -> No
         status=DeliveryStatus.COMPLETED,
         completed_at=SINCE,
     )
-    second_event = _listed_event()
+    second_event = OutboxEventFactory.create(sample=True, listed=True, occurred_at=LISTED_AT)
 
     with capture_logs() as logs:
         call_command(
@@ -127,16 +116,20 @@ def test_replay_keeps_existing_deliveries(monkeypatch: pytest.MonkeyPatch) -> No
 
 @time_machine.travel(NOW, tick=False)
 def test_replay_selects_events_listed_since() -> None:
-    _register("shared.new_handler")
+    register_noop_handlers("shared.new_handler")
     # Phát ngay trước mốc deploy nhưng relay cũ lập danh sách sau mốc: vẫn thiếu handler mới
-    occurred_before_listed_after = _listed_event(
-        occurred_at=SINCE - timedelta(minutes=1), deliveries_created_at=SINCE + timedelta(seconds=1)
+    occurred_before_listed_after = OutboxEventFactory.create(
+        sample=True,
+        occurred_at=SINCE - timedelta(minutes=1),
+        deliveries_created_at=SINCE + timedelta(seconds=1),
     )
-    listed_at_since = _listed_event(
-        occurred_at=SINCE - timedelta(minutes=1), deliveries_created_at=SINCE
+    listed_at_since = OutboxEventFactory.create(
+        sample=True, occurred_at=SINCE - timedelta(minutes=1), deliveries_created_at=SINCE
     )
-    listed_before = _listed_event(
-        occurred_at=SINCE - timedelta(minutes=1), deliveries_created_at=SINCE - timedelta(seconds=1)
+    listed_before = OutboxEventFactory.create(
+        sample=True,
+        occurred_at=SINCE - timedelta(minutes=1),
+        deliveries_created_at=SINCE - timedelta(seconds=1),
     )
 
     call_command("replay_events", "--type", "shared.sample-happened", "--since", SINCE.isoformat())
@@ -149,8 +142,8 @@ def test_replay_selects_events_listed_since() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_replay_skips_event_not_yet_listed() -> None:
-    _register("shared.new_handler")
-    unlisted = _listed_event(deliveries_created_at=None)
+    register_noop_handlers("shared.new_handler")
+    unlisted = OutboxEventFactory.create(sample=True, occurred_at=LISTED_AT)
 
     call_command("replay_events", "--type", "shared.sample-happened", "--since", SINCE.isoformat())
 
@@ -161,8 +154,8 @@ def test_replay_skips_event_not_yet_listed() -> None:
 
 
 def test_replay_unknown_handler_errors() -> None:
-    _register("shared.new_handler")
-    event_row = _listed_event()
+    register_noop_handlers("shared.new_handler")
+    event_row = OutboxEventFactory.create(sample=True, listed=True, occurred_at=LISTED_AT)
     options = ("--type", "shared.sample-happened", "--since", SINCE.isoformat())
 
     with pytest.raises(CommandError):
@@ -172,13 +165,13 @@ def test_replay_unknown_handler_errors() -> None:
 
 
 def test_replay_handler_of_other_type_errors() -> None:
-    _register("shared.new_handler")
+    register_noop_handlers("shared.new_handler")
 
     @handles("shared.other-happened", name="shared.other_type_handler")
     def other_type_handler(event: SampleHappenedV1) -> None:
         pass
 
-    event_row = _listed_event()
+    event_row = OutboxEventFactory.create(sample=True, listed=True, occurred_at=LISTED_AT)
     options = ("--type", "shared.sample-happened", "--since", SINCE.isoformat())
 
     with pytest.raises(CommandError):
@@ -187,12 +180,13 @@ def test_replay_handler_of_other_type_errors() -> None:
     assert _handlers_of(event_row) == []
 
 
+@pytest.mark.concurrency
 @pytest.mark.django_db(transaction=True)
 def test_replay_and_purge_concurrently_keep_new_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
-    _register("shared.old_handler", "shared.new_handler")
+    register_noop_handlers("shared.old_handler", "shared.new_handler")
     listed_at = timezone.now() - operations.OUTBOX_RETENTION - timedelta(days=1)
     # Quá hạn giữ và mọi delivery đã xong: purge xoá được nếu replay không giữ khoá
-    old_event = _listed_event(occurred_at=listed_at, deliveries_created_at=listed_at)
+    old_event = OutboxEventFactory.create(sample=True, listed=True, occurred_at=listed_at)
     EventDeliveryFactory.create(
         event=old_event,
         handler="shared.old_handler",

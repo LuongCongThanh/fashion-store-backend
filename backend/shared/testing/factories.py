@@ -5,7 +5,7 @@ from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from shared.api import idempotency as idempotency_api
-from shared.events.models import EventDelivery, OutboxEvent
+from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
 from shared.geo.models import Province, Ward
 from shared.idempotency import LEASE
 from shared.models import IdempotencyKey, IdempotencyStatus, uuid7
@@ -29,23 +29,33 @@ class WardFactory(DjangoModelFactory[Ward]):
 
 
 class OutboxEventFactory(DjangoModelFactory[OutboxEvent]):
-    """Dòng outbox chưa lập danh sách delivery.
+    """Dòng outbox chưa lập danh sách delivery, loại sự kiện trung tính không có class nào parse.
 
-    Mặc định khớp sự kiện mẫu `shared.sample-happened` v1 trong test của `shared.events`; module
-    khác truyền `event_type`, `schema_version`, `payload` của sự kiện thật.
+    Trait `sample` khớp sự kiện mẫu `shared.sample-happened` v1 trong test của `shared.events`;
+    trait `listed` là sự kiện relay đã lập danh sách delivery ngay lúc `occurred_at`. Module khác
+    truyền `event_type`, `schema_version`, `payload` của sự kiện thật.
     """
 
     class Meta:
         model = OutboxEvent
 
-    event_type = "shared.sample-happened"
+    event_type = "shared.test-event"
     schema_version = 1
-    payload = factory.LazyFunction(lambda: {"order_code": "FS2610-7K3QZD", "amount": 250000})
+    payload = factory.LazyFunction(dict)
     occurred_at = factory.LazyFunction(timezone.now)
+
+    class Params:
+        sample = factory.Trait(
+            event_type="shared.sample-happened",
+            payload=factory.LazyFunction(lambda: {"order_code": "FS2610-7K3QZD", "amount": 250000}),
+        )
+        listed = factory.Trait(
+            deliveries_created_at=factory.LazyAttribute(lambda event: event.occurred_at)
+        )
 
 
 class EventDeliveryFactory(DjangoModelFactory[EventDelivery]):
-    """Delivery `pending` tới hạn cả retry lẫn giao lại."""
+    """Delivery `pending` tới hạn cả retry lẫn giao lại; trait `failed` cho delivery đã `failed`."""
 
     class Meta:
         model = EventDelivery
@@ -54,6 +64,13 @@ class EventDeliveryFactory(DjangoModelFactory[EventDelivery]):
     handler = factory.Sequence(lambda n: f"shared.handler_{n}")
     next_attempt_at = factory.LazyFunction(timezone.now)
     next_dispatch_at = factory.LazyAttribute(lambda delivery: delivery.next_attempt_at)
+
+    class Params:
+        failed = factory.Trait(
+            status=DeliveryStatus.FAILED,
+            failed_at=factory.LazyFunction(timezone.now),
+            last_error="Boom",
+        )
 
 
 class IdempotencyKeyFactory(DjangoModelFactory[IdempotencyKey]):

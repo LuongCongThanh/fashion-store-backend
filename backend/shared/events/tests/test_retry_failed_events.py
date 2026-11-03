@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import time_machine
@@ -14,21 +14,13 @@ from shared.events.models import (
     DeliveryStatus,
     EventDelivery,
 )
+from shared.events.tests._helpers import NOW, register_noop_handlers
 from shared.events.tests.conftest import SampleHappenedV1
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
 
-NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
 FAILED_AT = NOW - timedelta(hours=2)
-
-
-def _register(*names: str) -> None:
-    for name in names:
-
-        @handles("shared.sample-happened", name=name)
-        def handler(event: SampleHappenedV1) -> None:
-            pass
 
 
 @time_machine.travel(NOW, tick=False)
@@ -41,12 +33,11 @@ def test_reopens_failed_and_next_run_succeeds() -> None:
         received.append(event)
 
     delivery = EventDeliveryFactory.create(
+        event__sample=True,
+        failed=True,
         handler="shared.fixed_handler",
-        status=DeliveryStatus.FAILED,
         attempts=6,
-        next_attempt_at=FAILED_AT,
         failed_at=FAILED_AT,
-        last_error="Boom",
     )
 
     call_command("retry_failed_events", "--event-id", str(delivery.event_id))
@@ -68,10 +59,10 @@ def test_reopens_interrupted_delivery_with_counter_reset() -> None:
         received.append(event)
 
     delivery = EventDeliveryFactory.create(
+        event__sample=True,
+        failed=True,
         handler="shared.fixed_handler",
-        status=DeliveryStatus.FAILED,
         interrupted_runs=MAX_INTERRUPTED_RUNS,
-        next_attempt_at=FAILED_AT,
         failed_at=FAILED_AT,
         last_error=INTERRUPTED_ERROR,
     )
@@ -90,36 +81,17 @@ def test_reopens_interrupted_delivery_with_counter_reset() -> None:
     assert processed == (DeliveryStatus.COMPLETED, 0, 1)
 
 
-def _failed(**kwargs: object) -> EventDelivery:
-    return EventDeliveryFactory.create(
-        status=DeliveryStatus.FAILED,
-        attempts=6,
-        next_attempt_at=FAILED_AT,
-        next_dispatch_at=FAILED_AT + timedelta(minutes=3),
-        failed_at=FAILED_AT,
-        last_error="Boom",
-        **kwargs,
-    )
-
-
 @time_machine.travel(NOW, tick=False)
-def test_resets_schedule_and_counter_and_sets_retried_at() -> None:
-    _register("shared.broken")
-    delivery = _failed(handler="shared.broken")
+def test_reopens_failed_and_logs_each_delivery() -> None:
+    # Cột được đặt lại khi mở: test_models.py::test_reopen_resets_failed_delivery
+    register_noop_handlers("shared.broken")
+    delivery = EventDeliveryFactory.create(event__sample=True, failed=True, handler="shared.broken")
 
     with capture_logs() as logs:
         call_command("retry_failed_events", "--handler", "shared.broken")
 
     delivery.refresh_from_db()
-    assert (
-        delivery.status,
-        delivery.attempts,
-        delivery.next_attempt_at,
-        delivery.next_dispatch_at,
-        delivery.retried_at,
-    ) == (DeliveryStatus.PENDING, 0, NOW, NOW, NOW)
-    # Dấu vết lần lỗi cũ giữ tới khi lần xử lý sau ghi đè
-    assert (delivery.failed_at, delivery.last_error) == (FAILED_AT, "Boom")
+    assert delivery.status == DeliveryStatus.PENDING
     assert [(log["event"], log.get("handler"), log.get("count")) for log in logs] == [
         ("event_delivery_retried", "shared.broken", None),
         ("failed_deliveries_retried", None, 1),
@@ -129,7 +101,9 @@ def test_resets_schedule_and_counter_and_sets_retried_at() -> None:
 @time_machine.travel(NOW, tick=False)
 def test_does_not_reopen_completed_or_rejected() -> None:
     finished = [
-        EventDeliveryFactory.create(status=status, completed_at=FAILED_AT, last_error="Boom")
+        EventDeliveryFactory.create(
+            event__sample=True, status=status, completed_at=FAILED_AT, last_error="Boom"
+        )
         for status in (DeliveryStatus.COMPLETED, DeliveryStatus.REJECTED)
     ]
 
@@ -144,8 +118,13 @@ def test_does_not_reopen_completed_or_rejected() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_all_reopens_every_failed_delivery() -> None:
-    _register("shared.broken", "shared.other_handler")
-    failed = [_failed(handler="shared.broken"), _failed(handler="shared.other_handler")]
+    register_noop_handlers("shared.broken", "shared.other_handler")
+    failed = [
+        EventDeliveryFactory.create(event__sample=True, failed=True, handler="shared.broken"),
+        EventDeliveryFactory.create(
+            event__sample=True, failed=True, handler="shared.other_handler"
+        ),
+    ]
 
     call_command("retry_failed_events", "--all")
 
@@ -156,10 +135,12 @@ def test_all_reopens_every_failed_delivery() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_skips_failed_delivery_of_unregistered_handler() -> None:
-    _register("shared.broken")
-    reopened = _failed(handler="shared.broken")
+    register_noop_handlers("shared.broken")
+    reopened = EventDeliveryFactory.create(event__sample=True, failed=True, handler="shared.broken")
     # Handler đã bị gỡ khỏi code: mở lại sẽ kẹt `pending` mãi
-    removed = _failed(handler="shared.removed_handler")
+    removed = EventDeliveryFactory.create(
+        event__sample=True, failed=True, handler="shared.removed_handler", attempts=6
+    )
 
     with capture_logs() as logs:
         call_command("retry_failed_events", "--all")
@@ -189,8 +170,10 @@ def test_skips_failed_delivery_of_unregistered_handler() -> None:
 
 
 def test_unknown_handler_errors() -> None:
-    _register("shared.broken")
-    delivery = _failed(handler="shared.typo_handler")
+    register_noop_handlers("shared.broken")
+    delivery = EventDeliveryFactory.create(
+        event__sample=True, failed=True, handler="shared.typo_handler"
+    )
 
     with pytest.raises(CommandError):
         call_command("retry_failed_events", "--handler", "shared.typo_handler")
@@ -201,14 +184,14 @@ def test_unknown_handler_errors() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_filters_select_only_matching_pairs() -> None:
-    _register("shared.broken", "shared.other_handler")
-    event_row = OutboxEventFactory.create()
+    register_noop_handlers("shared.broken", "shared.other_handler")
+    event_row = OutboxEventFactory.create(sample=True)
     other_type = OutboxEventFactory.create(event_type="shared.other-happened")
-    target = _failed(event=event_row, handler="shared.broken")
+    target = EventDeliveryFactory.create(failed=True, event=event_row, handler="shared.broken")
     untouched = [
-        _failed(event=event_row, handler="shared.other_handler"),
-        _failed(handler="shared.broken"),
-        _failed(event=other_type, handler="shared.broken"),
+        EventDeliveryFactory.create(failed=True, event=event_row, handler="shared.other_handler"),
+        EventDeliveryFactory.create(event__sample=True, failed=True, handler="shared.broken"),
+        EventDeliveryFactory.create(failed=True, event=other_type, handler="shared.broken"),
     ]
 
     call_command(
@@ -236,7 +219,7 @@ def test_filters_select_only_matching_pairs() -> None:
 
 
 def test_requires_a_filter() -> None:
-    delivery = _failed()
+    delivery = EventDeliveryFactory.create(event__sample=True, failed=True)
 
     with pytest.raises(CommandError):
         call_command("retry_failed_events")

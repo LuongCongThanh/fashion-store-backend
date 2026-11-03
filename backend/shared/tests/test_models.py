@@ -5,7 +5,8 @@ import pytest
 from django.db import connection, models
 from django.utils import timezone
 
-from shared.models import BaseModel, BaseQuerySet
+from shared.events.models import EventDelivery, OutboxEvent
+from shared.models import BaseModel, BaseQuerySet, UUIDv7Model
 
 
 class Widget(BaseModel):
@@ -84,3 +85,13 @@ def test_bulk_update_keeps_caller_updated_at() -> None:
 
     widget.refresh_from_db()
     assert widget.updated_at == chosen
+
+
+def test_outbox_models_share_uuid7_primary_key() -> None:
+    # Khoá chính UUID v7 khai báo một chỗ (ADR 0008); outbox không kế thừa `BaseModel`
+    actual = [
+        model.__name__
+        for model in (BaseModel, OutboxEvent, EventDelivery)
+        if not issubclass(model, UUIDv7Model)
+    ]
+    assert actual == []

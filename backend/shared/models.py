@@ -32,8 +32,16 @@ class BaseQuerySet[M: models.Model](models.QuerySet[M]):
         return super().bulk_update(objs, fields, batch_size=batch_size)
 
 
-class BaseModel(models.Model):
+class UUIDv7Model(models.Model):
+    """Khoá chính UUID v7 (ADR 0008), dùng chung cho mọi bảng do dự án định nghĩa."""
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class BaseModel(UUIDv7Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
