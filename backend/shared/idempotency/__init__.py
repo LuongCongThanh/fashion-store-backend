@@ -3,7 +3,8 @@
 `claim(scope, key, request_hash)` giành key bằng transaction ngắn hoặc trả kết quả của lần gửi
 trước. Service nhận `Claim` gọi `claim.complete(...)` bên trong `transaction.atomic` của tác
 động nghiệp vụ, để kết quả idempotency commit cùng tác động. Lớp HTTP (đọc header, dựng scope,
-tính hash, dựng `Response`) ở `shared.api.idempotency`.
+tính hash, dựng `Response`) ở `shared.idempotency.http`;
+model ở `models.py`, job purge ở `tasks.py`.
 """
 
 import uuid
@@ -18,7 +19,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from shared.exceptions import DomainError
-from shared.models import IdempotencyKey, IdempotencyStatus, uuid7
+from shared.idempotency.models import IdempotencyKey, IdempotencyStatus
+from shared.models import uuid7
 
 # Thời gian một worker giữ key đang xử lý trước khi worker khác được giành lại
 LEASE = timedelta(seconds=60)

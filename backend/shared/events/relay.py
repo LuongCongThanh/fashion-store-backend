@@ -5,28 +5,21 @@ relay chạy cùng lúc không tạo trùng hay giao trùng trong cùng một h�
 Celery Beat; `run_outbox_relay` gọi hai hàm này mỗi giây.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import structlog
 from django.db import transaction
 from django.utils import timezone
 from kombu.exceptions import OperationalError
 
-from shared.events.models import EventDelivery, OutboxEvent
-from shared.events.registry import Handler, registry
+from shared.events.models import EventDelivery, OutboxEvent, build_deliveries
+from shared.events.registry import registry
 from shared.events.tasks import dispatch_event
 
 logger = structlog.get_logger(__name__)
 
 # Hạn giao lại phải dài hơn `CELERY_TASK_TIME_LIMIT` 120 giây (07 mục 1.1.1, 3.3)
 REDISPATCH_AFTER = timedelta(minutes=3)
-
-
-def build_deliveries(
-    event: OutboxEvent, handlers: list[Handler], now: datetime
-) -> list[EventDelivery]:
-    """Dựng (chưa lưu) delivery `pending` tới hạn ngay cho từng handler của sự kiện."""
-    return [EventDelivery.new(event=event, handler=handler.name, now=now) for handler in handlers]
 
 
 def create_deliveries(batch: int = 100) -> int:

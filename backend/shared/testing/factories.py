@@ -4,11 +4,12 @@ import factory
 from django.utils import timezone
 from factory.django import DjangoModelFactory
 
-from shared.api import idempotency as idempotency_api
 from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
 from shared.geo.models import Province, Ward
 from shared.idempotency import LEASE
-from shared.models import IdempotencyKey, IdempotencyStatus, uuid7
+from shared.idempotency import http as idempotency_api
+from shared.idempotency.models import IdempotencyKey, IdempotencyStatus
+from shared.models import uuid7
 
 
 class ProvinceFactory(DjangoModelFactory[Province]):

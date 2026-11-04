@@ -22,14 +22,12 @@ def _groups(root: Path) -> dict[str, list[Path]]:
     shared = root / "shared"
     files = [
         path
-        for path in sorted((shared / "events").rglob("*.py"))
-        if "tests" not in path.relative_to(shared / "events").parts
+        for package in ("events", "idempotency")
+        for path in sorted((shared / package).rglob("*.py"))
+        if "tests" not in path.relative_to(shared / package).parts
     ]
-    files.extend(
-        path
-        for path in (shared / "api/idempotency.py", shared / "idempotency.py", shared / "tasks.py")
-        if path.is_file()
-    )
+    if (shared / "tasks.py").is_file():
+        files.append(shared / "tasks.py")
     if files:
         groups["shared"] = files
     return groups

@@ -13,7 +13,7 @@ from uuid import UUID
 from django.db import models
 from django.db.models import Q
 
-from shared.events.registry import HANDLER_NAME_MAX_LENGTH
+from shared.events.registry import HANDLER_NAME_MAX_LENGTH, Handler
 from shared.models import UUIDv7Model
 
 # Chờ trước mỗi lần thử lại sau lần đầu; hết lịch thì delivery `failed` (07 mục 1.3)
@@ -291,3 +291,10 @@ class EventDelivery(UUIDv7Model):
         # Kết quả đã lưu được nghĩa là lần chạy này không dở: chuỗi chạy dở liên tiếp bị ngắt
         self.interrupted_runs = 0
         self.save(update_fields=[*fields, "interrupted_runs"])
+
+
+def build_deliveries(
+    event: OutboxEvent, handlers: list[Handler], now: datetime
+) -> list[EventDelivery]:
+    """Dựng (chưa lưu) delivery `pending` tới hạn ngay cho từng handler của sự kiện."""
+    return [EventDelivery.new(event=event, handler=handler.name, now=now) for handler in handlers]
