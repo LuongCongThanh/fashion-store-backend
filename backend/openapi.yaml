@@ -32,6 +32,7 @@ paths:
   /api/v1/backoffice/auth/login:
     post:
       operationId: v1_backoffice_auth_login_create
+      summary: Log in to the back office
       tags:
       - backoffice · identity
       requestBody:
@@ -39,6 +40,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginInput'
+            examples:
+              StaffLogin:
+                value:
+                  email: staff@example.com
+                  password: correct-horse-battery
+                summary: Staff login
         required: true
       security:
       - {}
@@ -48,6 +55,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPairDTO'
+              examples:
+                TokenPair:
+                  value:
+                    access_token: eyJhbGciOiJIUzI1NiJ9.example-access.signature
+                    refresh_token: eyJhbGciOiJIUzI1NiJ9.example-refresh.signature
+                    token_type: Bearer
+                    expires_in: 600
+                  summary: Token pair
           description: ''
         '400':
           content:
@@ -71,7 +86,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Thông tin đăng nhập không hợp lệ (`INVALID_CREDENTIALS`).
+              examples:
+                InvalidCredentials:
+                  value:
+                    error:
+                      code: INVALID_CREDENTIALS
+                      message: Invalid email or password.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+                  summary: Invalid credentials
+          description: Invalid email or password (`INVALID_CREDENTIALS`).
         '429':
           content:
             application/json:
@@ -109,6 +133,7 @@ paths:
   /api/v1/backoffice/auth/me:
     get:
       operationId: v1_backoffice_auth_me_retrieve
+      summary: Get the signed-in staff account
       tags:
       - backoffice · identity
       security:
@@ -119,6 +144,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountDTO'
+              examples:
+                StaffAccount:
+                  value:
+                    id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    created_at: '2026-01-15T08:30:00+07:00'
+                    updated_at: '2026-03-02T10:00:00+07:00'
+                    email: staff@example.com
+                    kind: staff
+                    full_name: Example Staff
+                    phone: '+84900000000'
+                    language: vi
+                    is_active: true
+                    email_verified: true
+                  summary: Staff account
           description: ''
         '400':
           content:
@@ -217,6 +256,7 @@ paths:
   /api/v1/store/geo/provinces:
     get:
       operationId: v1_store_geo_provinces_list
+      summary: List provinces
       tags:
       - store · geo
       security:
@@ -229,6 +269,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GeoDTO'
+              examples:
+                Province:
+                  value:
+                  - code: '01'
+                    name: Ha Noi
           description: ''
         '400':
           content:
@@ -284,6 +329,7 @@ paths:
   /api/v1/store/geo/provinces/{code}/wards:
     get:
       operationId: v1_store_geo_provinces_wards_list
+      summary: List wards of a province
       parameters:
       - in: path
         name: code
@@ -302,6 +348,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GeoDTO'
+              examples:
+                Ward:
+                  value:
+                  - code: '00004'
+                    name: Ba Dinh
           description: ''
         '400':
           content:

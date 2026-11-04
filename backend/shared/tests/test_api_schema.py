@@ -42,6 +42,8 @@ VIETNAMESE_LETTERS = re.compile(
     "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
     re.IGNORECASE,
 )
+# Mã lỗi view tự khai (ngoài lỗi mặc định của `AutoSchema`) và `code` của ví dụ `ErrorDTO`
+DECLARED_ERROR_EXAMPLE_CODES = {f"POST {LOGIN_PATH}": {"401": "INVALID_CREDENTIALS"}}
 
 
 class ItemOutput(serializers.Serializer[Any]):
@@ -111,6 +113,36 @@ def _operations(openapi: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         for path, item in openapi["paths"].items()
         for method, operation in item.items()
     ]
+
+
+def _api_operations(openapi: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (name, operation)
+        for name, operation in _operations(openapi)
+        if name.split(" ", 1)[1].startswith("/api/v1/")
+    ]
+
+
+def _json_examples(body: dict[str, Any]) -> dict[str, Any]:
+    examples: dict[str, Any] = (
+        body.get("content", {}).get("application/json", {}).get("examples", {})
+    )
+    return examples
+
+
+def _shown_texts(operation: dict[str, Any]) -> list[str]:
+    """Chữ Swagger hiển thị: summary, mô tả và ví dụ; bỏ `message` của ví dụ lỗi (dịch theo
+    `Accept-Language`)."""
+    bodies = [operation.get("requestBody", {}), *operation["responses"].values()]
+    texts = [operation.get("summary", ""), operation.get("description", "")]
+    for body in bodies:
+        texts.append(body.get("description", ""))
+        for example in _json_examples(body).values():
+            value = example["value"]
+            if isinstance(value, dict) and "error" in value:
+                value = {**value, "error": {**value["error"], "message": ""}}
+            texts.extend([example.get("summary", ""), str(value)])
+    return texts
 
 
 def _json_schema_of(response: dict[str, Any]) -> dict[str, Any]:
@@ -297,3 +329,35 @@ def test_swagger_ui_settings_are_configured() -> None:
         "docExpansion": "none",
         "deepLinking": True,
     }
+
+
+def test_current_operations_have_summary_and_examples(schema: dict[str, Any]) -> None:
+    operations = _api_operations(schema)
+
+    assert sorted(name for name, _ in operations) == sorted(
+        [f"POST {LOGIN_PATH}", f"GET {ME_PATH}", f"GET {PROVINCES_PATH}", f"GET {WARDS_PATH}"]
+    )
+    for name, operation in operations:
+        assert operation.get("summary"), name
+        if "requestBody" in operation:
+            assert _json_examples(operation["requestBody"]), f"{name} request"
+        for code, response in operation["responses"].items():
+            if code.startswith("2") and "content" in response:
+                assert _json_examples(response), f"{name} {code}"
+        for text in _shown_texts(operation):
+            assert not VIETNAMESE_LETTERS.search(text), f"{name}: {text}"
+
+
+def test_declared_errors_have_examples_with_matching_code(schema: dict[str, Any]) -> None:
+    operations = dict(_api_operations(schema))
+    error_keys = set(error_body("X", "y")["error"])
+
+    for name, declared in DECLARED_ERROR_EXAMPLE_CODES.items():
+        for code, error_code in declared.items():
+            response = operations[name]["responses"][code]
+            # Tên ví dụ do drf-spectacular camelize nên kiểm theo `error.code` của giá trị
+            errors = [example["value"]["error"] for example in _json_examples(response).values()]
+            assert [error["code"] for error in errors] == [error_code], f"{name} {code}"
+            assert set(errors[0]) == error_keys, f"{name} {code}"
+            assert f"`{error_code}`" in response["description"], f"{name} {code}"
+            assert not VIETNAMESE_LETTERS.search(response["description"]), f"{name} {code}"
