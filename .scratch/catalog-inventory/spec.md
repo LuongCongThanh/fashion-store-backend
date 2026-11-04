@@ -74,7 +74,7 @@ Xây M1 theo chuỗi tracer bullet:
 
 - Thuật ngữ domain theo `GLOSSARY.md`; Sản phẩm và Biến thể không được dùng thay thế nhau.
 - Hợp đồng API, data model và security docs vẫn sở hữu chi tiết schema/invariant. Spec này sở hữu phạm vi và hành vi M1.
-- Tài liệu hướng dẫn học nằm trong `guide.md` của từng ticket. `plan.md` chỉ tạo khi ticket bắt đầu; `report.md` chỉ tạo sau khi có kết quả thực tế.
+- Mỗi ticket chỉ có `spec.md` lúc mở; `plan.md` tạo khi bắt đầu làm, `report.md` tạo sau khi có kết quả thực tế.
 
 ## Ticket Index
 
