@@ -1,14 +1,14 @@
-# Chọn ticket
+# Pick a ticket
 
-Đọc khi `state.py start` in `NO STATE` kèm `FRONTIER`: chưa có ticket đang làm. Mọi câu hỏi dưới đây gom vào **một** lần hỏi (khuôn ở `SKILL.md` → *Gate*, phần *Quyết định*).
+Read when `state.py start` prints `NO STATE` with `FRONTIER`: no ticket in progress. Every question below goes into **one** ask (format in `SKILL.md` → *Gate*).
 
-1. **Tiến độ.** Chạy `python3 S/scripts/progress.py`, báo tóm tắt cho người dùng.
-2. **Ticket nên làm.** Khuyên dùng theo thứ tự ưu tiên mới nhất trong *Decisions-so-far* của `.scratch/mvp-roadmap/map.md`. Chưa có thứ tự thì đề xuất: lỗi thật trước, rồi tới cổng chặn CI; người dùng duyệt thì ghi thứ tự đó vào *Decisions-so-far*.
-3. **Ticket `needs-triage`** (nếu có): đề xuất người dùng gõ `/mattpocock-skills:triage <thư mục ticket>`. Người dùng muốn trả lời ngay thì hỏi từng ticket: `ready-for-agent`, `ready-for-human`, `wontfix` hay để sau (`docs/agents/triage-labels.md`). Ghi dòng `Status:` theo kết quả; file này commit cùng commit `plan` ở phase 1 (bước *Duyệt xong*).
-4. **Điểm nóng.** Một package đã có từ 3 ticket trở lên sửa (`git log --oneline origin/dev -- <package>`) và frontier còn ticket ở đó → đề xuất theo `phases/0-plan.md` mục *Điểm nóng*.
+1. **Progress.** Run `python3 S/scripts/progress.py` and summarise it for the user.
+2. **Recommended ticket.** Follow the latest priority order in *Decisions-so-far* of `.scratch/mvp-roadmap/map.md`. No order yet → propose: real bugs first, then CI gates; once the user approves, record that order in *Decisions-so-far*.
+3. **`needs-triage` tickets** (if any): suggest the user type `/mattpocock-skills:triage <ticket folder>`. If the user wants to answer now, ask per ticket: `ready-for-agent`, `ready-for-human`, `wontfix` or later (`docs/agents/triage-labels.md`). Write the `Status:` line accordingly; that file is committed with the `plan` commit in phase 1 (step *Approved*).
+4. **Hotspot.** A package already changed by 3+ tickets (`git log --oneline origin/dev -- <package>`) with frontier tickets still there → propose per `phases/0-plan.md` section *Hotspot*.
 
-Frontier rỗng, hoặc mốc chỉ còn ticket bị chặn hay cần người → `phases/0-plan.md` thay cho các bước trên.
+Empty frontier, or the milestone only has blocked or human tickets left → `phases/0-plan.md` instead of the steps above.
 
-## Xong khi
+## Done when
 
-Người dùng đã chọn ticket, mọi ticket `needs-triage` có câu trả lời hoặc được để sau; vào `phases/1-grill.md` với ticket đó.
+The user picked a ticket and every `needs-triage` ticket is answered or deferred; continue with `phases/1-grill.md` for that ticket.

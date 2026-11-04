@@ -1,40 +1,40 @@
 # Phase 1 — grill + ⛔G1
 
-Mục tiêu: mỗi acceptance criterion có seam và tên test, mỗi lựa chọn mở có quyết định, môi trường chạy được test.
+Goal: every acceptance criterion has a seam and test names, every open choice has a decision, the environment can run tests.
 
-1. **Nhánh.** Gặp *Cần người dùng* thì dừng ở đó.
-   - `git status --short` còn thay đổi của việc khác → *Cần người dùng*.
-   - `gh pr list --head <nhánh hiện tại> --state open` (tài khoản ở `phases/6-ship.md`). Còn PR mở → hỏi: merge PR đó trước (khuyên dùng khi ticket mới cần code của nó), hay tách nhánh từ `origin/dev` luôn.
-   - `git fetch origin`, từ `origin/dev` tạo `<type>/<mô-tả-ngắn>` (`docs/architecture/11-git-workflow.md` mục 2).
+1. **Branch.** Stop at the first *Needs user*.
+   - `git status --short` shows changes from other work → *Needs user*.
+   - `gh pr list --head <current branch> --state open` (account in `phases/6-ship.md`). An open PR → ask: merge that PR first (recommended when the new ticket needs its code), or branch from `origin/dev` now.
+   - `git fetch origin`, create `<type>/<short-description>` from `origin/dev` (`docs/architecture/11-git-workflow.md` section 2).
 
-   Xong khi `git branch --show-current` là nhánh mới và working tree chỉ còn file của ticket.
-2. **Baseline.** Cờ `NO HOOKS` → hỏi rồi chạy `uv run pre-commit install` trong `backend/`. Chạy `make test` với `--label baseline` (`reference/rules.md` → *Check máy*); không dùng `manage.py check` thay, vì lệnh đó xanh cả khi DB hỏng. Lỗi kết nối DB, Redis hoặc thiếu biến môi trường → *Cần người dùng*: nhờ sửa `backend/.env` theo `.env.example` (agent không đọc `.env`) hoặc bật service (`make up`), rồi chạy lại. Đỏ vì lý do khác là đỏ sẵn trên `origin/dev`: ghi id test (hoặc tên bước) vào `notes.baselineRed` ở bước 3. Xong khi baseline xanh hoặc mọi test đỏ đã có trong `notes.baselineRed`.
-3. **State.** `python3 S/scripts/state.py init <T> --branch <nhánh> --mode full` (mode tạm, G1 chốt). Read `reference/state.md`.
-4. **Nguồn.** Read ticket, `spec.md` của feature, tài liệu và ADR ticket trỏ tới, `GLOSSARY.md`. Ticket chạm quy tắc nghiệp vụ → thêm `docs/business/04-business-rules.md`, `05-order-lifecycle.md`. Test: tra `docs/architecture/12-testing-strategy.md` theo cả loại test lẫn chủ đề ticket chạm (log, DB, cache, fixture).
-5. **Bản đồ code** (sub-agent `Explore`). Brief: code ticket sửa hoặc gọi (file, chữ ký, số dòng), caller, test và fixture dùng lại được, ticket bị ticket này chặn (`Blocked by` trỏ về nó) để chốt API khớp chỗ dùng sau. Ticket bọc việc một thư viện đã làm (đồng bộ lịch, migrate, xác thực…) → `mattpocock-skills:research` tra tài liệu gốc đúng phiên bản trong `backend/uv.lock`, ghi `.scratch/<feature>/research/<chủ-đề>.md`.
-   Phiên chính ghi kết quả vào `.git/ship-ticket-fashion/<K>-map.md` (≤ 150 dòng: file → chữ ký / dòng → vai trò; test, fixture, hàm thư viện dùng lại), rồi tra `docs/architecture/README.md` tìm *tài liệu chi phối* của từng file sẽ đổi và đọc đúng các mục đó. Xong khi bản đồ có mọi file sẽ đổi.
-6. **Grilling.** `mattpocock-skills:grilling` trong phạm vi ticket: chốt lựa chọn còn mở và các _seam_ sẽ test. Lite: chỉ hỏi phần ticket và tài liệu chưa trả lời.
-   - Code chuyển ra khỏi một `except` rộng (của handler, của transaction): liệt kê mọi exception nó từng được bắt ở đó và chốt nơi mỗi loại rơi vào sau khi chuyển.
-   - **Interface public** (thêm hoặc đổi hàm public trong `contracts.py`, `services`, `selectors` của module, hoặc của `shared/`) → thêm `mattpocock-skills:codebase-design`: _deletion test_ và "một adapter = seam giả định" cho từng interface. `contracts.py` đầu tiên của một module → thêm *design-it-twice*, tối đa 3 phương án, so ở G1.
-7. **`## Quyết định`** trong `spec.md` của ticket, đặt trước `## Acceptance criteria`: dòng `Chốt khi grilling ngày DD/MM/YYYY.`, rồi bảng Chủ đề | Quyết định gồm dòng `Tài liệu chi phối` (reference máy đọc: `docs/architecture/13-python-django-coding-style.md::3.1`, `docs/adr/0007-events-outbox-celery-no-kafka.md`), dòng `Interface / seam` nếu có, và mọi chỗ khác *Việc cần làm* kèm lý do. Model và test tham chiếu mục tên / đường dẫn test; test thêm mục factory và tài liệu sở hữu kịch bản.
-8. **Slice** (schema ở `reference/state.md`). Chia AC thành slice dọc (lite: một slice), mỗi slice một commit:
+   Done when `git branch --show-current` is the new branch and the working tree holds only ticket files.
+2. **Baseline.** Flag `NO HOOKS` → ask, then run `uv run pre-commit install` in `backend/`. Preflight is already green (`SKILL.md` → *Start*). Run `make test` with `--label baseline` (*Machine checks*). A red test is pre-existing on `origin/dev`: record the test id (or step name) in `notes.baselineRed` at step 3. Done when the baseline is green or every red is in `notes.baselineRed`.
+3. **State.** `python3 S/scripts/state.py init <T> --branch <branch> --mode full` (provisional mode, G1 decides). Read `reference/state.md`.
+4. **Sources.** Read the ticket, the feature `spec.md`, the docs and ADRs the ticket points to, `GLOSSARY.md`. Ticket touches business rules → also `docs/business/04-business-rules.md`, `05-order-lifecycle.md`. Tests: look up `docs/architecture/12-testing-strategy.md` by both test type and the topics the ticket touches (logs, DB, cache, fixtures).
+5. **Code map** (`Explore` sub-agent). Brief: code the ticket changes or calls (file, signature, line), callers, reusable tests and fixtures, tickets blocked by this one (`Blocked by` pointing here) so the API fits their later use. Ticket wraps something a library already does (calendar sync, migration, auth…) → `mattpocock-skills:research` on the primary docs for the exact version in `backend/uv.lock`, written to `.scratch/<feature>/research/<topic>.md`.
+   The main session writes the result to `.git/ship-ticket-fashion/<K>-map.md` (≤ 150 lines: file → signature / line → role; reusable tests, fixtures, library functions), then looks up `docs/architecture/README.md` for the *governing docs* of each file to change and reads exactly those sections. Done when the map has every file to change.
+6. **Grilling.** `mattpocock-skills:grilling` within the ticket's scope: settle open choices and the _seams_ to test. Lite: ask only what the ticket and docs leave open.
+   - Code moving out of a broad `except` (a handler's, a transaction's): list every exception it used to catch there and decide where each lands after the move.
+   - **Public interface** (adding or changing a public function in a module's `contracts.py`, `services`, `selectors`, or in `shared/`) → add `mattpocock-skills:codebase-design`: _deletion test_ and "one adapter = hypothetical seam" for each interface. A module's first `contracts.py` → add *design-it-twice*, at most 3 options, compared at G1.
+7. **`## Quyết định`** in the ticket's `spec.md`, placed before `## Acceptance criteria`: the line `Chốt khi grilling ngày DD/MM/YYYY.`, then a Chủ đề | Quyết định table with a `Tài liệu chi phối` row (machine-readable references: `docs/architecture/13-python-django-coding-style.md::3.1`, `docs/adr/0007-events-outbox-celery-no-kafka.md`), an `Interface / seam` row if any, and every deviation from *Việc cần làm* with its reason. Models and tests reference the naming / test-path sections; tests add the factory section and the doc owning the scenario. Write it in Vietnamese.
+8. **Slices** (schema in `reference/state.md`). Split the ACs into vertical slices (lite: one slice), one commit per slice:
    - `acs`, `seam`, `dependsOn`.
-   - `files`: chỉ file thật sự sửa; `commit.py` từ chối commit khi thiếu hoặc thừa file. Hành vi đổi → `rg -n "<trạng thái / field bị ảnh hưởng>" docs`, đưa code, test, sơ đồ, kịch bản liên quan vào.
-   - `tddTests` + `expectedRed`: `AssertionError` hoặc exception nghiệp vụ; lỗi setup / hạ tầng không hợp lệ. I/O phá huỷ được test ở seam bằng kết nối giả.
-   - `verificationTests`: test sẵn có chỉ cần green.
-   - `governingDocs`: file → `đường/dẫn.md::số-mục` (ADR áp dụng cả file bỏ được `::`); cùng reference phải có trong dòng `Tài liệu chi phối`.
-   - AC không test tự động được → `untestable` kèm cách kiểm tay.
+   - `files`: only files actually changed; `commit.py` refuses a commit with missing or extra files. Changed behaviour → `rg -n "<affected state / field>" docs`, include related code, tests, diagrams, scenarios.
+   - `tddTests` + `expectedRed`: `AssertionError` or a domain exception; setup / infrastructure errors are invalid. Destructive I/O is tested at the seam with a fake connection.
+   - `verificationTests`: existing tests that only need to stay green.
+   - `governingDocs`: file → `path/to/doc.md::section` (an ADR applying to the whole file may drop `::`); the same references must appear in the `Tài liệu chi phối` row.
+   - An AC not automatically testable → `untestable` with a manual check.
 
-   Xong khi mỗi AC thuộc đúng một slice hoặc nằm trong `untestable`.
-9. **Plan.** Push nguyên slice trong một lần, rồi chạy `state.py check <T>`, `check_ac_trace.py <T> --planned`, `plan.py <T>`. Slice đổi sau G1 → cập nhật state, sinh lại plan trước khi code. Xong khi cả ba xanh.
-10. **⛔G1** (khuôn ở `SKILL.md` → *Gate*). Tóm tắt: `plan.md`; tài liệu chi phối; quyết định mới; file sẽ đổi (đánh dấu `backend/shared/`); mode; AC `untestable`; test trong `notes.baselineRed`. Hỏi duyệt slice và mode cùng các quyết định còn mở.
-11. **Duyệt xong.** Commit *spec* + *plan* (và dòng `Status:` đã triage), chuyển phase, in điểm clear:
+   Done when every AC belongs to exactly one slice or is in `untestable`.
+9. **Plan.** Push the slices in one go, then run `state.py check <T>`, `check_ac_trace.py <T> --planned`, `plan.py <T>`. Slices changed after G1 → update state and regenerate the plan before coding. Done when all three are green.
+10. **⛔G1** (format in `SKILL.md` → *Gate*). Summary: `plan.md`; governing docs; new decisions; files to change (flag `backend/shared/`); mode; `untestable` ACs; tests in `notes.baselineRed`. Ask to approve slices and mode together with remaining open decisions.
+11. **Approved.** Commit *spec* + *plan* (and any triaged `Status:` lines), change phase, print the clear point:
 
     ```bash
-    python3 S/scripts/commit.py <T> --task plan -m "docs: plan <chủ đề> ticket" -- <thư mục ticket> [<spec.md của ticket đã triage>…]
+    python3 S/scripts/commit.py <T> --task plan -m "docs: plan <topic> ticket" -- <ticket folder> [<triaged ticket spec.md>…]
     python3 S/scripts/state.py transition <T> --to code --gate g1 --next "S1: viết test red đầu tiên" --reason "G1 approved"
     ```
 
-## Xong khi
+## Done when
 
-Baseline đã chạy; `<K>-map.md` có mọi file sẽ đổi; mọi AC nằm trong một slice hoặc `untestable`; mọi file sẽ đổi có tài liệu chi phối, mọi lựa chọn mở có dòng trong `## Quyết định`; `state.py check` và `check_ac_trace.py --planned` xanh; commit `Task: plan` đã có; `gates.g1` có ngày và `phase` là `code`.
+Baseline ran; `<K>-map.md` has every file to change; every AC is in a slice or `untestable`; every file to change has governing docs and every open choice has a row in `## Quyết định`; `state.py check` and `check_ac_trace.py --planned` are green; the `Task: plan` commit exists; `gates.g1` has a date and `phase` is `code`.

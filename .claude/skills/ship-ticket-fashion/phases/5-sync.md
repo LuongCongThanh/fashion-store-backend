@@ -1,27 +1,27 @@
-# Phase 5 — đồng bộ tài liệu, retro + ⛔G2
+# Phase 5 — sync docs, retro + ⛔G2
 
-Mục tiêu: sau PR này, `docs/` và `.scratch/` mô tả đúng code trên nhánh.
+Goal: after this PR, `docs/` and `.scratch/` describe the code on the branch.
 
-1. **Danh sách thay đổi.** Từ `git diff origin/dev...HEAD --stat` và diff của code: tên công khai mới hoặc đổi (hàm, lớp, setting), lệnh `make`, biến môi trường, file / thư mục mới, endpoint, model, hành vi đổi khi review.
-2. **Dò chỗ cũ.** Với từng mục, `grep -rn "<tên>" docs GLOSSARY.md .scratch CONTRIBUTING.md README.md` rồi sửa chỗ mô tả hành vi cũ. Các tài liệu hay lệch:
-   - `docs/architecture/02-backend-structure.md`: cây thư mục, module, API của `shared`.
-   - `03-data-model.md`: field, ràng buộc, migration.
-   - `04-api-contract.md`: endpoint, định dạng lỗi, phân trang.
-   - `08-local-development.md`: lệnh `make` (bảng ở mục 3), biến môi trường (mục 2.3), `.env.example`.
-   - `12-testing-strategy.md`: marker, fixture, cổng chặn CI.
-3. **Domain.** Thuật ngữ mới → `GLOSSARY.md`; quyết định kiến trúc lâu dài → ADR; cả hai qua `mattpocock-skills:domain-modeling`.
-4. **Ticket.** `## Quyết định` trong `spec.md` khớp code cuối cùng (chữ ký hàm, hành vi đổi khi review). Việc ngoài phạm vi phát hiện được → backlog theo `reference/rules.md` (*Phạm vi*).
-5. **Code nhỏ cùng loại**: thứ phase này lộ ra trong phạm vi ticket (tên lệch tài liệu đã chốt, comment sai) thì sửa code, chạy lại test liên quan.
-6. Ghi mục *Tài liệu đã cập nhật* và làm mới mục *Commit* của báo cáo (`commit_map.py <T> --md`), rồi commit tài liệu, code nhỏ của bước 5 và thư mục ticket trong một lần: `commit.py <T> --task sync -m "docs: sync docs and report for <chủ đề> ticket" -- <file>…`.
-7. **Check cuối**: full check theo mốc của *Check máy*; luôn chạy `check_ac_trace.py` và `check_ship.py <T>`. Mỗi dòng `WARN` / `FAIL` là một điểm của G2.
-8. **Retro**: `phases/8-retro.md` bước 1–3.
-9. **⛔G2** (khuôn ở SKILL.md → *Gate*). Tin tóm tắt: bảng AC → bằng chứng; kết luận review (mục còn mở); tài liệu đã cập nhật; ticket mới đã tạo; số test; dòng `WARN` / `FAIL` của `check_ship.py`; token theo phase; cải tiến retro đề xuất; tiêu đề PR đề xuất. Nói rõ: duyệt G2 cho phép phase 6 push, mở PR và đóng ticket mà không hỏi thêm; merge vẫn hỏi riêng. Hỏi: duyệt ship (khuyên dùng khi không có `FAIL`), sửa thêm, hay dừng; và cải tiến retro nào làm (multi-select).
-10. Người dùng yêu cầu sửa thêm → ghi `userRequested`, sửa (đổi hành vi thì `--to code` rồi đi lại các phase), trình G2 lại. Duyệt xong: `phases/8-retro.md` bước 4–5 với cải tiến đã chọn, rồi:
+1. **Change list.** From `git diff origin/dev...HEAD --stat` and the code diff: new or renamed public names (functions, classes, settings), `make` commands, env vars, new files / folders, endpoints, models, behaviour changed during review.
+2. **Find stale spots.** For each item, `grep -rn "<name>" docs GLOSSARY.md .scratch CONTRIBUTING.md README.md` and fix places describing old behaviour. Docs that often drift:
+   - `docs/architecture/02-backend-structure.md`: folder tree, modules, `shared` API.
+   - `03-data-model.md`: fields, constraints, migrations.
+   - `04-api-contract.md`: endpoints, error format, pagination.
+   - `08-local-development.md`: `make` commands (table in section 3), env vars (section 2.3), `.env.example`.
+   - `12-testing-strategy.md`: markers, fixtures, CI gates.
+3. **Domain.** New terms → `GLOSSARY.md`; lasting architecture decisions → ADR; both via `mattpocock-skills:domain-modeling`.
+4. **Ticket.** `## Quyết định` in `spec.md` matches the final code (function signatures, behaviour changed in review). Out-of-scope work found → backlog per `reference/rules.md` (*Scope*).
+5. **Small code fixes of the same kind** this phase exposes within the ticket's scope (names drifting from the settled docs, wrong comments): fix the code, rerun the related tests.
+6. Fill the report's *Tài liệu đã cập nhật* section and refresh its *Commit* section (`commit_map.py <T> --md`), then commit docs, step 5 code and the ticket folder at once: `commit.py <T> --task sync -m "docs: sync docs and report for <topic> ticket" -- <file>…`.
+7. **Final check**: full check per the milestones in *Machine checks*; always run `check_ac_trace.py` and `check_ship.py <T>`. Every `WARN` / `FAIL` line is a G2 point.
+8. **Retro**: `phases/8-retro.md` steps 1–3.
+9. **⛔G2** (format in `SKILL.md` → *Gate*). Summary: AC → evidence table; review verdicts (open items); docs updated; new tickets created; test count; `WARN` / `FAIL` lines of `check_ship.py`; tokens by phase; proposed retro improvements; proposed PR title. State plainly: approving G2 lets phase 6 push, open the PR and close the ticket without asking again; merge is still asked separately. Ask: approve ship (recommended when there is no `FAIL`), more fixes, or stop; and which retro improvements to make (multi-select).
+10. User asks for more fixes → record `userRequested`, fix (behaviour change → `--to code` and walk the phases again), present G2 again. Once approved: `phases/8-retro.md` steps 4–5 with the chosen improvements, then:
 
-   ```bash
-   python3 S/scripts/state.py transition <T> --to ship --gate g2 --next "push và mở PR" --reason "G2 approved"
-   ```
+    ```bash
+    python3 S/scripts/state.py transition <T> --to ship --gate g2 --next "push và mở PR" --reason "G2 approved"
+    ```
 
-## Xong khi
+## Done when
 
-Mọi mục trong danh sách thay đổi đã grep, không còn chỗ nào trong tài liệu mô tả hành vi cũ; check cuối xanh hoặc từng `WARN` đã được trả lời ở G2; retro xong theo *Xong khi* của `phases/8-retro.md`; `gates.g2` có ngày và `phase` là `ship`.
+Every change-list item was grepped and no doc still describes old behaviour; the final check is green or each `WARN` was answered at G2; retro is done per *Done when* of `phases/8-retro.md`; `gates.g2` has a date and `phase` is `ship`.

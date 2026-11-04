@@ -1,33 +1,33 @@
 # Retro
 
-Mục tiêu: từ bằng chứng của ticket vừa làm, sửa ngay chỗ gây làm lại hoặc tốn token trong môi trường agent (skill, script, check, tài liệu) và đưa vào cùng PR. Phiên chính làm. Phase 5 gọi bước 1–3 trước G2, bước 4–5 sau khi G2 duyệt; `retro #<PR>` dùng mục cuối.
+Goal: from the evidence of the ticket just done, fix right away whatever caused rework or token waste in the agent environment (skill, scripts, checks, docs) and ship it in the same PR. The main session does it. Phase 5 runs steps 1–3 before G2 and steps 4–5 after G2 approval; `retro #<PR>` uses the last section.
 
-1. **Bằng chứng.**
-   - `python3 S/scripts/metrics.py <T>`: token theo phase và agent. Phase hoặc agent tốn nhất là ứng viên đầu tiên.
-   - *Ghi chú cho retro* trong `report.md`, finding review, vòng sửa, check chạy lại (log ở `.git/ship-ticket-fashion/logs/`).
-   - `python3 S/scripts/user_prompts.py --last 1`: lời nhắc lặp lại, chỗ người dùng phải sửa hướng.
+1. **Evidence.**
+   - `python3 S/scripts/metrics.py <T>`: tokens by phase and agent. The costliest phase or agent is the first candidate.
+   - *Ghi chú cho retro* in `report.md`, review findings, fix rounds, reruns of checks (logs in `.git/ship-ticket-fashion/logs/`).
+   - `python3 S/scripts/user_prompts.py --last 1`: repeated reminders, places where the user had to redirect.
 
-   Xong khi mỗi điểm tốn công có nguyên nhân kèm bằng chứng, hoặc ghi rõ chưa xác minh được.
-2. **Nơi sửa hẹp nhất** cho mỗi nguyên nhân:
-   - Máy kiểm được → test, script, lint hoặc hook hiện có.
-   - Quy ước code hoặc thiết kế → `CONTRIBUTING.md` hoặc tài liệu architecture mà reviewer đọc.
-   - Điều hướng, thao tác → một chỉ dẫn ở đúng phase dùng nó; output dài → lọc qua `run_logged.py`.
-   - Chỉ dẫn thừa, trùng hoặc lỗi thời → xoá hoặc sửa tại nguồn.
-   - Gotcha khi nguyên nhân đã xác minh, sẽ lặp lại và các chỗ trên chưa mã hoá được: `triệu chứng → nguyên nhân → cách sửa (ticket)`, tối đa 2 dòng; mỗi file `gotchas/` ≤ 4 KB.
-3. **Đề xuất.** Danh sách gọn (vấn đề, bằng chứng, token hoặc lượt đã tốn, nơi sửa, khuyến nghị) đi vào G2 của phase 5. Không có gì đáng sửa → ghi `Retro: không` vào *Ghi chú cho retro*.
-4. **Viết** cải tiến đã duyệt theo `mattpocock-skills:writing-for-agents`: mỗi ý một nguồn; chỉ dẫn hành động có tiêu chí xong; phần chỉ một nhánh dùng đặt sau con trỏ của nhánh đó; cắt dòng trùng, no-op hoặc đã được script, cấu hình diễn đạt. Phần riêng của Codex ở `.agents/skills/ship-ticket-fashion/`.
-5. **Kiểm và commit.** Sửa script → `python3 -m unittest discover -s S/scripts`; sửa hook hoặc cấu hình backend → check tương ứng (*Check máy*); luôn `git diff --check`. Ghi cải tiến đã làm vào *Ghi chú cho retro*, rồi `commit.py <T> --task retro -m "chore: refine ship-ticket-fashion after <chủ đề> ticket" -- <file>… <report.md>`.
+   Done when every costly point has a cause backed by evidence, or is marked as not verifiable.
+2. **Narrowest fix** for each cause:
+   - Machine-checkable → an existing test, script, lint or hook.
+   - Code convention or design → `CONTRIBUTING.md` or the architecture doc reviewers read.
+   - Navigation or procedure → one instruction in the phase that uses it; long output → filter through `run_logged.py`.
+   - Redundant, duplicated or stale instructions → delete or fix at the source.
+   - A gotcha only when the cause is verified, will recur, and none of the above can encode it: `symptom → cause → fix (ticket)`, at most 2 lines; each `gotchas/` file ≤ 4 KB.
+3. **Propose.** A compact list (problem, evidence, tokens or turns spent, where to fix, recommendation) goes into G2 of phase 5. Nothing worth fixing → write `Retro: không` in *Ghi chú cho retro*.
+4. **Write** the approved improvements per `mattpocock-skills:writing-for-agents`, in English: one home per idea; actionable instructions with a completion criterion; branch-only material behind that branch's pointer; cut duplicates, no-ops and anything a script or config already says. Codex-only adjustments go in `.agents/skills/ship-ticket-fashion/`.
+5. **Verify and commit.** Script changes → `python3 -m unittest discover -s S/scripts`; hook or backend config changes → the matching check (*Machine checks*); always `git diff --check`. Record the improvements made in *Ghi chú cho retro*, then `commit.py <T> --task retro -m "chore: refine ship-ticket-fashion after <topic> ticket" -- <file>… <report.md>`.
 
-Bài học ghi vào nguồn chuẩn của skill hoặc repo; memory chỉ ghi khi người dùng yêu cầu.
+Lessons go into the skill's or repo's source of truth; write memory only when the user asks.
 
-## Xong khi
+## Done when
 
-Mỗi điểm tốn công có kết luận; chỉ cải tiến đã duyệt được sửa, đã kiểm và nằm trong commit `Task: retro`, hoặc báo cáo ghi `Retro: không`.
+Every costly point has a conclusion; only approved improvements were made, verified, and sit in a `Task: retro` commit, or the report says `Retro: không`.
 
-## Retro một PR (`retro #<số>`)
+## PR retro (`retro #<number>`)
 
-Chạy ngay, không cần state.
+Runs at once, no state needed.
 
-1. Bằng chứng: `gh pr view <số> --json title,commits,reviews,comments,statusCheckRollup` (tài khoản ở `phases/6-ship.md`), comment gắn dòng theo mục CI của phase đó, báo cáo ticket nếu có, `user_prompts.py`.
-2. Làm bước 2 và 4, kiểm theo bước 5. Cải tiến người dùng đã yêu cầu cụ thể là đã duyệt; đề xuất mới hỏi bằng `AskUserQuestion`.
-3. Có sửa → nhánh `chore/skill-retro-pr-<số>` từ `origin/dev`, commit `chore: refine ship-ticket-fashion after PR #<số>`, PR theo `phases/6-ship.md` mục 1–3. Không có sửa → báo kết luận.
+1. Evidence: `gh pr view <number> --json title,commits,reviews,comments,statusCheckRollup` (account in `phases/6-ship.md`), line comments per the CI section of that phase, the ticket report if any, `user_prompts.py`.
+2. Do steps 2 and 4, verify per step 5. Improvements the user asked for explicitly are approved; ask about new proposals with `AskUserQuestion`.
+3. Changes → branch `chore/skill-retro-pr-<number>` from `origin/dev`, commit `chore: refine ship-ticket-fashion after PR #<number>`, PR per `phases/6-ship.md` sections 1–3. No changes → report the conclusion.
