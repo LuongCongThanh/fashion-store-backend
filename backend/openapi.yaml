@@ -3,6 +3,107 @@ info:
   title: Fashion Store API
   version: 0.1.0
 paths:
+  /api/v1/backoffice/auth/login:
+    post:
+      operationId: v1_backoffice_auth_login_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPairDTO'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Thông tin đăng nhập không hợp lệ (`INVALID_CREDENTIALS`).
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Vượt giới hạn request (`THROTTLED`).
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+  /api/v1/backoffice/auth/me:
+    get:
+      operationId: v1_backoffice_auth_me_retrieve
+      tags:
+      - v1
+      security:
+      - BackofficeBearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDTO'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Chưa đăng nhập hoặc token không hợp lệ (`NOT_AUTHENTICATED`,
+            `TOKEN_EXPIRED`).
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Không đủ quyền (`PERMISSION_DENIED`).
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Vượt giới hạn request (`THROTTLED`).
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+          description: Không xác minh được trạng thái auth từ DB (`AUTH_STATE_UNAVAILABLE`).
   /api/v1/store/geo/provinces:
     get:
       operationId: v1_store_geo_provinces_list
@@ -85,6 +186,46 @@ paths:
           description: Lỗi hệ thống (`INTERNAL_ERROR`).
 components:
   schemas:
+    AccountDTO:
+      type: object
+      description: '`AccountDTO` (04 mục 5.4): không có mật khẩu, `token_version`
+        hay token.'
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        email:
+          type: string
+          format: email
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        full_name:
+          type: string
+        phone:
+          type: string
+        language:
+          $ref: '#/components/schemas/LanguageEnum'
+        is_active:
+          type: boolean
+        email_verified:
+          type: boolean
+      required:
+      - created_at
+      - email
+      - email_verified
+      - full_name
+      - id
+      - is_active
+      - kind
+      - language
+      - phone
+      - updated_at
     ErrorDTO:
       type: object
       properties:
@@ -124,3 +265,55 @@ components:
       required:
       - code
       - name
+    KindEnum:
+      enum:
+      - customer
+      - staff
+      - admin
+      type: string
+      description: |-
+        * `customer` - Customer
+        * `staff` - Staff
+        * `admin` - Admin
+    LanguageEnum:
+      enum:
+      - vi
+      - en
+      type: string
+      description: |-
+        * `vi` - Vi
+        * `en` - En
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    TokenPairDTO:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
+          minimum: 1
+      required:
+      - access_token
+      - expires_in
+      - refresh_token
+      - token_type
+  securitySchemes:
+    BackofficeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

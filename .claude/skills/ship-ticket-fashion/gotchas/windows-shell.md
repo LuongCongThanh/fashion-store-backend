@@ -1,6 +1,7 @@
 # Gotchas: shell trên Windows
 
 - **`python3` không tồn tại hoặc mở Microsoft Store**: nguyên nhân: Python cho Windows cài lệnh `python`/`py`, còn `python3` chỉ là stub của Store. Sửa: thay `python3` trong lệnh mẫu của skill bằng `python`. (lệnh mẫu đổi sang `python3` cho Linux)
+- **Mọi lệnh Bash/PowerShell bị chặn với `PreToolUse hook error … Python was not found`**: nguyên nhân: hook trong `.claude/settings.json` gọi `python3` trực tiếp, nên gặp stub Store. Sửa: hook gọi qua `.claude/hooks/run_py.sh` (tự chọn `python3` / `python` / `py`); muốn gõ `python3` như Linux thì tạo `python3.exe` cạnh `python.exe` thật (đứng trước `WindowsApps` trong PATH). Nâng Python lên thư mục mới thì phải tạo lại. (backoffice-login)
 - **`gh pr create -F <file>` báo "flag needs an argument"**: nguyên nhân: đường dẫn scratchpad (`C:/Users/SMD415~2/…`, tên user có dấu cách) bị xuống dòng hoặc tách khi dán lệnh. Sửa: ghi thân PR vào `.git/PR_BODY.md` rồi `-F .git/PR_BODY.md`. (PR #12)
 - **Tham số bắt đầu bằng `/` thành `C:/Program Files/Git/...`**: nguyên nhân: Git Bash tự đổi đường dẫn. Sửa: thêm `MSYS_NO_PATHCONV=1` trước lệnh. (dự án saafehouse-fe)
 - **`Get-Content` của PowerShell lỗi với đường dẫn có `[` `]`**: nguyên nhân: `[ ]` là wildcard. Sửa: `-LiteralPath`, hoặc dùng Bash tool. (dự án saafehouse-fe)

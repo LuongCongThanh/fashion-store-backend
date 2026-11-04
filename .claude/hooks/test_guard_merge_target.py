@@ -7,6 +7,7 @@ python -m unittest discover -s .claude/hooks
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import unittest
@@ -120,6 +121,23 @@ class HookProcess(unittest.TestCase):
 
     def test_hook_error_blocks(self):
         self.assertEqual(self.run_hook(b"not json"), 2)
+
+
+@unittest.skipUnless(shutil.which("sh"), "cần sh (Linux, macOS, Git Bash)")
+class RunPyWrapper(unittest.TestCase):
+    """settings.json gọi hook qua run_py.sh: stdin và exit code phải đi qua nguyên vẹn."""
+
+    def run_wrapped(self, stdin: bytes) -> int:
+        here = Path(__file__).parent
+        return subprocess.run(["sh", str(here / "run_py.sh"), str(here / "guard_merge_target.py")],
+                              input=stdin, capture_output=True).returncode
+
+    def test_allowed_command_passes(self):
+        payload = json.dumps({"tool_input": {"command": "git status"}})
+        self.assertEqual(self.run_wrapped(payload.encode("utf-8")), 0)
+
+    def test_hook_error_still_blocks(self):
+        self.assertEqual(self.run_wrapped(b"not json"), 2)
 
 
 if __name__ == "__main__":

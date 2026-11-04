@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.test import APIClient
 from rest_framework.views import APIView
 
+from modules.identity.auth.authentication import JWTAuthentication
 from shared.api.permissions import IsAdmin, IsStaff
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls(__name__)]
@@ -15,6 +16,7 @@ pytestmark = [pytest.mark.django_db, pytest.mark.urls(__name__)]
 
 def _guarded_view(permission: type[BasePermission]) -> type[APIView]:
     class GuardedView(APIView):
+        authentication_classes = (JWTAuthentication,)
         permission_classes = (permission,)
 
         def get(self, request: Request) -> Response:

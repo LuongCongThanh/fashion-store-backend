@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_merge_target.py\"",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_py.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_merge_target.py\"",
             "timeout": 30,
             "onFailure": "block",
             "statusMessage": "Kiểm nhánh đích merge/push"

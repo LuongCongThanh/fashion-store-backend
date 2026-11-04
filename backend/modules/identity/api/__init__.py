@@ -1,0 +1,1 @@
+"""HTTP adapters của identity."""

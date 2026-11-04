@@ -15,6 +15,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
     path("api/v1/store/geo/", include("shared.geo.urls")),
+    path("api/v1/backoffice/auth/", include("modules.identity.api.backoffice.urls")),
 ]
 
 if settings.API_DOCS_ENABLED:

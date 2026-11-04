@@ -19,6 +19,8 @@ dependencies = [
     "gunicorn>=23.0",
     "phonenumbers>=9.0",
     "vietnam-provinces>=2026.9.0",
+    "pyjwt[crypto]>=2.15.1,<3",
+    "argon2-cffi>=25.1,<26",
 ]
 
 [dependency-groups]
@@ -162,6 +164,8 @@ source_modules = [
     "modules.catalog",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -175,6 +179,8 @@ source_modules = [
     "modules.inventory",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -188,6 +194,8 @@ source_modules = [
     "modules.notifications",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -201,6 +209,8 @@ source_modules = [
     "modules.ordering",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -214,6 +224,8 @@ source_modules = [
     "modules.payments",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -227,6 +239,8 @@ source_modules = [
     "modules.promotions",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",
@@ -240,6 +254,8 @@ source_modules = [
     "modules.shipping",
 ]
 forbidden_modules = [
+    "modules.identity.api",
+    "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
     "modules.identity.services",

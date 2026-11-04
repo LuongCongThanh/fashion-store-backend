@@ -1,6 +1,6 @@
 """Cấu hình chung mọi môi trường."""
 
-from config.env import BASE_DIR, database_config, get_env
+from config.env import BASE_DIR, database_config, get_env, jwt_keyring
 from shared.logging import configure_logging
 
 env = get_env()
@@ -10,6 +10,14 @@ SECRET_KEY = env.DJANGO_SECRET_KEY.get_secret_value()
 PII_HMAC_KEYS = tuple((kid, secret.get_secret_value()) for kid, secret in env.PII_HMAC_KEYS)
 # Secret Next.js gửi trong X-BFF-Secret; 2 giá trị khi đang xoay (05 mục 5)
 BFF_SHARED_SECRETS = tuple(secret.get_secret_value() for secret in env.BFF_SHARED_SECRET)
+JWT_ISSUER = env.JWT_ISSUER
+JWT_AUDIENCE_BACKOFFICE = env.JWT_AUDIENCE_BACKOFFICE
+JWT_ACCESS_TTL_SECONDS = env.JWT_ACCESS_TTL_SECONDS
+JWT_BACKOFFICE_REFRESH_TTL_SECONDS = env.JWT_BACKOFFICE_REFRESH_TTL_SECONDS
+JWT_LEEWAY_SECONDS = env.JWT_LEEWAY_SECONDS
+
+# Keyring JWT đã kiểm: `kid` -> PEM; khoá đầu phát token mới (05 mục 2)
+JWT_SIGNING_KEYS = jwt_keyring(env.JWT_SIGNING_KEYS.get_secret_value())
 DEBUG = False
 ALLOWED_HOSTS: list[str] = []
 
@@ -40,6 +48,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -69,6 +84,7 @@ CACHES = {
         "LOCATION": env.REDIS_URL,
     }
 }
+REDIS_URL = env.REDIS_URL
 
 LANGUAGE_CODE = "vi"
 LANGUAGES = [("vi", "Tiếng Việt"), ("en", "English")]
@@ -90,7 +106,7 @@ EMAIL_HOST = env.EMAIL_HOST
 EMAIL_PORT = env.EMAIL_PORT
 
 REST_FRAMEWORK: dict[str, object] = {
-    # Chưa có xác thực ở M0; JWT thêm ở M1
+    # Rỗng có chủ đích: view back-office tự khai JWTAuthentication (05 mục 4)
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     # Mặc định từ chối; view công khai tự khai báo AllowAny (05 mục 4)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],

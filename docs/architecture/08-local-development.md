@@ -245,8 +245,12 @@ STOREFRONT_ORIGIN=http://localhost:3000
 BFF_SHARED_SECRET=local-bff-secret
 
 # Từ M1 (đăng nhập, JWT, refresh)
-JWT_PRIVATE_KEY_PATH=.secrets/jwt_ed25519.pem
-JWT_KEY_ID=local-1
+JWT_SIGNING_KEYS=                                         # kid|private-key-base64|public-key-base64, nhiều khoá cách nhau bằng dấu phẩy; khoá đầu (phải có private) ký token mới, mọi public key dùng verify; key Ed25519 tạo riêng cho máy, không commit. `check --deploy` từ chối keyring rỗng (shared.E002)
+JWT_ISSUER=fashion-store
+JWT_AUDIENCE_BACKOFFICE=backoffice
+JWT_ACCESS_TTL_SECONDS=600                                # số dương
+JWT_BACKOFFICE_REFRESH_TTL_SECONDS=43200                  # số dương
+JWT_LEEWAY_SECONDS=30                                     # không âm
 REFRESH_REPLAY_KEY_ID=local-replay-1
 REFRESH_REPLAY_KEY_PATH=.secrets/refresh_replay.key
 
