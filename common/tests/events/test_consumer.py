@@ -18,7 +18,8 @@ from common.events.models import (
     DeliveryStatus,
 )
 from common.events.tasks import dispatch_event
-from common.events.tests._helpers import (
+from common.tests.conftest import HandlerEffect, SampleHappenedV1
+from common.tests.events._helpers import (
     NOW,
     ORDER_CODE,
     Boom,
@@ -28,7 +29,6 @@ from common.events.tests._helpers import (
     record_effect,
     run_concurrently,
 )
-from common.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db

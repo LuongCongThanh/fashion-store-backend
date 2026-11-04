@@ -5,7 +5,7 @@ import time_machine
 
 from common.events import delivery_lag, get_delivery_outcomes
 from common.events.models import DeliveryStatus
-from common.events.tests._helpers import NOW
+from common.tests.events._helpers import NOW
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db

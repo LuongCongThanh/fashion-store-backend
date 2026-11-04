@@ -13,8 +13,8 @@ from django.db import transaction
 from common.events import DomainEvent, handles, publish
 from common.events.models import EventDelivery, OutboxEvent
 from common.events.registry import autodiscover, registry
-from common.events.tests._helpers import NOW, ORDER_CODE, Boom
-from common.events.tests.conftest import SampleHappenedV1
+from common.tests.conftest import SampleHappenedV1
+from common.tests.events._helpers import NOW, ORDER_CODE, Boom
 
 pytestmark = pytest.mark.django_db
 

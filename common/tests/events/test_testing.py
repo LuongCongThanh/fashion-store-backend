@@ -8,8 +8,8 @@ from common.events import handles, publish
 from common.events.models import RETRY_DELAYS, DeliveryStatus, EventDelivery
 from common.events.tasks import dispatch_event
 from common.events.testing import drain_events
-from common.events.tests._helpers import NOW, ORDER_CODE, NotYet, record_effect
-from common.events.tests.conftest import HandlerEffect, SampleHappenedV1
+from common.tests.conftest import HandlerEffect, SampleHappenedV1
+from common.tests.events._helpers import NOW, ORDER_CODE, NotYet, record_effect
 
 pytestmark = pytest.mark.django_db
 

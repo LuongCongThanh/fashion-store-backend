@@ -14,8 +14,8 @@ from common.events.models import (
     DeliveryStatus,
     EventDelivery,
 )
-from common.events.tests._helpers import NOW, register_noop_handlers
-from common.events.tests.conftest import SampleHappenedV1
+from common.tests.conftest import SampleHappenedV1
+from common.tests.events._helpers import NOW, register_noop_handlers
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db

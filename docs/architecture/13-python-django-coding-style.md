@@ -215,7 +215,7 @@ Theo PEP 8: `snake_case` cho hàm, biến, module; `PascalCase` cho class; `UPPE
 | Bảng | `<module>_<model>` qua `Meta.db_table` | `ordering_order` |
 | Celery task | `<module>.<snake_case>`, đặt cố định trên decorator | `shipping.create_shipment` |
 | File service/selector | Theo chủ đề nghiệp vụ, không theo tên model | `services/checkout.py` |
-| Test module | `test_<layer>_<topic>.py` | `test_services_checkout.py` |
+| Test module | Soi gương file nguồn: `tests/<đường dẫn>/test_<file>.py` (02 mục 4.4); `tests/tooling/test_test_layout.py` chặn file đặt sai | `tests/services/test_checkout.py` |
 | Test xuyên module | Đặt trong `tests/flows/` | `test_cod_checkout_flow.py` |
 
 Project chủ ý dùng `<verb>_<noun>`, khác `<entity>_<action>` của HackSoft Styleguide; không trộn hai cách.

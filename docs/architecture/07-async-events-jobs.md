@@ -295,7 +295,7 @@ Dùng **Sentry Cron Monitors**, chỉ bật ở staging và production:
 
 ## 5. Kịch bản kiểm thử
 
-Test đặt ở `common/events/tests/` và `test_handlers_<chủ đề>.py` của module; nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md) mục 2.3.
+Test của outbox đặt ở `common/tests/events/` (soi gương `common/events/`), test handler ở `apps/<module>/tests/test_handlers.py` hoặc `tests/handlers/test_<file>.py`; nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md) mục 2.3.
 
 **Consumer** (mục 1.3, dùng handler giả)
 
@@ -340,6 +340,6 @@ Test đặt ở `common/events/tests/` và `test_handlers_<chủ đề>.py` củ
 
 **Payload sự kiện không chứa secret hay PII** (mục 2):
 
-- `tests/test_event_payloads.py` duyệt mọi class `DomainEvent` đã đăng ký, fail nếu tên field **chứa** từ cấm (`email`, `phone`, `address`, `name`, `token`, `password`) hoặc kết thúc bằng `_url`; nên `contact_name`, `reset_token` cũng bị chặn.
+- `tests/tooling/test_event_payloads.py` duyệt mọi class `DomainEvent` đã đăng ký, fail nếu tên field **chứa** từ cấm (`email`, `phone`, `address`, `name`, `token`, `password`) hoặc kết thúc bằng `_url`; nên `contact_name`, `reset_token` cũng bị chặn.
 - Test chỉ bắt lỗi theo tên field; reviewer vẫn phải đọc payload của mọi sự kiện mới.
 - Đặt ở `tests/` (không thuộc `root_packages`) vì cần thấy sự kiện của mọi module.

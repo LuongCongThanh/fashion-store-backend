@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from django.db import connection
 
 from common.events import handles
-from common.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from common.exceptions import DomainError, RetryLater
+from common.tests.conftest import HandlerEffect, SampleHappenedV1
 
 NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
 # Khớp payload của trait `OutboxEventFactory(sample=True)`

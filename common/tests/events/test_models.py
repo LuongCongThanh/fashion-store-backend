@@ -14,7 +14,7 @@ from common.events.models import (
     RetryOutcome,
     RunStart,
 )
-from common.events.tests._helpers import NOW, Boom, Refused
+from common.tests.events._helpers import NOW, Boom, Refused
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
