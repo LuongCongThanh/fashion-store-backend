@@ -1,8 +1,8 @@
-# Phase 4 — review ba trục + vòng sửa
+# Phase 4 — three-axis review + fix rounds
 
-Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắt buộc ở mọi mode.
+Goal: code **and tests** match the ticket and the repo's standards. Mandatory in every mode.
 
-1. **Check máy trước** (rẻ hơn reviewer; output của chúng đưa cho reviewer):
+1. **Scripts first** (cheaper than reviewers; their output goes to the reviewers):
 
    ```bash
    python3 S/scripts/state.py check <T>
@@ -10,31 +10,35 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
    python3 S/scripts/check_ship.py <T>
    ```
 
-   `make lint` đã gồm `ruff`, `mypy`, `lint-imports` (ranh giới module). Lỗi → sửa trước khi review. `check_ship.py` báo `WARN ticket chưa commit` là đúng: `report.md` commit ở task `sync`.
-2. **Review ba trục.** Trong cùng một lượt, gọi song song 2a và 2b; hai việc độc lập, không gộp brief.
+   Errors → fix before review. `WARN ticket chưa commit` is expected: `report.md` is committed in task `sync`.
+2. **Review.** `.git/ship-ticket-fashion/<K>-review.md` already has every axis (resuming after `/clear` or an interruption) → skip this step and read that file. The main session writes each returned report into that file right away, under headings `## Spec`, `## Standards`, `## Bug`; reviewers only return reports. Done when the file has all three headings.
 
-   **2a. Trục Spec + Standards**: `mattpocock-skills:code-review` với fixed point `origin/dev`, spec là `spec.md` của ticket (mục `## Quyết định` là một phần của spec) cùng `userRequested` trong state (thuộc phạm vi, không phải lan man). Nguồn chuẩn: `docs/architecture/13-python-django-coding-style.md`, `CONTRIBUTING.md`, `docs/architecture/02-backend-structure.md`, `docs/architecture/12-testing-strategy.md`, checklist trong `.github/pull_request_template.md`. Dặn thêm:
-   - trục **Spec**: "Với mỗi AC, nêu test khẳng định kết quả của nó. Báo AC hoặc nhánh của AC không có test, và test chỉ kiểm mock được gọi thay vì kết quả." Đính kèm output `check_ac_trace.py`.
-   - trục **Standards**: "File test thuộc phạm vi review. Đối chiếu diff với từng mục *Tài liệu chi phối* trong `## Quyết định`; báo chỗ code trái tài liệu mà ticket không ghi lý do. Soát từng gạch đầu dòng của `CONTRIBUTING.md` mục *Quy ước code* trên mọi file test đổi (`pytest.raises`, thứ tự assert)." `## Quyết định` có dòng `Interface / seam` → thêm: "Đối chiếu interface mới với dòng đó và áp _deletion test_; báo hàm public chỉ chuyển tiếp lời gọi, và seam chỉ có một adapter mà không ghi lý do."
+   Full: in one turn, launch 2a and 2b in parallel with separate briefs. Lite: one `general-purpose` agent covers all three axes with the briefs of 2a and 2b.
 
-   **2b. Trục Bug**: một sub-agent `general-purpose` riêng, nhận `git diff origin/dev...HEAD`, danh sách commit và `spec.md` của ticket. Brief: "Săn lỗi chạy sai mà Spec và Standards không soi: dữ liệu bị bỏ khi ghi, guard an toàn bị lọt, logic viết lại thứ thư viện đã có. Đọc code quanh mỗi hunk và caller của nó. Commit plan đổi dòng `Status:` của ticket đã triage là đúng quy trình. Mỗi finding mã `B1`, `B2`…, kèm `file:line` và kịch bản cụ thể gây sai."
+   **2a. Spec + Standards**: `mattpocock-skills:code-review`, fixed point `origin/dev`; the spec is the ticket's `spec.md` (including `## Quyết định`) plus `userRequested` from state (in scope). Standards sources: `docs/architecture/13-python-django-coding-style.md`, `CONTRIBUTING.md`, `docs/architecture/02-backend-structure.md`, `docs/architecture/12-testing-strategy.md`, the checklist in `.github/pull_request_template.md`. Add:
+   - **Spec**: "For each AC, name the test asserting its outcome. Report ACs or AC branches without a test, and tests that only assert a mock was called instead of the outcome." Attach the `check_ac_trace.py` output.
+   - **Standards**: "Test files are in scope. Check the diff against each *Tài liệu chi phối* item in `## Quyết định`; report code that contradicts the docs without a recorded reason. Walk every bullet of `CONTRIBUTING.md` section *Quy ước code* over every changed test file." With an `Interface / seam` row → add: "Check new interfaces against that row and apply the _deletion test_; report public functions that only forward a call, and seams with a single adapter and no recorded reason."
 
-   Dặn chung cho cả ba trục:
-   - báo cáo tiếng Việt, dưới 600 từ, mỗi finding có `file:line` và dòng chuẩn / AC được trích.
-   - ghi file tạm (schema sinh ra, output lệnh) vào `.git/ship-ticket-fashion/`; ba trục xong thì `git status --short` chỉ còn file của ticket.
+   **2b. Bug**: one `general-purpose` sub-agent given `git diff origin/dev...HEAD`, the commit list, the ticket's `spec.md` and `<K>-map.md`. Brief: "Hunt for wrong runtime behaviour that Spec and Standards do not look at: data dropped on write, safety guards bypassed, logic re-implementing what a library already does. Read the code around each hunk and its callers. A plan commit changing the `Status:` line of a triaged ticket is the expected process. Code each finding `B1`, `B2`…, with `file:line` and a concrete failing scenario."
 
-   Xong khi đã nhận đủ báo cáo của 2a (Spec, Standards) và 2b (Bug).
-3. **Xác minh** finding sẽ đổi code: tự mở dòng được trích trước khi làm; reviewer có thể sai. Finding `B<n>` → `mattpocock-skills:diagnosing-bugs` tới hết phase 1 của skill: một test đỏ đúng kịch bản lỗi; không dựng được thì phân loại *chỉ báo*. Test đó là test red của vòng sửa.
-4. **Phân loại** mỗi finding:
-   - *sửa*: vi phạm chuẩn trong diff; code trái AC hoặc `## Quyết định`; thiếu test hoặc test yếu cho một AC.
-   - *hoàn tác*: thứ agent tự thêm ngoài phạm vi (không có AC, không có yêu cầu), kể cả vô hại.
-   - *chỉ báo*: smell, lỗi có từ trước, điểm cần người dùng quyết. Mục ngoài phạm vi ticket còn đáng làm → backlog (`reference/rules.md`, *Phạm vi*).
+   Shared brief: report in English, under 600 words, every finding with `file:line` and the quoted standard / AC; temp files go to `.git/ship-ticket-fashion/`, and afterwards `git status --short` shows only ticket files.
+3. **Verify** each finding that will change code: open the quoted line yourself first; reviewers can be wrong. Finding `B<n>` → `mattpocock-skills:diagnosing-bugs` through the end of that skill's phase 1: one test red on the exact failure scenario, run via `run_logged.py --label <K>-R<n>-red` (the log is the fix round's red evidence). Cannot reproduce → *report only*.
+4. **Classify** each finding:
+   - *fix*: a standards violation in the diff; code contradicting an AC or `## Quyết định`; a missing or weak test for an AC.
+   - *revert*: something the agent added out of scope (no AC, no request), even if harmless.
+   - *report only*: smells, pre-existing bugs, points for the user to decide. Out-of-scope items still worth doing → backlog (`reference/rules.md`, *Scope*).
 
-   Trình bảng finding (mã, `file:line`, phân loại, cách sửa) và hỏi bằng `AskUserQuestion` (multi-select) những mục người dùng muốn sửa ngay; mục *sửa* để sẵn là khuyên dùng. Chỉ liệt kê nhóm sửa, không thêm lựa chọn "Không sửa gì": người dùng bỏ hết thì ghi ở Other. Mục trong `userRequested` hỏi trước khi hoàn tác.
-5. **Vòng sửa, tối đa 2 vòng**, một sub-agent cho mọi vòng (vòng 2 gửi bằng `SendMessage`; lite: phiên chính). Vòng 1 làm hết mục đã chọn thành một lô; vòng 2 chỉ xử lý thứ vòng 1 để lại đỏ hoặc làm hỏng. Mỗi mục đổi hành vi: test red trước khi có seam. Mỗi vòng một commit: `commit.py <T> --task R1` (vòng 2: `R2`), subject `fix(<scope>): address review findings on <chủ đề>`, thân liệt kê mã finding đã sửa (`B1`, `S2`…). Cuối mỗi vòng: `make lint`, `make test` qua `run_logged.py`, `check_ac_trace.py`. Còn mở sau vòng 2 → đưa lên G2.
-6. **Ghi** bảng kết luận vào `report.md` (mục *Review*): mỗi finding một dòng (mã, `file:line`, đã sửa / chỉ báo / hoàn tác / bác, lý do vài chữ); gom smell vào một dòng. Cập nhật bảng AC → bằng chứng nếu test đổi.
-7. `state.py transition <T> --to sync --next "đồng bộ tài liệu" --reason "review xong"`, in điểm clear.
+   Present the findings table (code, `file:line`, class, fix) and ask with `AskUserQuestion` (multi-select) which to fix now; *fix* items are preselected as recommended. List only fix groups, no "fix nothing" option: the user can drop everything via Other. Ask before reverting anything in `userRequested`. Record the choice at the end of `<K>-review.md`.
+5. **Fix rounds, at most 2.** Full: send the implementer (`SKILL.md` → *Sub-agents*) the `<K>-review.md` path and the chosen finding codes. Lite: main session.
+   - Round 1 handles every chosen item as one batch; round 2 only what round 1 left red or broke.
+   - Behaviour-changing items: red test before the fix.
+   - One commit per round: `commit.py <T> --task R1` (round 2: `R2`), subject `fix(<scope>): address review findings on <topic>`, body lists the finding codes fixed (`B1`, `S2`…).
+   - End of round: full check (*Machine checks*) and `check_ac_trace.py`.
 
-## Xong khi
+   Still open after round 2 → raise at G2.
+6. **Record** the verdict table in `report.md` (section *Review*), in Vietnamese: one row per finding (code, `file:line`, đã sửa / chỉ báo / hoàn tác / bác, a few words of reason); smells grouped in one row. Update the AC → evidence table if tests changed.
+7. `state.py transition <T> --to sync --next "đồng bộ tài liệu" --reason "review xong"`, print the clear point.
 
-Check máy xanh; mọi finding có kết luận trong báo cáo; tối đa 2 vòng sửa đã chạy và vòng cuối xanh; `phase` là `sync`.
+## Done when
+
+Step 1 scripts green; `<K>-review.md` has all three axes; every finding has a verdict in the report; at most 2 fix rounds ran and the last is green; `phase` is `sync`.

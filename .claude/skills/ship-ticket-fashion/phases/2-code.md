@@ -1,29 +1,30 @@
-# Phase 2 — code bằng TDD
+# Phase 2 — code with TDD
 
-Full: một sub-agent cho mỗi slice, theo thứ tự DAG (`dependsOn` xong hết mới bắt đầu). Lite: phiên chính làm một slice.
+Full: the *implementer* (`SKILL.md` → *Sub-agents*). Lite: the main session.
 
-## Trong một slice
+## Before the first slice
 
-1. `state.py set <T> slices.<id>.status=code currentSlice=<id>`. Đọc các mục *tài liệu chi phối* (dòng đầu `## Quyết định`) của file slice sẽ đổi, `docs/architecture/13-python-django-coding-style.md` (mục khớp loại file: view, service, model, test…) và `CONTRIBUTING.md` mục *Quy ước code*: code theo đúng tên, cấu trúc, quy ước ở đó.
-2. `mattpocock-skills:tdd`, chỉ test ở seam của slice. Với mỗi `tddTests`: viết test, chạy `tdd.py <T> <slice> red <test-id>` và thấy đúng `expectedRed`, viết code tối thiểu, chạy lại với `green`. Red khác `expectedRed`, hoặc vẫn đỏ sau hai lần sửa code → `mattpocock-skills:diagnosing-bugs`, dùng chính lệnh `tdd.py` làm vòng phản hồi. Với `verificationTests`: chạy `tdd.py <T> <slice> verify <test-id>` sau thay đổi. Runner giữ bằng chứng; `state.py set/push` không được ghi field này.
-3. Test đỏ không thuộc slice → chứng minh nó đỏ trên `origin/dev` (`reference/rules.md` → *Test*), ghi `notes`, làm tiếp.
-4. Cần migration → `uv run python manage.py makemigrations <app>` và đọc lại file sinh ra; migration phải đảo ngược được (`docs/architecture/12-testing-strategy.md` mục 6).
-5. Cuối slice: `uv run ruff format` và `uv run ruff check --fix` cho file đã đổi, chạy lại các test của slice. Kết quả mypy và `lint-imports` lấy từ `run_logged.py … make lint` (cấu hình đầy đủ như CI); gọi `mypy` theo cách khác có thể báo lỗi không có thật.
-6. Commit một lần cho cả slice: `python3 S/scripts/commit.py <T> --task <id> -m "<subject>" --body "<vì sao>" -- <file>…` (`templates/commit-msg.md`). Script từ chối file không nằm trong `slice.files`; file phát sinh hợp lệ thì cập nhật state và sinh lại plan trước. Còn sửa trong slice trước khi trả về thì `git commit --amend --no-edit` commit đó, chưa push nên an toàn.
-7. `state.py set <T> slices.<id>.status=done 'slices.<id>.tests=[…]' 'slices.<id>.handoff=[…]' 'next=…'`. Tên test đổi so với kế hoạch thì ghi tên thật.
-8. Sub-agent trả về theo `reference/sub-agent.md`. Phiên chính in điểm clear rồi giao slice tiếp theo.
+Read `.git/ship-ticket-fashion/<K>-map.md`, the *governing docs* sections (the `Tài liệu chi phối` row in `## Quyết định`), `docs/architecture/13-python-django-coding-style.md` (sections matching the file type: view, service, model, test…) and `CONTRIBUTING.md` section *Quy ước code*. Follow the names, structure and conventions there.
 
-## Cuối phase
+## Each slice
 
-```bash
-python3 S/scripts/run_logged.py --label lint --cwd backend -- make lint
-python3 S/scripts/run_logged.py --label test --cwd backend -- make test
-python3 S/scripts/check_ac_trace.py <T>
-python3 S/scripts/state.py transition <T> --to report --next "viết báo cáo" --reason "mọi slice xanh"
-```
+1. `state.py set <T> slices.<id>.status=code currentSlice=<id>`.
+2. `mattpocock-skills:tdd`, testing only at the slice's seam.
+   - Each `tddTests`: write the test → `tdd.py <T> <slice> red <test-id>` shows the expected `expectedRed` → minimal code → `tdd.py <T> <slice> green <test-id>`. Function not yet defined → declare its signature raising `NotImplementedError` first, so red is not an `AttributeError`.
+   - Each `verificationTests`: `tdd.py <T> <slice> verify <test-id>` after the change.
+   - Red differs from `expectedRed`, or still red after two fixes → `mattpocock-skills:diagnosing-bugs`, using the `tdd.py` command as the feedback loop.
 
-Đỏ → sửa trong phạm vi ticket rồi chạy lại (nguyên nhân chưa rõ → `mattpocock-skills:diagnosing-bugs`); đỏ ngoài phạm vi → *Cần người dùng*.
+   `tdd.py` keeps the evidence; `state.py set` / `push` cannot write the `tdd` field.
+3. A red test outside the slice → *Machine checks*, *Red outside the ticket*.
+4. Migration needed → `uv run python manage.py makemigrations <app>`, reread the generated file; migrations must be reversible (`docs/architecture/12-testing-strategy.md` section 6).
+5. **Lint** (*Machine checks*). Done when lint and the slice's tests are green.
+6. Commit the slice: `python3 S/scripts/commit.py <T> --task <id> -m "<subject>" --body "<why>" -- <file>…` (`templates/commit-msg.md`). The script refuses files outside `slice.files`: a legitimate extra file → update state and regenerate the plan first. More changes in the slice before returning → `git commit --amend --no-edit` (not pushed yet, so safe).
+7. `state.py set <T> slices.<id>.status=done 'slices.<id>.tests=[…]' 'slices.<id>.handoff=[…]' 'next=…'`; record actual test names if they changed from the plan.
 
-## Xong khi
+## End of phase
 
-Mọi slice `done`; `tddTests` có red/green và `verificationTests` có verified green; `make lint`, `make test`, `check_ac_trace.py` xanh; `commit_map.py <T>` in đúng một commit cho mỗi slice, không `FAIL`; `phase` là `report`.
+The implementer (lite: main session) runs the full check (*Machine checks*; lint is already green from the last slice) and `check_ac_trace.py <T>` before returning. Red → fix within the ticket's scope and rerun; red outside scope → *Needs user*. The main session takes the result, runs `state.py transition <T> --to report --next "viết báo cáo" --reason "mọi slice xanh"` and prints the clear point.
+
+## Done when
+
+Every slice `done`; `tddTests` have red/green, `verificationTests` have a verified green; `make lint`, `make test`, `check_ac_trace.py` green; `commit_map.py <T>` prints exactly one commit per slice and no `FAIL`; `phase` is `report`.

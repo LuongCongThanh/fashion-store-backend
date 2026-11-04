@@ -1,117 +1,74 @@
 ---
 name: ship-ticket-fashion
-description: Làm ticket `.scratch/` của Fashion Store khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo: grilling tới merge, lập spec + ticket cho module mới.
-argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done|retro] | retro #<PR>"
+description: Ship a Fashion Store `.scratch/` ticket from grilling to merge, or plan spec + tickets for a new module. Use when the user says "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", or asks about progress / the next ticket.
+argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done] | retro #<PR>"
 ---
 
 # ship-ticket-fashion
 
-Mọi tin nhắn cho người dùng viết tiếng Việt. Mỗi lần chạy đưa **một** ticket qua một vòng khép kín; dừng chỉ ở gate, ở *Cần người dùng*, hoặc khi xong.
+Write every message to the user in Vietnamese. Each run takes **one** ticket through the loop below; stop only at a gate, at *Needs user* (`reference/rules.md`), or when done.
 
-`S` = `.claude/skills/ship-ticket-fashion` (đường dẫn tính từ gốc repo). `<T>` = ticket ở dạng `<feature>/<NN>`, ví dụ `backend-bootstrap/16`.
+- `S` = `.claude/skills/ship-ticket-fashion` (from repo root) · `<T>` = `<feature>/<NN>` · `<K>` = `<feature>-<NN>`.
+- `.git/ship-ticket-fashion/` holds state `<K>.json`, code map `<K>-map.md`, review findings `<K>-review.md` and `logs/`: outside git, survives `/clear`.
 
-**Codex:** đọc [entrypoint Codex](../../../.agents/skills/ship-ticket-fashion/SKILL.md) trước khi chạy. File đó điều chỉnh công cụ, skill phụ thuộc và bằng chứng retro cho Codex; phase, script và state vẫn dùng chung ở `S`. Claude Code tiếp tục theo hướng dẫn bên dưới.
+**Codex:** read `.agents/skills/ship-ticket-fashion/SKILL.md` first.
 
-## Đầu mỗi lần chạy
+## Start
 
-Máy Windows (PowerShell, Git Bash): đọc `gotchas/windows-shell.md` trước bước 1, và thay `python3` bằng `python` trong mọi lệnh mẫu của skill.
+Windows: read `gotchas/windows-shell.md`, use `python` instead of `python3`.
 
-1. `python3 S/scripts/state.py start [<T>]`, chạy riêng. Tham số là tên module hoặc mốc (`catalog`, `M1`) chưa có ticket trong `.scratch/` → `phases/0-plan.md`. Script in ticket, phase, `next`, slice, gate, các cờ (`BRANCH RED`, `DIRTY`, `BEHIND`, `SLICE OPEN`, `NO HOOKS`) và các dòng `READ <file>`. Output này thay cho việc đọc file state.
-   - `NO STATE` kèm `FRONTIER` → chưa có ticket đang làm: làm theo `reference/pick-ticket.md` (script in dòng `READ`).
-   - `retro #<PR>` → bỏ qua state, làm `phases/8-retro.md` mục *Retro một PR*.
-2. Đọc mọi file sau `READ` bằng Read tool, mỗi file một lần gọi.
-3. Bắt đầu từ `next`. Tham số `[phase]` ghi đè phase, trừ khi gate chưa được duyệt.
+1. `python3 S/scripts/state.py start [<T>]`. Its output (ticket, phase, `next`, slices, gates, flags, `READ` lines) replaces reading the state file.
+   - `NO STATE` + `FRONTIER` → `reference/pick-ticket.md`.
+   - Module or milestone without tickets (`catalog`, `M1`) → `phases/0-plan.md`.
+   - `retro #<PR>` → skip `start`, run `phases/8-retro.md` section *PR retro*.
+2. **Preflight** (phases `grill` → `ship`): `python3 S/scripts/preflight.py --fix` checks Docker services, PostgreSQL, migrations, seed data, Redis, API and Mailpit URLs, and runs `make up` / `make migrate` / `make load-geo` when needed. Then `FAIL api` → start `make run` in `backend/` as a background process (Bash `run_in_background`) and rerun until it passes; any other `FAIL` left → *Needs user* with its `fix:` command. Ticket work starts only after `PREFLIGHT OK`.
+3. Read every file listed after `READ`.
+4. Continue from `next`. A `[phase]` argument overrides the phase unless a gate is still unapproved.
 
-## Vòng
+## Loop
 
 ```
-0 plan (khi frontier rỗng)
-1 grill → ⛔G1 → 2 code (S1 → S2 → …) → 3 report → 4 review → 5 sync → ⛔G2 → 6 ship → 7 done → closed
-                    ↑                                  │          │
-                    └──── review / sync đổi hành vi ───┴──────────┘
+0 plan (empty frontier)
+1 grill → ⛔G1 → 2 code → 3 report → 4 review → 5 sync + retro → ⛔G2 → 6 ship → 7 done → closed
+                    ↑                         │          │
+                    └── review / sync changes behaviour ─┘
 ```
 
-Phase 7 chỉ vào **8 retro** khi `retro_batch.py status` báo đủ 10 ticket mới đã merge; chưa đủ thì đóng ticket. `retro #<PR>` là nhánh thủ công, chạy ngay theo yêu cầu. Quy tắc đếm và checkpoint nằm trong `phases/8-retro.md`, chỉ đọc khi tới đợt hoặc được yêu cầu retro.
-
-| # | Phase | File | Skill (`mattpocock-skills:`) | Kết quả |
-| --- | --- | --- | --- | --- |
-| 0 | plan | `phases/0-plan.md` | `grilling`; người dùng gõ `/mattpocock-skills:to-spec`, `/mattpocock-skills:to-tickets`, `/mattpocock-skills:improve-codebase-architecture` (điểm nóng) | spec + ticket của mốc mới |
-| 1 | grill | `phases/1-grill.md` | `grilling`; `codebase-design` khi ticket có interface public; `research` khi ticket bọc việc của thư viện bên thứ ba | nhánh, *spec* + *plan* đã commit, ⛔G1 |
-| 2 | code | `phases/2-code.md` | `tdd`; `diagnosing-bugs` khi test đỏ sai dự kiến | mọi slice xanh, mỗi slice một commit |
-| 3 | report | `phases/3-report.md` | — | `report.md` (commit ở sync) |
-| 4 | review | `phases/4-review.md` | `code-review` (trục Spec, Standards) + sub-agent trục Bug; `diagnosing-bugs` xác minh finding Bug | mọi finding có kết luận |
-| 5 | sync | `phases/5-sync.md` | `domain-modeling` khi có thuật ngữ / ADR mới | tài liệu khớp code, ⛔G2 |
-| 6 | ship | `phases/6-ship.md` | `pr` (thân PR); `diagnosing-bugs` khi CI đỏ chưa rõ nguyên nhân | PR mở, ticket đóng trong PR, CI xanh |
-| 7 | done | `phases/7-done.md` | — | merge khi người dùng bảo |
-| 8 | retro (đủ đợt / theo yêu cầu) | `phases/8-retro.md` | `writing-for-agents`; người dùng gõ `/mattpocock-skills:retro` | kết luận đợt 10 ticket + một PR skill/checkpoint |
-
-Skill viết dạng `/mattpocock-skills:<tên>` là skill chỉ người dùng gọi được (`disable-model-invocation`): agent đề xuất người dùng gõ lệnh, không tự gọi. Skill không có `/` thì agent gọi bằng Skill tool.
-
-Quy tắc chung cho mọi phase: `reference/rules.md`.
-
-## Spec, plan, report
-
-Ticket là thư mục `.scratch/<feature>/issues/NN-<slug>/` (`docs/agents/issue-tracker.md`); mỗi phần một file:
-
-| Phần | File | Viết ở | Trả lời |
-| --- | --- | --- | --- |
-| *spec* | `spec.md`: `## Quyết định` + `## Acceptance criteria` (cùng `Status:`, `**PR:**`) | phase 1 | làm gì, theo tài liệu nào |
-| *plan* | `plan.md`, sinh bằng `plan.py` từ slice trong state | phase 1 | làm theo thứ tự nào, test nào chứng minh, commit nào |
-| *report* | `report.md` | phase 3, ghi đè ở 4 và 5 | đã làm, chưa làm, gap, commit → task |
-
-Code chỉ bắt đầu khi *spec* và *plan* đã commit: `state.py transition --to code` kiểm cả hai.
-
-## Commit
-
-Một *task* là đúng một commit: `plan`, mỗi slice `S<n>`, mỗi vòng sửa review `R1` / `R2`, `sync` (tài liệu + report), `close`; thêm `ci` cho mỗi lần CI đỏ. PR squash vào `dev`, nên commit trên nhánh là dấu vết để đọc, không phải lịch sử lâu dài; mỗi commit thêm còn chạy lại hook `mypy` + `lint-imports`.
-
-- Commit qua `python3 S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…`: gắn trailer `Refs:` (ticket) và `Task:`, hook chạy trong log, hook sửa file thì tự add lại.
-- `python3 S/scripts/commit_map.py <T> [--md]` in commit → task → phase → AC; báo commit thiếu trailer và task có hai commit. Bảng `--md` đi vào report, thân PR và thân commit squash.
+Phase `n` lives in `phases/<n>-<name>.md`. Retro (`phases/8-retro.md`) runs inside phase 5 of every ticket; skill fixes ship in the ticket's PR, and the ticket's token usage lands in `metrics.md`. A skill written `/mattpocock-skills:<name>` is user-invoked only: suggest the user type it; a skill without `/` is called with the Skill tool.
 
 ## Mode
 
-**lite** khi đủ cả ba: ticket có ≤ 3 acceptance criteria, không thêm model hay migration, không thêm endpoint. Ngược lại là **full**. Phase 1 đề xuất mode, G1 chốt. Lite: một slice, làm ngay trong phiên chính, grilling chỉ hỏi phần còn mở.
+**lite** when all three hold: ≤ 3 acceptance criteria, no new model or migration, no new endpoint. Otherwise **full**. Phase 1 proposes, G1 decides. Lite: one slice, the main session codes and fixes, grilling asks only what is still open, one review agent covers all three axes.
 
-## State
+## Sub-agents
 
-State nằm ở `.git/ship-ticket-fashion/<feature>-<NN>.json`: trong `.git/` nên không bao giờ bị commit, và vẫn còn sau `/clear`. Schema: `reference/state.md`. File là bộ nhớ; context của phiên chỉ là tạm.
+The main session orchestrates and owns gates, docs, ship, done and retro. Sub-agents are `general-purpose` with no `model` set:
 
-Ghi field bằng `state.py set` / `push`. Đổi phase chỉ qua:
+| Work | Full | Lite |
+| --- | --- | --- |
+| Phase 1, code map | `Explore`; main session saves the result to `<K>-map.md` | same as full |
+| Phase 2, all slices | **one** *implementer* does every slice in DAG order | main session |
+| Phase 4, review | `code-review` (Spec + Standards) in parallel with one Bug agent | one agent, all three axes |
+| Phase 4 fix rounds, phase 6 CI red | the phase 2 *implementer* | main session |
 
-```bash
-python3 S/scripts/state.py transition <T> --to <phase> --next "<một việc cụ thể>" --reason "<tiêu chí đã đạt / gate>" [--gate g1|g2]
-```
-
-Script từ chối nhảy cóc phase, vào `code` khi chưa có G1, vào `ship` khi chưa có G2, vào `report` khi còn slice chưa xong.
-
-**Điểm clear** (các file phase chỉ ra chỗ): sau khi state và ticket đã giữ mọi quyết định, in `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục.`, rồi làm tiếp trừ khi người dùng ngắt. Chỉ khi phiên còn ngữ cảnh chưa ghi vào state hay ticket (grilling dở, điều người dùng vừa nói chưa ghi), thêm: `Cần mang ngữ cảnh đó sang phiên mới thì gõ /mattpocock-skills:handoff <T> <phase>.`
+- **Prompt is an address**: `<T>`, the job (slice / fix round / CI log), mode, and paths to read in order: `S/reference/sub-agent.md`, `S/reference/rules.md`, the phase file, `.git/ship-ticket-fashion/<K>-map.md`, the ticket folder. The agent reads file contents itself.
+- **Announce = call**: the message announcing a delegation contains the `Agent` call.
+- **Keep the implementer**: save its agent id. *Needs user* answers, fix rounds and CI failures go to it via `SendMessage` (load with `ToolSearch "select:SendMessage"`). If `ListAgents` no longer shows it → spawn a new one with the same address prompt; it reads `handoff` in state, the commits and `<K>-map.md`, then continues.
+- The main session trusts returned results and state; it does not re-read files a sub-agent already read.
 
 ## Gate
 
-*Gate* là quyết định của người dùng (G1, G2); script xanh / đỏ là *check*. Mỗi gate gồm:
+A *gate* (G1, G2) is the user's decision; a green / red script is only a *check*.
 
-1. **Tin tóm tắt**: mọi mục phase liệt kê cho gate, viết thành bảng gọn, mỗi điểm mở kèm khuyến nghị.
-2. **Quyết định**: `AskUserQuestion` chỉ chứa điểm cần trả lời (≤ 4 câu mỗi lần gọi, 2–4 lựa chọn, lựa chọn khuyên dùng đứng đầu, ghi "(khuyên dùng)"). Gom các điểm liên quan vào một câu; nhiều hơn 4 thì gọi lần hai.
+1. **Summary**: a compact table of the items the phase lists, each open point with a recommendation.
+2. **Ask**: `AskUserQuestion` with only the points needing an answer; ≤ 4 questions per call, 2–4 options, recommended option first with "(khuyên dùng)". Group related points into one question.
 
-Gate xong khi mọi điểm mở có câu trả lời và đã ghi vào ticket hoặc state.
+The gate is done when every open point has an answer recorded in the ticket or state.
 
-*Cần người dùng* (quyết định ngoài gate) định nghĩa ở `reference/rules.md`.
+## State, ticket, commit
 
-## Sub-agent
+- State schema: `reference/state.md`; write fields with `state.py set` / `push`. Change phase only with `python3 S/scripts/state.py transition <T> --to <phase> --next "<one concrete task>" --reason "<criterion met / gate>" [--gate g1|g2]`; the script rejects out-of-order moves and missing gates.
+- A ticket is the folder `.scratch/<feature>/issues/NN-<slug>/`: `spec.md` (phase 1 adds `## Quyết định`), `plan.md` (generated by `plan.py`), `report.md` (written in phase 3, overwritten in phases 4 and 5).
+- One *task* is exactly one commit, via `python3 S/scripts/commit.py <T> --task <task> -m "<subject>" [--body "…"] -- <file>…` (adds `Refs:`, `Task:` trailers; re-adds files a hook rewrote). Tasks and subjects: `templates/commit-msg.md`. `commit_map.py <T> [--md]` prints commit → task → AC.
 
-Phiên chính điều phối. Việc đọc nhiều file hoặc chạy nhiều lượt giao cho sub-agent (`general-purpose`, không đặt `model`):
-
-| Ở đâu | Sub-agent | Lite |
-| --- | --- | --- |
-| Phase 1, bản đồ code (`Explore`) | một | như full |
-| Phase 2, mỗi slice | một cho mỗi slice | phiên chính |
-| Phase 4, trục Spec + Standards | do `mattpocock-skills:code-review` tạo | như full |
-| Phase 4, trục Bug | một, chạy song song với skill review | như full |
-| Phase 4, vòng sửa khi finding đổi code | một cho mọi vòng | phiên chính |
-
-Gate, tài liệu, ship, done, retro chạy ở phiên chính: retro cần thấy những gì phiên này đã vấp.
-
-- **Báo là gọi**: tin nhắn báo giao việc cho sub-agent chứa luôn lệnh gọi `Agent`.
-- **Prompt = địa chỉ**: `<T>`, slice id, mode và các đường dẫn cần đọc: `S/reference/sub-agent.md` trước, rồi `S/reference/rules.md`, file phase, file `gotchas/` phase đó nêu, ticket.
-- **Làm tiếp, không tạo lại**: câu trả lời cho *Cần người dùng*, vòng sửa tiếp theo, chạy lại đều gửi cho cùng agent bằng `SendMessage` (nạp bằng `ToolSearch "select:SendMessage"`).
-- Phiên chính đọc kết quả trả về và state, tin phần sub-agent đã đọc.
+**Clear point** (where a phase says so): print `Đã lưu state (<phase>/<slice>). Có thể /clear rồi chạy lại /ship-ticket-fashion <T> để tiếp tục.`, then keep going unless the user interrupts. If context is not yet in state or the ticket (grilling in progress), add: `Cần mang ngữ cảnh đó sang phiên mới thì gõ /mattpocock-skills:handoff <T> <phase>.`

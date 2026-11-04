@@ -1,21 +1,10 @@
 # Phase 7 — done
 
-1. Báo người dùng: URL PR, tiêu đề, trạng thái CI, từng AC → kết quả, việc chưa kiểm (AC `untestable`), ticket mới đã tạo. Nói thẳng phần nào chưa được kiểm chứng.
-2. Hỏi bằng `AskUserQuestion`: merge ngay (khuyên dùng khi CI xanh và không còn mục mở), hay chờ (người dùng tự review hoặc merge sau).
-3. Merge ngay:
+1. Tell the user: PR URL, title, CI status, each AC → result, what is unchecked (`untestable` ACs), new tickets created. Say plainly what has not been verified.
+2. Ask with `AskUserQuestion`: merge now (recommended when CI is green and nothing is open), or wait (the user reviews or merges later).
+3. Merge now: `python3 S/scripts/merge.py <T>`. It refuses unless phase is `done` and the PR is open into `dev`, not a draft, conflict-free, with every check green; then it squash-merges with the commit → task table as the body (so `dev` still shows which commit belonged to which task after the branch is deleted), switches to `dev` and pulls, prints progress and moves the ticket to `closed`. Wait: keep phase `done`, set `next=chờ merge PR #<number>` and stop. Next run, `reference/resume.md` checks the PR state.
+4. **Merged outside `merge.py`** (the user merged on GitHub): `git switch dev && git pull`, then `state.py transition <T> --to closed --next "chọn ticket tiếp theo" --reason "merged"`.
 
-   ```bash
-   python3 S/scripts/commit_map.py <T> --md > .git/SQUASH_BODY.md
-   GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr merge <số> --squash --delete-branch -F .git/SQUASH_BODY.md
-   git switch dev && git pull
-   python3 S/scripts/progress.py
-   ```
+## Done when
 
-   Thân commit squash trên `dev` giữ bảng commit → task, nên sau khi nhánh bị xoá vẫn tra được commit nào thuộc task nào. Chờ: giữ phase `done`, ghi `next=chờ merge PR #<số>` rồi dừng. Lần chạy sau, `reference/resume.md` kiểm trạng thái PR.
-4. **Sau merge**, `git fetch origin`, chạy `python3 S/scripts/retro_batch.py status`:
-   - `due: false`: `state.py transition <T> --to closed --next "chọn ticket tiếp theo" --reason "merged; chưa đủ 10 ticket cho retro"`. Báo `<pending>/10 ticket cho đợt retro tiếp theo`, rồi kết thúc; phần phân tích retro chỉ được nạp khi đủ đợt.
-   - `due: true`: kiểm PR đang mở có nhánh dạng `chore/skill-retro-<12 ký tự hex>` (đợt retro). Có rồi → báo URL, `transition --to closed` với lý do `đợt retro chờ merge`; phần dư sẽ được đếm khi checkpoint merge. Chưa có → `state.py transition <T> --to retro --next "retro đợt <batch>" --reason "đủ 10 ticket đã merge"`, rồi đọc `phases/8-retro.md`. Dùng `batch`, `through` và danh sách `tickets` script in ra làm phạm vi review.
-
-## Xong khi
-
-Chờ merge: `phase` là `done`. Đã merge: ticket `resolved` trên `origin/dev`, đã kiểm đếm retro; `phase` là `closed` khi chưa đủ đợt hoặc `retro` khi đủ đợt.
+Waiting for merge: `phase` is `done`. Merged: ticket `resolved` on `origin/dev`, `phase` is `closed`.

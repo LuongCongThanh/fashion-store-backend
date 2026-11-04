@@ -1,6 +1,6 @@
 # State
 
-`.git/ship-ticket-fashion/<feature>-<NN>.json`, tạo ở phase 1 bằng `state.py init`. Đọc file này ở phase 1 và khi ghi một field lần đầu.
+`.git/ship-ticket-fashion/<K>.json`, created in phase 1 by `state.py init`. Read this file in phase 1 and before writing a field for the first time.
 
 ```json
 {
@@ -37,28 +37,29 @@
 }
 ```
 
-- `acs`: số thứ tự của AC trong mục `## Acceptance criteria` của `spec.md`, đếm từ 1.
-- `tests`: hợp không trùng của `tddTests` và `verificationTests`; id pytest tính từ `backend/`.
-- `tddTests`: test mới cho hành vi, cần `expectedRed`, red rồi green. `verificationTests`: test sẵn có chỉ cần verify green.
-- `files`: file slice sẽ đổi, ghi ở phase 1 cho `plan.md`; một slice là một commit gồm đúng các file này.
-- `governingDocs`: mỗi key là file trong `files`, value là reference `path.md::số-mục`; script kiểm file và heading tồn tại, đồng thời reference phải xuất hiện trong `## Quyết định`.
-- `tdd`: chỉ `tdd.py` ghi. `tddTests` cần `redAt` + `greenAt`; `verificationTests` cần `verifiedAt` trước khi slice `done`.
-- `untestable`: AC không test tự động được ở đây, kèm lý do và cách kiểm tay; báo cáo liệt kê chúng ở mục *Chưa làm*.
-- `status` của slice: `todo` → `code` → `done`. Slice phụ thuộc nhau tạo thành DAG; `state.py check` từ chối id trùng, `dependsOn` không tồn tại và vòng lặp.
-- `handoff`: tối đa 5 dòng mỗi slice, chỉ những gì slice sau dùng lại (tên export, quyết định). Không ghi nhật ký làm việc.
-- `next`: đúng một việc cụ thể tiếp theo, viết lại sau mỗi bước.
-- `phase`: `grill | code | report | review | sync | ship | done | retro | closed`.
-- `pr`: số PR, ghi ở phase 6.
-- `phase`, `transitions`, `gates`: chỉ `state.py transition` ghi; `set` / `push` từ chối các field này. `--gate g1` chỉ dùng ở `grill → code`, `--gate g2` chỉ ở `sync → ship`.
-- Sau merge, `done → closed` khi chưa đủ đợt retro; đủ đợt thì `done → retro → closed`. Chờ merge giữ `done`. Bộ đếm dùng lịch sử `origin/dev` và `reference/retro-batch.json`, độc lập state từng ticket.
+- `acs`: 1-based index of the AC in the `## Acceptance criteria` section of `spec.md`.
+- `tests`: deduplicated union of `tddTests` and `verificationTests`; function-level pytest ids (`file.py::test_x`), relative to `backend/`.
+- `tddTests`: new behaviour tests; need `expectedRed`, go red then green. `verificationTests`: existing tests that only need a verified green.
+- `files`: files the slice will change, recorded in phase 1 for `plan.md`; one slice is one commit containing exactly these files.
+- `governingDocs`: each key is a file in `files`, each value a `path.md::section` reference; the script checks file and heading exist, and that the reference appears in `## Quyết định`.
+- `tdd`: written only by `tdd.py`. `tddTests` need `redAt` + `greenAt`; `verificationTests` need `verifiedAt` before the slice is `done`.
+- `notes`: free-form notes by key. `notes.baselineRed`: ids of tests already red on `origin/dev`, recorded in phase 1 from the baseline log.
+- `untestable`: ACs not testable automatically here, with reason and manual check; the report lists them under *Chưa làm*.
+- Slice `status`: `todo` → `code` → `done`. Slice dependencies form a DAG; `state.py check` rejects duplicate ids, unknown `dependsOn` and cycles.
+- `handoff`: at most 5 lines per slice, only what later slices reuse (exported names, decisions). No work log.
+- `next`: exactly one concrete next task, rewritten after every step.
+- `phase`: `grill | code | report | review | sync | ship | done | closed`.
+- `pr`: PR number, recorded in phase 6.
+- `phase`, `transitions`, `gates`: written only by `state.py transition`; `set` / `push` reject them. `--gate g1` only on `grill → code`, `--gate g2` only on `sync → ship`.
+- After merge `done → closed`; waiting for merge stays `done`.
 
-Lệnh:
+Commands:
 
 ```bash
-python3 S/scripts/state.py init <T> --branch <nhánh> --mode lite|full
+python3 S/scripts/state.py init <T> --branch <branch> --mode lite|full
 python3 S/scripts/state.py set <T> mode=lite slices.S1.status=code 'next=S1: chạy test red' currentSlice=S1
-# Push một object đầy đủ theo schema S1/S2 ở trên; state.py từ chối field thiếu.
+# Push one complete object following the S1/S2 schema above; state.py rejects missing fields.
 python3 S/scripts/state.py check <T>
 ```
 
-Giá trị parse được thành JSON thì lưu dạng JSON (`[4]`, `null`, `true`), ngược lại lưu chuỗi. Đường dẫn `slices.S1.x` chọn slice theo `id`. `push` thêm từng phần tử của list vào cuối field list.
+Values that parse as JSON are stored as JSON (`[4]`, `null`, `true`), anything else as a string. The path `slices.S1.x` selects the slice by `id`. `push` appends each element of a list to the end of a list field.
