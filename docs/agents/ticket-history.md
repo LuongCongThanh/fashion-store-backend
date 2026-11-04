@@ -45,6 +45,7 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 20. [03](../../.scratch/backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md) · commit `backend/openapi.yaml`, `make openapi` và `scripts/gen_openapi.py --check` trong `make lint` và CI chặn schema lệch hoặc sai chuẩn · PR #59 · 03/11/2026
 21. [19](../../.scratch/backend-bootstrap/issues/19-trust-upstream-request-id/spec.md) · dùng `X-Request-ID` từ BFF làm `request_id` khi `X-BFF-Secret` đúng và đúng định dạng (receiver signal `django-structlog`, `bff_secret_matches` dùng chung) · PR #60 · 03/11/2026
 22. [26](../../.scratch/backend-bootstrap/issues/26-outbox-refactor-smells/spec.md) · vòng đời Event delivery là method của `EventDelivery`, vị từ outbox là QuerySet primitive (`attempt_due`, `dispatch_due`, `unfinished`, `listed`, `unlisted`) · PR #62 · 03/11/2026
+23. [29](../../.scratch/backend-bootstrap/issues/29-outbox-test-helpers/spec.md) · helper test outbox ở `shared/events/tests/_helpers.py`, trait factory `sample`/`listed`/`failed`, abstract `UUIDv7Model`, bỏ test trùng · PR #64 · 04/11/2026
 
 ### Còn mở
 
@@ -61,7 +62,6 @@ Trước go-live:
 - [13](../../.scratch/backend-bootstrap/issues/13-local-postgres-installer-macos/spec.md) · bộ cài PostgreSQL trên macOS · `ready-for-human`
 - [25](../../.scratch/backend-bootstrap/issues/25-outbox-relay-throughput/spec.md) · relay xả tồn đọng nhanh hơn 100 delivery mỗi giây · `ready-for-agent`
 - [28](../../.scratch/backend-bootstrap/issues/28-outbox-operations-hardening/spec.md) · độ bền của theo dõi và purge outbox khi tồn đọng lớn · `ready-for-agent`
-- [29](../../.scratch/backend-bootstrap/issues/29-outbox-test-helpers/spec.md) · gom helper test outbox, trait factory và rút gọn test trùng · `ready-for-agent`
 
 ## `sandbox-acceptance` (M7)
 

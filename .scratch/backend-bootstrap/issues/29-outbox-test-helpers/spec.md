@@ -1,6 +1,8 @@
 # Gom helper test outbox, trait factory và rút gọn test trùng
 
-Status: ready-for-agent
+Status: resolved
+
+**PR:** #64
 
 Blocked by: 26
 
@@ -32,6 +34,6 @@ Chốt khi grilling ngày 03/11/2026.
 
 ## Acceptance criteria
 
-- [ ] Không còn hằng hay helper test nào bị khai báo lặp giữa các file test của `shared/events`. `OutboxEventFactory` mặc định không cần sự kiện mẫu của test.
-- [ ] Mỗi quy tắc vòng đời Event delivery chỉ được kiểm ở một chỗ: test trực tiếp trên model, hoặc test điều phối của consumer.
-- [ ] `make lint` và `make test` xanh. Cổng branch coverage của nhóm `shared` vẫn đạt.
+- [x] Không còn hằng hay helper test nào bị khai báo lặp giữa các file test của `shared/events`. `OutboxEventFactory` mặc định không cần sự kiện mẫu của test.
+- [x] Mỗi quy tắc vòng đời Event delivery chỉ được kiểm ở một chỗ: test trực tiếp trên model, hoặc test điều phối của consumer.
+- [x] `make lint` và `make test` xanh. Cổng branch coverage của nhóm `shared` vẫn đạt.

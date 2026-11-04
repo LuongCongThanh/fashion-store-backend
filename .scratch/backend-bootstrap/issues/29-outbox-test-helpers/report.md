@@ -2,7 +2,7 @@
 
 ### Báo cáo 04/11/2026
 
-**Nhánh:** `refactor/outbox-test-helpers` · **PR:** chưa mở · **Mode:** lite
+**Nhánh:** `refactor/outbox-test-helpers` · **PR:** #64 · **Mode:** lite
 
 #### Đã làm
 
