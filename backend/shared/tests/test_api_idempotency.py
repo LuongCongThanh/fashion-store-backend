@@ -12,9 +12,10 @@ from django.db import connection, transaction
 from rest_framework.test import APIClient
 
 from shared import idempotency
-from shared.api.idempotency import request_hash
 from shared.idempotency import LEASE, Claim, LeaseLost
-from shared.models import IdempotencyKey, IdempotencyStatus, uuid7
+from shared.idempotency.http import request_hash
+from shared.idempotency.models import IdempotencyKey, IdempotencyStatus
+from shared.models import uuid7
 from shared.testing.factories import IdempotencyKeyFactory
 from shared.tests._helpers import error_of
 from shared.tests.api_urls import IdempotentEffect, OutOfStock

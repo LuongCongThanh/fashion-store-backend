@@ -8,8 +8,8 @@ from structlog.testing import capture_logs
 from config.celery import app
 from shared.events import operations
 from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.tasks import purge_old_outbox_events
 from shared.events.tests._helpers import NOW
-from shared.tasks import purge_old_outbox_events
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db

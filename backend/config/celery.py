@@ -29,4 +29,4 @@ app.conf.beat_schedule = {
 }
 
 # Mặc định Celery chỉ tìm <app>.tasks, nên liệt kê từng package có tasks.py (02 mục 5)
-app.autodiscover_tasks(["shared", "shared.events"])
+app.autodiscover_tasks(["shared", "shared.events", "shared.idempotency"])

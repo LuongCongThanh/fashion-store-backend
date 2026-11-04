@@ -141,104 +141,94 @@ graph TB
 
 ## 5. Cây thư mục
 
+Cây chỉ ghi **vai trò** của từng file hay thư mục. Hành vi chi tiết nằm ở docstring trong code và ở tài liệu sở hữu được dẫn chiếu. Mục đánh dấu _(kế hoạch)_ chưa có trong code.
+
+Quy tắc gom file: một khái niệm hạ tầng có từ hai file trở lên (model, lõi, lớp HTTP, job) thì thành **một package con** của `shared/` (như `events/`, `idempotency/`); file đơn lẻ ở gốc `shared/` chỉ dành cho tiện ích một file. Package con có `tasks.py` riêng cho job của nó.
+
 ```
 backend/
-├── pyproject.toml                  # dependency, cấu hình ruff, mypy, pytest, import-linter
-├── uv.lock                         # khoá phiên bản chính xác của mọi package
+├── pyproject.toml                # dependency; cấu hình ruff, mypy, pytest, coverage, import-linter
+├── uv.lock
 ├── manage.py
-├── .env.example                    # mẫu biến môi trường (file .env thật không commit)
-├── .python-version                 # 3.14
-├── Dockerfile                      # 1 image dùng chung cho worker, beat, relay, migrate (API chạy trên máy, ADR 0017)
-├── .dockerignore                   # không đưa .env, .venv vào image
-├── docker-compose.yml              # migrate, worker, beat, relay, redis, mailpit (PostgreSQL và API chạy trên máy, xem 08 mục 7)
-├── Makefile                        # lệnh tắt: make up, make test, make lint, make migrate…
-├── openapi.yaml                    # schema OpenAPI đã commit; CI so với bản sinh lại ([12](./12-testing-strategy.md) mục 5)
-├── CHANGELOG.md                    # sinh bằng commitizen ([11](./11-git-workflow.md) mục 7)
-├── conftest.py                     # pytest_plugins = ["shared.testing.fixtures"]; fixture cần Tài khoản (customer_client, staff_client, admin_client, dùng factory của identity) thêm ở đây; fixture jwt_keyring tạo keyring Ed25519 tạm, staff_client/admin_client gắn header `Authorization: Bearer` bằng access token back-office thật (không force_authenticate)
-├── scripts/
-│   ├── _modules.py                 # list_modules(root): danh sách module nghiệp vụ dùng chung cho hai script dưới
-│   ├── check_module_coverage.py    # branch coverage ≥ 80% cho từng module và nhóm shared (12 mục 8)
-│   ├── gen_openapi.py              # sinh openapi.yaml; --check so drift và chạy luật chú thích operation (12 mục 5, 04 mục 5.6)
-│   └── gen_importlinter.py         # sinh các contract "forbidden" của import-linter cho từng module (mục 8)
+├── .env.example                  # mẫu biến môi trường (.env thật không commit)
+├── .python-version               # 3.14
+├── Dockerfile                    # 1 image cho worker, beat, relay, migrate (ADR 0017)
+├── docker-compose.yml            # migrate, worker, beat, relay, redis, mailpit (08 mục 7)
+├── Makefile                      # make fmt, lint, test, migrate…
+├── openapi.yaml                  # schema đã commit; CI chặn drift (12 mục 5)
+├── conftest.py                   # fixture cần Tài khoản: customer_client, staff_client, admin_client
+├── CHANGELOG.md                  # (kế hoạch) sinh bằng commitizen (11 mục 7)
 │
-├── config/                         # cấu hình project, KHÔNG chứa nghiệp vụ
-│   ├── __init__.py                 # nạp Celery app khi Django khởi động
-│   ├── env.py                      # class Env (pydantic-settings) đọc và kiểm tra biến môi trường, gồm APP_ENV (local | test | staging | production) PG_PORT (script setup in ra, khai báo để pydantic-settings không báo biến thừa khi đọc .env) và DATABASE_HOST (khác rỗng thì thay host của DATABASE_URL; Compose đặt host.docker.internal); PII_HMAC_KEYS được parse một lần thành keyring (secret bọc SecretStr)
-│   ├── settings/
-│   │   ├── __init__.py
-│   │   ├── base.py                 # cấu hình chung mọi môi trường
-│   │   ├── local.py                # DEBUG, FAKE_PROVIDERS_ENABLED, Mailpit
-│   │   ├── test.py                 # DB test, Celery chạy đồng bộ, hash mật khẩu nhanh, FAKE_PROVIDERS_ENABLED
-│   │   └── production.py           # bảo mật, S3, SES, Sentry, log JSON
-│   ├── urls.py                     # gốc URL: /api/v1/store, /api/v1/backoffice, /api/v1/webhooks, /api/schema, /api/docs, /healthz, /readyz; chỉ local và test: /dev/fake-gateway. Include api/<nhánh>/urls.py của từng module con
-│   ├── celery.py                   # khởi tạo Celery, định nghĩa queue và lịch job (nguồn chuẩn cho sync_beat_schedule, 07 mục 3.2); autodiscover_tasks(["shared", "shared.events", "modules.identity", …]) vì mặc định Celery chỉ tìm <app>.tasks
-│   └── wsgi.py                     # gunicorn chạy WSGI, worker gthread
+├── scripts/                      # công cụ dev và CI, không import khi chạy app
+│   ├── _modules.py               # list_modules(): danh sách module nghiệp vụ
+│   ├── gen_importlinter.py       # sinh contract import-linter (mục 8)
+│   ├── gen_openapi.py            # sinh openapi.yaml; --check so drift (12 mục 5)
+│   ├── check_module_coverage.py  # branch coverage ≥ 80% theo nhóm (12 mục 8)
+│   └── br_report.py              # báo cáo BR đã có test theo pytest marker
 │
-├── shared/                         # Django app "shared": hạ tầng dùng chung
-│   ├── __init__.py
+├── config/                       # cấu hình project, không chứa nghiệp vụ
+│   ├── env.py                    # Env (pydantic-settings): đọc và kiểm biến môi trường
+│   ├── settings/                 # base, local, test, production
+│   ├── urls.py                   # gốc URL /api/v1/{store,backoffice,webhooks}, schema, health
+│   ├── celery.py                 # Celery app, queue, lịch job (nguồn của sync_beat_schedule)
+│   └── wsgi.py
+│
+├── shared/                       # Django app "shared": hạ tầng dùng chung, không import modules
 │   ├── apps.py
-│   ├── models.py                   # uuid7(), BaseModel: id UUID v7, created_at, updated_at; IdempotencyKey; import model của events/ và geo/ để Django nhận ra
-│   ├── money.py                    # value object Money(amount: int, currency="VND")
-│   ├── phones.py                   # normalize_vn_phone: chuẩn hoá số điện thoại dùng chung, không import modules (03 mục 0.6)
-│   ├── privacy.py                  # pii_hmac(value) -> "<kid>:<hex>" bằng khoá đầu của keyring PII_HMAC_KEYS; pii_hmac_candidates(value) -> giá trị theo mọi khoá để tra cứu dữ liệu cũ khi xoay khoá; parse_keyring đọc chuỗi `kid2:s2,kid1:s1` (ADR 0016); dùng cho bằng chứng sau ẩn danh, IP trong log, key failure ledger
-│   ├── idempotency.py              # lõi Idempotency-Key, không import DRF để services gọi được: claim(scope, key, request_hash) trong transaction ngắn atomic(durable=True) trả Claim | Replay | Pending; Claim.complete(status, body, resource_id=None) lưu kết quả trong transaction của tác động, lệch lease thì LeaseLost; Claim là context manager nhả key khi tác động lỗi; IdempotencyConflict (409); purge_idempotency_keys (chỉ key completed quá 24 giờ)
-│   ├── exceptions.py               # DomainError (thuộc tính lớp code, http_status mặc định 422; khởi tạo nhận message, details tuỳ chọn), RetryLater (handler báo consumer thử lại sau, không kế thừa DomainError) và các lỗi chung
-│   ├── tasks.py                    # enqueue_on_commit(task_name, **kwargs): đẩy Celery task theo tên sau khi transaction commit (on_commit robust=True: broker lỗi thì chỉ log); purge_old_outbox_events (chỉ xoá sự kiện đã kết thúc mọi delivery, cùng các delivery đó), purge_idempotency_keys
-│   ├── events/
-│   │   ├── __init__.py             # API công khai: DomainEvent, publish(), handles(), get_delivery_outcomes(), delivery_lag() (tuổi của công việc giao sự kiện đã tới hạn mà chưa xử lý, không tính failed hay pending đang chờ retry; job T4 dùng, 07 mục 1.1.1)
-│   │   ├── base.py                 # DomainEvent (pydantic): event_id, event_type, schema_version, occurred_at, correlation_id (request_id của request gốc). Payload không chứa secret hay PII
-│   │   ├── models.py               # OutboxEvent, EventDelivery (cũng là dấu đã xử lý và nơi lưu lỗi); vòng đời delivery là method của model (start_run, complete, reject, retry_or_fail, fail, reopen, mark_dispatched; lịch RETRY_DELAYS, ngưỡng MAX_INTERRUPTED_RUNS, 07 mục 1.3); vị từ là QuerySet primitive (attempt_due, dispatch_due, unfinished, listed, unlisted)
-│   │   ├── publisher.py            # EventPublisher: ghi sự kiện vào outbox trong transaction hiện tại; gọi ngoài transaction.atomic thì ném RuntimeError
-│   │   ├── registry.py             # decorator @handles(event_type, version=, name=) đăng ký handler; name là ID ổn định (cột handler, tối đa 100 ký tự), trùng thì lỗi lúc import; autodiscover(package) nạp events.py, handlers.py của package con
-│   │   ├── relay.py                # tạo delivery từng handler; quét pending tới hạn và giao lại qua Celery, lịch lưu ở DB; build_deliveries(event, handlers, now) dựng delivery qua EventDelivery.new, dùng chung với replay
-│   │   ├── selectors.py            # delivery_lag() -> timedelta (tuổi theo occurred_at, 0 khi không tồn đọng), get_delivery_outcomes(event_id, handler_names) -> dict[str, DeliveryStatus | None] (None = chưa có delivery)
-│   │   ├── operations.py           # thao tác vận hành, command và task chỉ gọi vào đây: retry_failed_events, replay_events (lô 100 sự kiện, khoá sự kiện), purge_old_outbox_events (lô 1.000, OUTBOX_RETENTION 90 ngày)
-│   │   ├── consumer.py             # khoá EventDelivery; handler trong savepoint; gọi method vòng đời của model và commit trạng thái delivery cùng tác động DB; log theo kết quả trả về (07 mục 1.3)
-│   │   └── tasks.py                # Celery task dispatch_event(event_id, handler_name)
-│   ├── geo/
-│   │   ├── models.py               # Province, Ward (2 cấp, theo vietnam-provinces)
-│   │   ├── selectors.py            # list_provinces(), province_exists(code=), list_wards(province_code=); sắp theo mã
-│   │   ├── api.py                  # GET /api/v1/store/geo/provinces, /geo/provinces/{code}/wards: công khai, array GeoDTO không phân trang
-│   │   └── urls.py                 # route của api.py; config/urls.py include tại api/v1/store/geo/
-│   ├── api/
-│   │   ├── exception_handler.py    # chuyển mọi lỗi sang định dạng lỗi chuẩn (xem 04-api-contract)
-│   │   ├── pagination.py           # phân trang chuẩn
-│   │   ├── permissions.py          # IsCustomer, IsStaff, IsAdmin (chỉ dựa vào kind và aud, không chứa nghiệp vụ)
-│   │   ├── client_ip.py            # middleware: lấy IP người dùng từ X-Client-IP khi X-BFF-Secret đúng (ADR 0009); bff_secret_matches là quy tắc tin BFF dùng chung
-│   │   ├── request_id.py           # receiver bind_extra_request_metadata của django-structlog: dùng X-Request-ID làm request_id khi X-BFF-Secret đúng và đúng định dạng (10 mục 4)
-│   │   ├── throttling.py           # các mức throttle dùng chung, theo IP từ client_ip; fail-open khi Redis lỗi
-│   │   ├── schema.py               # AutoSchema (DEFAULT_SCHEMA_CLASS): component ErrorDTO, response lỗi mặc định kèm ví dụ tiếng Anh, Retry-After cho 429, tag <store|backoffice> · <module>, bỏ docstring khỏi schema (04 mục 5.6)
-│   │   ├── idempotency.py          # lớp HTTP của Idempotency-Key: begin(request) đọc header, dựng scope (method + path + account hoặc hash X-Cart-Token), request_hash(data) của body JSON rồi gọi shared.idempotency.claim; response(outcome) dựng response cho Replay và 202 IdempotencyPendingDTO
-│   │   └── views.py                # handler400/403/404/500 của Django trả ErrorDTO cho lỗi ngoài DRF; chọn ngôn ngữ theo Accept-Language không cần file riêng: LocaleMiddleware bật trong settings (vi mặc định)
-│   ├── health/
-│   │   └── views.py                # /healthz (sống), /readyz (kết nối được PostgreSQL)
-│   ├── logging.py                  # configure_logging(json=...) cấu hình structlog, processor redact_pii che PII
-│   ├── checks.py                   # system check (--deploy): shared.E001 mỗi secret của PII_HMAC_KEYS dài ít nhất 32 byte; shared.E002 JWT_SIGNING_KEYS không rỗng
-│   ├── management/commands/
-│   │   ├── run_outbox_relay.py     # tiến trình relay chạy liên tục
-│   │   ├── retry_failed_events.py  # mở lại các delivery failed
-│   │   ├── replay_events.py        # phát lại sự kiện trong outbox theo loại và mốc thời gian (07 mục 1.1)
-│   │   ├── sync_beat_schedule.py   # ghi lịch job từ config/celery.py vào django-celery-beat, tắt job thừa; chạy sau migrate (07 mục 3.2)
-│   │   ├── reset_db.py             # xoá và tạo lại database local cho make db-reset; từ chối khi DEBUG tắt hoặc host không phải localhost
-│   │   └── load_geo.py             # nạp tỉnh/thành, phường/xã từ vietnam-provinces: mã Cục Thống kê có số 0 đứng đầu, upsert theo mã, không xoá mã cũ (chỉ log geo_stale_codes)
-│   ├── migrations/                 # 0001_postgres_extensions: unaccent, pg_trgm, btree_gist, hàm public.immutable_unaccent (reverse chỉ xoá hàm, giữ extension); 0002_geo: shared_province, shared_ward; 0003_outbox: shared_outbox_event, shared_event_delivery
-│   └── testing/
-│       ├── factories.py            # factory gốc: ProvinceFactory, WardFactory, OutboxEventFactory, EventDeliveryFactory
-│       ├── fixtures.py             # fixture pytest không cần nghiệp vụ (xoá cache trước/sau mỗi test, json_logging, api_client…), nạp qua pytest_plugins của backend/conftest.py; fixture cần Tài khoản nằm ở backend/conftest.py
-│       └── events.py               # drain_events(): chạy callback on_commit, relay và handler tới khi không còn delivery tới hạn; không chờ retry tương lai
+│   ├── models.py                 # uuid7(), BaseModel; import model của package con cho Django
+│   ├── exceptions.py             # DomainError, RetryLater
+│   ├── money.py                  # value object Money
+│   ├── phones.py                 # normalize_vn_phone (03 mục 0.6)
+│   ├── privacy.py                # pii_hmac, keyring PII_HMAC_KEYS (ADR 0016)
+│   ├── logging.py                # cấu hình structlog, che PII (10)
+│   ├── checks.py                 # system check --deploy cho secret
+│   ├── tasks.py                  # enqueue_on_commit: đẩy task sau commit (13 mục 4)
+│   ├── events/                   # outbox sự kiện (07 mục 1, ADR 0007)
+│   │   ├── __init__.py           # interface: DomainEvent, publish, handles, delivery_lag…
+│   │   ├── base.py               # DomainEvent (pydantic)
+│   │   ├── models.py             # OutboxEvent, EventDelivery và vòng đời delivery
+│   │   ├── publisher.py          # ghi sự kiện vào outbox trong transaction hiện tại
+│   │   ├── registry.py           # @handles, autodiscover handler
+│   │   ├── relay.py              # lập delivery, giao delivery tới hạn cho Celery
+│   │   ├── consumer.py           # chạy handler, ghi kết quả delivery
+│   │   ├── selectors.py          # delivery_lag, get_delivery_outcomes
+│   │   ├── operations.py         # retry, replay, purge (command và task gọi vào đây)
+│   │   ├── tasks.py              # dispatch_event, purge_old_outbox_events
+│   │   └── tests/
+│   ├── idempotency/              # Idempotency-Key (03 mục 1.5, 04 mục 1)
+│   │   ├── __init__.py           # lõi, không import DRF: claim, Claim, Replay, Pending, purge
+│   │   ├── models.py             # IdempotencyKey
+│   │   ├── http.py               # lớp HTTP: begin(request), response(outcome)
+│   │   └── tasks.py              # purge_idempotency_keys
+│   ├── geo/                      # địa giới hành chính 2 cấp
+│   │   ├── models.py             # Province, Ward
+│   │   ├── selectors.py
+│   │   ├── api.py                # GET /store/geo/…
+│   │   └── urls.py
+│   ├── api/                      # nền DRF dùng chung (04)
+│   │   ├── exception_handler.py  # mọi lỗi → ErrorDTO
+│   │   ├── views.py              # handler400/403/404/500 ngoài DRF
+│   │   ├── schema.py             # AutoSchema: ErrorDTO, tag, lỗi mặc định (04 mục 5.6)
+│   │   ├── pagination.py
+│   │   ├── permissions.py        # IsCustomer, IsStaff, IsAdmin
+│   │   ├── throttling.py
+│   │   ├── client_ip.py          # middleware IP thật qua BFF (ADR 0009)
+│   │   └── request_id.py         # X-Request-ID từ BFF (10 mục 4)
+│   ├── health/views.py           # /healthz, /readyz
+│   ├── management/commands/      # load_geo, run_outbox_relay, retry_failed_events,
+│   │                             # replay_events, sync_beat_schedule, reset_db
+│   ├── migrations/
+│   ├── testing/                  # fixtures, factories, drain_events() cho test mọi module
+│   └── tests/                    # test của file ở gốc shared/, api/, geo/, command
 │
-├── modules/                        # Django app "modules": toàn bộ nghiệp vụ
-│   ├── __init__.py
-│   ├── apps.py                     # ModulesConfig.ready(): nạp events.py và handlers.py của mọi module con qua shared.events.registry.autodiscover("modules")
-│   ├── models.py                   # import model của mọi module con để Django nhận ra
-│   ├── migrations/                 # MỘT chuỗi migrations cho mọi module con
-│   ├── management/commands/
-│   │   ├── seed_catalog.py         # tạo dữ liệu mẫu cho local
-│   │   └── create_staff.py         # tạo Tài khoản Staff/Admin
-│   ├── templates/
-│   │   └── emails/                 # template email theo ngôn ngữ (vi, en)
-│   ├── identity/
-│   ├── catalog/
+├── modules/                      # Django app "modules": toàn bộ nghiệp vụ (ADR 0006)
+│   ├── apps.py                   # ready(): autodiscover events.py, handlers.py của module con
+│   ├── models.py                 # import model của mọi module con
+│   ├── migrations/               # MỘT chuỗi migration cho mọi module con
+│   ├── management/commands/      # create_staff; seed_catalog (kế hoạch)
+│   ├── templates/emails/         # (kế hoạch) template email vi, en
+│   ├── identity/                 # đã có; khuôn mẫu ở mục 6
+│   ├── catalog/                  # các module còn lại: (kế hoạch)
 │   ├── inventory/
 │   ├── promotions/
 │   ├── payments/
@@ -246,13 +236,11 @@ backend/
 │   ├── ordering/
 │   └── notifications/
 │
-├── locale/
-│   ├── vi/LC_MESSAGES/django.po    # thông báo lỗi và email tiếng Việt
-│   └── en/LC_MESSAGES/django.po
+├── locale/                       # (kế hoạch) vi, en django.po
 │
-└── tests/
-    ├── test_event_payloads.py      # payload mọi sự kiện không chứa PII ([12](./12-testing-strategy.md) mục 2.3)
-    └── flows/                      # test xuyên module: checkout → thanh toán → giao → hoàn tất
+└── tests/                        # test không thuộc một module
+    ├── test_*.py                 # tooling: env, scripts, import boundaries, payload sự kiện
+    └── flows/                    # (kế hoạch) test xuyên module: checkout → giao → hoàn tất
 ```
 
 > **Lưu ý của cách A (một app `modules`)**: Django chỉ tìm `migrations/`, `management/commands/` và `templates/` ở **gốc app**. Vì vậy các thư mục này nằm ở `modules/` chứ không nằm trong từng module con ([ADR 0006](../adr/0006-modular-monolith.md)). Hai chỗ khác cũng chỉ tìm ở gốc app: Django chỉ nhận model qua `<app>/models.py` (nên `modules/models.py` và `shared/models.py` phải import model của package con), và `autodiscover_tasks()` của Celery chỉ tìm `<app>/tasks.py` (nên `config/celery.py` liệt kê từng package).
@@ -326,6 +314,7 @@ modules/ordering/
 | `api/*/views.py` | `APIView` hoặc `GenericAPIView`: phân quyền, gọi serializer, gọi service/selector | `services`, `selectors`, `serializers` | `ModelViewSet` tự động CRUD; truy vấn ORM trực tiếp |
 | `api/*/urls.py` | Khai báo route | `views` | — |
 | `api/permissions.py` | Permission class gắn với nghiệp vụ của module, ví dụ `IsOrderOwner` (permission chung chỉ dựa vào `kind`/`aud` nằm ở `shared/api/permissions.py`) | `selectors` của chính module; public contract chỉ đọc của module lớp dưới, ví dụ `identity.contracts.verify_order_lookup_token` | Ghi dữ liệu, gọi contract ghi hoặc import auth/model nội bộ module khác |
+| `<adapter>/` (tuỳ chọn) | Package con cho adapter hạ tầng riêng của module, ví dụ `identity/auth/` (JWT, Redis login ledger, DRF authentication). Chỉ tạo khi module có adapter thật | Model, `constants`, `exceptions` của chính module | Logic nghiệp vụ (để ở `services/`); bị module khác import |
 | `tests/` | Test service (nhiều nhất), handler, API | Mọi thứ của module, `shared.testing`; `tests.factories` và `contracts` của module lớp dưới | `models`, `services`, `selectors`, `api` của module khác ([12-testing-strategy.md](./12-testing-strategy.md) mục 4) |
 
 ### 6.2. Ví dụ luồng một request

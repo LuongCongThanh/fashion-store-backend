@@ -198,12 +198,12 @@ def test_gate_checks_shared_targets(tmp_path: Path) -> None:
         tmp_path,
         {
             "shared/events/relay.py": SERVICE,
-            "shared/api/idempotency.py": SERVICE,
-            "shared/idempotency.py": SERVICE,
+            "shared/idempotency/http.py": SERVICE,
+            "shared/idempotency/__init__.py": SERVICE,
             "shared/tasks.py": SERVICE,
         },
         "from shared.events.relay import choose as relay\n"
-        "from shared.api.idempotency import choose as idempotency\n"
+        "from shared.idempotency.http import choose as idempotency\n"
         "from shared.idempotency import choose as claim\n"
         "from shared.tasks import choose as task\n"
         "relay(True)\nidempotency(True)\nclaim(True)\ntask(True)\n",

@@ -11,9 +11,8 @@ from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
 
-from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent, build_deliveries
 from shared.events.registry import registry
-from shared.events.relay import build_deliveries
 
 logger = structlog.get_logger(__name__)
 

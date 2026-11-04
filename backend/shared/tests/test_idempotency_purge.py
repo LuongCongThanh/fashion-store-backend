@@ -8,8 +8,8 @@ from structlog.testing import capture_logs
 
 from config.celery import app
 from shared import idempotency
-from shared.models import IdempotencyKey
-from shared.tasks import purge_idempotency_keys
+from shared.idempotency.models import IdempotencyKey
+from shared.idempotency.tasks import purge_idempotency_keys
 from shared.testing.factories import IdempotencyKeyFactory
 
 pytestmark = pytest.mark.django_db

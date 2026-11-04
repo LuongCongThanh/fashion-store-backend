@@ -16,11 +16,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shared.api import idempotency
 from shared.api.client_ip import get_client_ip
 from shared.api.throttling import AnonThrottle
 from shared.exceptions import DomainError
 from shared.idempotency import Claim
+from shared.idempotency import http as idempotency
 
 # Stub của DRF chỉ nhận QuerySet; paginator thật nhận mọi sequence, nên dùng list cho gọn
 PAGED_ROWS: Any = [{"id": i} for i in range(1, 251)]

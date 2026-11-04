@@ -14,7 +14,7 @@ from tests.helpers import BACKEND, importlinter_section, isolated_env, write_tre
 GENERATOR = BACKEND / "scripts/gen_importlinter.py"
 LINT_IMPORTS = shutil.which("lint-imports", path=str(Path(sys.executable).parent))
 # Cây tối thiểu: đủ module cho contract `layers`; inventory có phần nội bộ và public API,
-# shared có outbox và chuỗi import shared.tasks → operations → relay → tasks như repo thật
+# shared có outbox và chuỗi import gián tiếp tới relay (shared.tasks → operations → relay → tasks)
 MODULES = (
     "identity",
     "catalog",
