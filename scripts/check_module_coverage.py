@@ -19,17 +19,17 @@ def _groups(root: Path) -> dict[str, list[Path]]:
         if handler.is_file():
             files.append(handler)
         groups[module.name] = files
-    shared = root / "shared"
+    common = root / "common"
     files = [
         path
         for package in ("events", "idempotency")
-        for path in sorted((shared / package).rglob("*.py"))
-        if "tests" not in path.relative_to(shared / package).parts
+        for path in sorted((common / package).rglob("*.py"))
+        if "tests" not in path.relative_to(common / package).parts
     ]
-    if (shared / "tasks.py").is_file():
-        files.append(shared / "tasks.py")
+    if (common / "tasks.py").is_file():
+        files.append(common / "tasks.py")
     if files:
-        groups["shared"] = files
+        groups["common"] = files
     return groups
 
 

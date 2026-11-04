@@ -17,8 +17,8 @@ PUBLIC_API = frozenset({"contracts", "events", "exceptions"})
 # Test và factory của module: chiều import giữa test do contract `layers` kiểm, code ngoài test
 # không được import (12 mục 4)
 TESTS = "tests"
-# Chỉ đẩy sự kiện qua shared.events.publish; relay và task của outbox là việc của shared (02 mục 8)
-OUTBOX_INTERNALS = ("shared.events.relay", "shared.events.tasks")
+# Chỉ đẩy sự kiện qua common.events.publish; relay và task của outbox là việc của common (02 mục 8)
+OUTBOX_INTERNALS = ("common.events.relay", "common.events.tasks")
 
 
 class GeneratorError(Exception):
@@ -68,7 +68,7 @@ def _tests_contracts(modules: list[Path]) -> list[str]:
         if TESTS not in _children(target):
             continue
         sources = [
-            f"modules.{source.name}.{name}"
+            f"apps.{source.name}.{name}"
             for source in modules
             if source != target
             for name in sorted(_children(source) - {TESTS})
@@ -77,9 +77,9 @@ def _tests_contracts(modules: list[Path]) -> list[str]:
             continue
         contracts.append(
             _contract(
-                f"Only tests of other modules import modules.{target.name}.tests",
+                f"Only tests of other modules import apps.{target.name}.tests",
                 sources,
-                [f"modules.{target.name}.{TESTS}"],
+                [f"apps.{target.name}.{TESTS}"],
                 indirect=True,
             )
         )
@@ -91,11 +91,11 @@ def render(root: Path) -> str:
     modules = list_modules(root)
     contracts = [
         _contract(
-            "Modules publish events only via shared.events.publish",
-            ["modules"],
+            "Modules publish events only via common.events.publish",
+            ["apps"],
             list(OUTBOX_INTERNALS),
-            # Chỉ cấm import trực tiếp: test của module dùng shared.testing.events.drain_events,
-            # hàm này gọi shared.events.relay
+            # Chỉ cấm import trực tiếp: test của module dùng common.events.testing.drain_events,
+            # hàm này gọi common.events.relay
             indirect=True,
         )
     ]
@@ -108,9 +108,9 @@ def render(root: Path) -> str:
                 continue
             contracts.append(
                 _contract(
-                    f"modules.{source.name} uses only the public API of modules.{target.name}",
-                    [f"modules.{source.name}"],
-                    [f"modules.{target.name}.{name}" for name in internals],
+                    f"apps.{source.name} uses only the public API of apps.{target.name}",
+                    [f"apps.{source.name}"],
+                    [f"apps.{target.name}.{name}" for name in internals],
                     # Mặc định import-linter cấm cả chuỗi gián tiếp, mà lời gọi hợp lệ qua
                     # contracts luôn đi tiếp xuống phần nội bộ của module đích (02 mục 8)
                     indirect=True,

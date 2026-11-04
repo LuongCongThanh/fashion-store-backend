@@ -28,28 +28,28 @@ def test_check_reports_hand_edited_forbidden_contract(tmp_path: Path) -> None:
         tmp_path,
         {
             "pyproject.toml": importlinter_section(),
-            "modules/inventory/models.py": "",
-            "modules/ordering/services/checkout.py": "",
+            "apps/inventory/models.py": "",
+            "apps/ordering/services/checkout.py": "",
         },
     )
     assert _generate(tmp_path).returncode == 0
     assert _generate(tmp_path, "--check").returncode == 0
     pyproject = tmp_path / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
-    edited = text.replace('    "modules.inventory.models",\n', "", 1)
+    edited = text.replace('    "apps.inventory.models",\n', "", 1)
     assert edited != text
     pyproject.write_text(edited, encoding="utf-8", newline="\n")
 
     result = _generate(tmp_path, "--check")
 
     assert result.returncode == 1
-    assert '+    "modules.inventory.models",' in result.stdout
+    assert '+    "apps.inventory.models",' in result.stdout
 
 
 def test_check_rejects_missing_markers(tmp_path: Path) -> None:
     write_tree(
         tmp_path,
-        {"pyproject.toml": '[tool.importlinter]\nroot_packages = ["modules"]\n'},
+        {"pyproject.toml": '[tool.importlinter]\nroot_packages = ["apps"]\n'},
     )
 
     result = _generate(tmp_path, "--check")
@@ -88,17 +88,17 @@ def test_directory_without_init_is_not_a_module(tmp_path: Path) -> None:
         tmp_path,
         {
             "pyproject.toml": importlinter_section(),
-            "modules/ordering/services/checkout.py": "",
+            "apps/ordering/services/checkout.py": "",
         },
     )
     # Thư mục còn sót (chỉ còn file, không có __init__.py) không phải module nghiệp vụ
-    stale = tmp_path / "modules/stale"
+    stale = tmp_path / "apps/stale"
     stale.mkdir()
     (stale / "models.py").write_text("", encoding="utf-8")
 
     assert _generate(tmp_path).returncode == 0
 
-    assert "modules.stale" not in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
+    assert "apps.stale" not in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_target_without_internals_gets_no_pairwise_contract(tmp_path: Path) -> None:
@@ -106,13 +106,13 @@ def test_target_without_internals_gets_no_pairwise_contract(tmp_path: Path) -> N
         tmp_path,
         {
             "pyproject.toml": importlinter_section(),
-            "modules/inventory/__init__.py": "",
-            "modules/ordering/services/checkout.py": "",
+            "apps/inventory/__init__.py": "",
+            "apps/ordering/services/checkout.py": "",
         },
     )
 
     assert _generate(tmp_path).returncode == 0
 
     text = (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
-    assert "modules.inventory uses only the public API of modules.ordering" in text
-    assert "public API of modules.inventory" not in text
+    assert "apps.inventory uses only the public API of apps.ordering" in text
+    assert "public API of apps.inventory" not in text

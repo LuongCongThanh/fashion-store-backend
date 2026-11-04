@@ -62,7 +62,7 @@ extend-exclude = [".claude", ".agents", ".scratch", "docs"]
 select = [
     "E", "W",   # pycodestyle
     "F",        # pyflakes
-    "I",        # sắp xếp import: stdlib → third-party → config, shared, modules
+    "I",        # sắp xếp import: stdlib → third-party → config, common, apps
     "N",        # pep8-naming
     "UP",       # pyupgrade: cú pháp Python 3.14
     "B",        # flake8-bugbear
@@ -78,7 +78,7 @@ select = [
 ignore = ["N818"]
 
 [tool.ruff.lint.per-file-ignores]
-# Test được dùng assert và mật khẩu giả viết cứng. "**/" để khớp cả modules/<module>/tests/,
+# Test được dùng assert và mật khẩu giả viết cứng. "**/" để khớp cả apps/<module>/tests/,
 # không chỉ tests/ ở gốc
 "**/tests/**" = ["S101", "S105", "S106"]
 "conftest.py" = ["S105", "S106"]
@@ -86,7 +86,7 @@ ignore = ["N818"]
 "**/migrations/**" = ["RUF012"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "shared", "modules"]
+known-first-party = ["config", "common", "apps"]
 
 [tool.mypy]
 python_version = "3.14"
@@ -96,7 +96,7 @@ exclude = ["^\\.claude/", "^\\.agents/", "^\\.scratch/", "^docs/"]
 # `strict` chỉ đặt được ở mục chung, không đặt được theo module, nên liệt kê từng flag
 # tương đương --strict cho các phần bắt buộc kiểu chặt (13 mục 2)
 [[tool.mypy.overrides]]
-module = ["modules.*.services.*", "modules.*.selectors.*", "modules.*.contracts"]
+module = ["apps.*.services.*", "apps.*.selectors.*", "apps.*.contracts"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_calls = true
@@ -133,18 +133,16 @@ markers = [
 branch = true
 
 [tool.importlinter]
-root_packages = ["shared", "modules", "config"]
+root_packages = ["config", "common", "apps"]
 
 # Tên contract viết ASCII: lint-imports in tên ra console, mà console Windows có thể dùng cp1252
 [[tool.importlinter.contracts]]
 name = "Layer order between modules"
 type = "layers"
 layers = [
-    "modules.notifications",
-    "modules.ordering",
-    "modules.inventory | modules.promotions",
-    "modules.identity | modules.catalog | modules.payments | modules.shipping",
-    "shared",
+    "apps.identity",
+    "apps.geo",
+    "common",
 ]
 
 # Contract `forbidden` do scripts/gen_importlinter.py sinh trong vùng dưới đây (02 mục 8)
@@ -152,119 +150,83 @@ layers = [
 # Sinh bởi scripts/gen_importlinter.py, không sửa tay: chạy lại script sau khi thêm
 # module hoặc phần nội bộ của module
 [[tool.importlinter.contracts]]
-name = "Modules publish events only via shared.events.publish"
+name = "Modules publish events only via common.events.publish"
 type = "forbidden"
 source_modules = [
-    "modules",
+    "apps",
 ]
 forbidden_modules = [
-    "shared.events.relay",
-    "shared.events.tasks",
+    "common.events.relay",
+    "common.events.tasks",
 ]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "modules.catalog uses only the public API of modules.identity"
+name = "apps.identity uses only the public API of apps.geo"
 type = "forbidden"
 source_modules = [
-    "modules.catalog",
+    "apps.identity",
 ]
 forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
+    "apps.geo.api",
+    "apps.geo.apps",
+    "apps.geo.management",
+    "apps.geo.migrations",
+    "apps.geo.models",
+    "apps.geo.selectors",
 ]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "modules.inventory uses only the public API of modules.identity"
+name = "apps.geo uses only the public API of apps.identity"
 type = "forbidden"
 source_modules = [
-    "modules.inventory",
+    "apps.geo",
 ]
 forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
+    "apps.identity.api",
+    "apps.identity.apps",
+    "apps.identity.auth",
+    "apps.identity.constants",
+    "apps.identity.management",
+    "apps.identity.migrations",
+    "apps.identity.models",
+    "apps.identity.services",
 ]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "modules.notifications uses only the public API of modules.identity"
+name = "Only tests of other modules import apps.geo.tests"
 type = "forbidden"
 source_modules = [
-    "modules.notifications",
+    "apps.identity.api",
+    "apps.identity.apps",
+    "apps.identity.auth",
+    "apps.identity.constants",
+    "apps.identity.exceptions",
+    "apps.identity.management",
+    "apps.identity.migrations",
+    "apps.identity.models",
+    "apps.identity.services",
 ]
 forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
+    "apps.geo.tests",
 ]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "modules.ordering uses only the public API of modules.identity"
+name = "Only tests of other modules import apps.identity.tests"
 type = "forbidden"
 source_modules = [
-    "modules.ordering",
+    "apps.geo.api",
+    "apps.geo.apps",
+    "apps.geo.management",
+    "apps.geo.migrations",
+    "apps.geo.models",
+    "apps.geo.selectors",
 ]
 forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
-]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "modules.payments uses only the public API of modules.identity"
-type = "forbidden"
-source_modules = [
-    "modules.payments",
-]
-forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
-]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "modules.promotions uses only the public API of modules.identity"
-type = "forbidden"
-source_modules = [
-    "modules.promotions",
-]
-forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
-]
-allow_indirect_imports = true
-
-[[tool.importlinter.contracts]]
-name = "modules.shipping uses only the public API of modules.identity"
-type = "forbidden"
-source_modules = [
-    "modules.shipping",
-]
-forbidden_modules = [
-    "modules.identity.api",
-    "modules.identity.auth",
-    "modules.identity.constants",
-    "modules.identity.models",
-    "modules.identity.services",
+    "apps.identity.tests",
 ]
 allow_indirect_imports = true
 # END gen_importlinter

@@ -1,17 +1,42 @@
-"""Fixture cần Tài khoản (12 mục 4): `shared` không được import `modules.identity`."""
+"""Fixture pytest dùng chung (12 mục 4): fixture không cần nghiệp vụ và fixture cần Tài khoản.
 
+Đặt ở gốc repo vì `common` không được import `apps.identity`.
+"""
+
+import logging
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
+import structlog
 from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from modules.identity.auth.tokens import issue_token_pair
-from modules.identity.models import Account
-from modules.identity.tests.factories import AccountFactory, jwt_test_keyring
+from apps.identity.auth.tokens import issue_token_pair
+from apps.identity.models import Account
+from apps.identity.tests.factories import AccountFactory, jwt_test_keyring
+from common.observability.logging import configure_logging
 
-pytest_plugins = ["shared.testing.fixtures"]
+
+@pytest.fixture(autouse=True)
+def _clear_cache() -> Iterator[None]:
+    # Bộ đếm throttle nằm trong cache: không để hạn mức của test này ảnh hưởng test khác
+    cache.clear()
+    yield
+    cache.clear()
+
+
+@pytest.fixture
+def json_logging() -> Iterator[dict[str, Any]]:
+    """Cấu hình structlog như production (log JSON); trả dict `LOGGING` để test `dictConfig`."""
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    yield configure_logging(json=True)
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    structlog.reset_defaults()
 
 
 @pytest.fixture

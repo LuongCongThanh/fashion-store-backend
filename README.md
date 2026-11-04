@@ -14,7 +14,7 @@ Repo dành riêng cho **Fashion Store**, với nghiệp vụ thời trang, thanh
 | Thanh toán | VNPay, MoMo, COD |
 | Vận chuyển | GHN |
 | Backend | Python 3.14, Django 5.2 LTS, DRF, PostgreSQL 18, Redis, Celery |
-| Kiến trúc | Modular monolith: app `modules` với 8 module con, app `shared` hạ tầng |
+| Kiến trúc | Modular monolith: mỗi module một Django app trong `apps/`, app `common` hạ tầng nội bộ |
 | Local | PostgreSQL cài trên máy (macOS: Homebrew qua `scripts/setup/postgres.sh`; Windows: bộ cài EDB rồi `scripts/setup/postgres.ps1`, không dùng WSL2); API chạy trên máy bằng `uv run`; Celery, Redis, Mailpit chạy bằng Docker Compose |
 | Production (mục tiêu) | AWS Singapore: ECS Fargate (Django và Next.js BFF, cùng VPC), RDS, ElastiCache, S3, SES |
 
@@ -74,7 +74,7 @@ Hai loại nhãn còn lại trong tài liệu:
 | [0005](./docs/adr/0005-provider-adapters-fake-gateways.md) | Adapter cho nhà cung cấp, cổng giả lập và job đối soát |
 | [0006](./docs/adr/0006-modular-monolith.md) | Modular monolith: một app `modules` chia module con (đã thay bởi 0018) |
 | [0007](./docs/adr/0007-events-outbox-celery-no-kafka.md) | Sự kiện qua Outbox + Celery, chưa dùng Kafka |
-| [0008](./docs/adr/0008-uuid-v7-primary-keys.md) | Khoá chính UUID v7, sinh qua hàm bọc `shared.models.uuid7` (dùng `uuid.uuid7()` của Python 3.14) |
+| [0008](./docs/adr/0008-uuid-v7-primary-keys.md) | Khoá chính UUID v7, sinh qua hàm bọc `common.models.uuid7` (dùng `uuid.uuid7()` của Python 3.14) |
 | [0009](./docs/adr/0009-nextjs-bff-django-private.md) | Next.js là BFF cho mọi request, Django chỉ mở webhook ra internet |
 | [0010](./docs/adr/0010-stock-decremented-at-order-awaiting-dispatch.md) | Trừ Tồn kho khi bán, theo dõi Hàng chờ xuất tới lúc Bàn giao |
 | [0011](./docs/adr/0011-audit-field-allowlist.md) | Audit theo danh sách field, không sao chép raw payload chứa PII |

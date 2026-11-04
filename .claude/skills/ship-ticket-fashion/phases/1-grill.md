@@ -15,7 +15,7 @@ Goal: every acceptance criterion has a seam and test names, every open choice ha
    The main session writes the result to `.git/ship-ticket-fashion/<K>-map.md` (≤ 150 lines: file → signature / line → role; reusable tests, fixtures, library functions), then looks up `docs/architecture/README.md` for the *governing docs* of each file to change and reads exactly those sections. Done when the map has every file to change.
 6. **Grilling.** `mattpocock-skills:grilling` within the ticket's scope: settle open choices and the _seams_ to test. Lite: ask only what the ticket and docs leave open.
    - Code moving out of a broad `except` (a handler's, a transaction's): list every exception it used to catch there and decide where each lands after the move.
-   - **Public interface** (adding or changing a public function in a module's `contracts.py`, `services`, `selectors`, or in `shared/`) → add `mattpocock-skills:codebase-design`: _deletion test_ and "one adapter = hypothetical seam" for each interface. A module's first `contracts.py` → add *design-it-twice*, at most 3 options, compared at G1.
+   - **Public interface** (adding or changing a public function in a module's `contracts.py`, `services`, `selectors`, or in `common/`) → add `mattpocock-skills:codebase-design`: _deletion test_ and "one adapter = hypothetical seam" for each interface. A module's first `contracts.py` → add *design-it-twice*, at most 3 options, compared at G1.
 7. **`## Quyết định`** in the ticket's `spec.md`, placed before `## Acceptance criteria`: the line `Chốt khi grilling ngày DD/MM/YYYY.`, then a Chủ đề | Quyết định table with a `Tài liệu chi phối` row (machine-readable references: `docs/architecture/13-python-django-coding-style.md::3.1`, `docs/adr/0007-events-outbox-celery-no-kafka.md`), an `Interface / seam` row if any, and every deviation from *Việc cần làm* with its reason. Models and tests reference the naming / test-path sections; tests add the factory section and the doc owning the scenario. Write it in Vietnamese.
 8. **Slices** (schema in `reference/state.md`). Split the ACs into vertical slices (lite: one slice), one commit per slice:
    - `acs`, `seam`, `dependsOn`.
@@ -27,7 +27,7 @@ Goal: every acceptance criterion has a seam and test names, every open choice ha
 
    Done when every AC belongs to exactly one slice or is in `untestable`.
 9. **Plan.** Push the slices in one go, then run `state.py check <T>`, `check_ac_trace.py <T> --planned`, `plan.py <T>`. Slices changed after G1 → update state and regenerate the plan before coding. Done when all three are green.
-10. **⛔G1** (format in `SKILL.md` → *Gate*). Summary: `plan.md`; governing docs; new decisions; files to change (flag `shared/`); mode; `untestable` ACs; tests in `notes.baselineRed`. Ask to approve slices and mode together with remaining open decisions.
+10. **⛔G1** (format in `SKILL.md` → *Gate*). Summary: `plan.md`; governing docs; new decisions; files to change (flag `common/`); mode; `untestable` ACs; tests in `notes.baselineRed`. Ask to approve slices and mode together with remaining open decisions.
 11. **Approved.** Commit *spec* + *plan* (and any triaged `Status:` lines), change phase, print the clear point:
 
     ```bash

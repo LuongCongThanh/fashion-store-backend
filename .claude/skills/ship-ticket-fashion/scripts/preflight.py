@@ -39,9 +39,9 @@ if out["db"] == "ok":
     executor = MigrationExecutor(connection)
     out["pending_migrations"] = len(executor.migration_plan(executor.loader.graph.leaf_nodes()))
     if not out["pending_migrations"]:
-        from modules.identity.constants import AccountKind
-        from modules.identity.models import Account
-        from shared.geo.models import Province
+        from apps.identity.constants import AccountKind
+        from apps.identity.models import Account
+        from apps.geo.models import Province
         out["provinces"] = Province.objects.count()
         out["admins"] = Account.objects.filter(kind=AccountKind.ADMIN).count()
 try:

@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from shared.api.schema import ERROR_DESCRIPTIONS
+from common.api.schema import ERROR_DESCRIPTIONS
 from tests.tooling.helpers import OPENAPI_GENERATOR, isolated_env, load_openapi_generator
 
 GENERATION_FAILED = "drf-spectacular failed to generate a valid schema"

@@ -59,15 +59,15 @@ def _render(target: Path) -> int:
 
 
 def _default_error_descriptions() -> dict[str, str]:
-    """Mô tả lỗi mặc định lấy từ `shared.api.schema`, với cùng settings như `_render`."""
+    """Mô tả lỗi mặc định lấy từ `common.api.schema`, với cùng settings như `_render`."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    # Import muộn: `shared.api.schema` cần Django đã setup, còn chế độ sinh file không cần
+    # Import muộn: `common.api.schema` cần Django đã setup, còn chế độ sinh file không cần
     import django
 
     django.setup()
-    from shared.api.schema import ERROR_DESCRIPTIONS
+    from common.api.schema import ERROR_DESCRIPTIONS
 
     return dict(ERROR_DESCRIPTIONS)
 
@@ -84,7 +84,7 @@ def quality_violations(
     lỗi mặc định với đúng mô tả đó mà không có ví dụ riêng thì luật 4 không bắt được.
 
     Cần Django đã setup (như `_default_error_descriptions`): ứng dụng của path lấy từ
-    `shared.api.schema.API_APP_PATH`.
+    `common.api.schema.API_APP_PATH`.
     """
     violations: list[str] = []
     # Component (serializer) hiện trên Swagger ở mọi operation dùng nó: mô tả field lấy từ
@@ -126,9 +126,9 @@ def _operation_problems(
             code
         ):
             problems.extend(_declared_error_problems(code, response))
-    # Import muộn như `_default_error_descriptions`: `shared.api.schema` cần Django đã setup.
+    # Import muộn như `_default_error_descriptions`: `common.api.schema` cần Django đã setup.
     # Dùng chung regex với `AutoSchema.get_tags` để luật tag không lệch với tag được sinh
-    from shared.api.schema import API_APP_PATH
+    from common.api.schema import API_APP_PATH
 
     app_match = API_APP_PATH.match(path)
     app = app_match["app"] if app_match else "<store|backoffice>"

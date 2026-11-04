@@ -18,7 +18,7 @@
 
 **Kết quả:** <!-- Những gì đạt được sau PR so với trước, dạng Before → After: hành vi, số test, thời gian, lỗi. Bằng chứng ghi ở Cách kiểm; phần chưa đạt ghi ở Gap và lưu ý -->
 
-**Module:** <!-- identity, catalog, inventory, promotions, payments, shipping, ordering, notifications, shared -->
+**Module:** <!-- identity, catalog, inventory, promotions, payments, shipping, ordering, notifications, geo, common -->
 
 **🔗 Closes:** `.scratch/<feature>/issues/NN-<slug>/` · **User story:** US-XXX · **Quy tắc:** BR-XXX
 
@@ -55,7 +55,7 @@
 - **Gap / rủi ro:** <!-- chỗ tài liệu hoặc ticket sau phải xử lý, trường hợp biên chưa phủ, giới hạn đã biết -->
 - **Quyết định tạm:** <!-- cách làm tạm thời, khi nào cần quay lại -->
 - **Ticket mới:** <!-- việc ngoài phạm vi phát hiện được, đường dẫn ticket `needs-triage` -->
-- **Reviewer cần chú ý:** <!-- đoạn code khó, chỗ lệch tài liệu có lý do, thay đổi trong `shared/` -->
+- **Reviewer cần chú ý:** <!-- đoạn code khó, chỗ lệch tài liệu có lý do, thay đổi trong `common/` -->
 - **Sau khi merge:** <!-- việc phải làm ở môi trường: chạy migrate, `make load-geo`, đặt biến môi trường; hoặc "Không" -->
 
 ---

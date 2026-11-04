@@ -3,19 +3,19 @@ from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
-from shared.health import views as health
+from common.observability import health
 
 # Route lạ, lỗi ngoài DRF và exception không bắt cũng trả ErrorDTO (04 mục 3)
-handler400 = "shared.api.views.bad_request"
-handler403 = "shared.api.views.permission_denied"
-handler404 = "shared.api.views.not_found"
-handler500 = "shared.api.views.server_error"
+handler400 = "common.api.views.bad_request"
+handler403 = "common.api.views.permission_denied"
+handler404 = "common.api.views.not_found"
+handler500 = "common.api.views.server_error"
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("healthz", health.healthz, name="healthz"),
     path("readyz", health.readyz, name="readyz"),
-    path("api/v1/store/geo/", include("shared.geo.urls")),
-    path("api/v1/backoffice/auth/", include("modules.identity.api.backoffice.urls")),
+    path("api/v1/store/geo/", include("apps.geo.api.store.urls")),
+    path("api/v1/backoffice/auth/", include("apps.identity.api.backoffice.urls")),
 ]
 
 if settings.API_DOCS_ENABLED:

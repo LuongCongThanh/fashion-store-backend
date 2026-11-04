@@ -22,7 +22,7 @@ git push -u origin <branch>        # own branch: --force-with-lease after a reba
 
 ## 2. Open the PR
 
-1. Conventional Commits title, scope = module (`shared`, `catalog`…); this title becomes the squash commit on `dev`.
+1. Conventional Commits title, scope = module (`common`, `catalog`…); this title becomes the squash commit on `dev`.
 2. PR body per `.github/pull_request_template.md`, in Vietnamese, written to `.git/PR_BODY.md` (reason in `gotchas/windows-shell.md`). **Closes** is the ticket folder. **Làm gì** and **Vì sao** come from *Việc cần làm* and `## Quyết định` in `spec.md`. From `report.md`: **Kết quả** ← *Đã làm*, written as Before → After behaviour; *Cách kiểm* ← the AC → evidence table; *Gap và lưu ý* ← Chưa làm, Gap, new tickets, `untestable` ACs, each line with content or "Không"; **Notes** ← review verdicts and the *Commit* table. Tick the checklist truthfully, N/A where it does not apply. Write the content per `mattpocock-skills:pr` inside the repo template: **Giải pháp** uses the skill's smallest shape (pseudocode, call tree, diff-sketch); *Cách kiểm* gives Before/After (red → green test); *Reviewer cần chú ý* states Door (one-way / two-way) and Blast Radius.
 3. Create it, then record the PR number in state:
 

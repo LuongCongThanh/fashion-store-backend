@@ -410,8 +410,8 @@ class Checks(unittest.TestCase):
 
     def test_diff_size_skips_generated_files(self):
         numstat = (
-            "10\t2\tshared/api.py\n"
-            "300\t0\tmodules/x/migrations/0001.py\n"
+            "10\t2\tcommon/api.py\n"
+            "300\t0\tapps/x/migrations/0001.py\n"
             "5\t5\tuv.lock\n"
         )
         self.assertEqual(diff_size(numstat), 12)
