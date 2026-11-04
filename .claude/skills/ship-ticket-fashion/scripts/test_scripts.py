@@ -26,7 +26,7 @@ from commit_map import parse_log, problems, render
 from common import resolve, state_dir
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
-from run_logged import expand, make_recipe, run_steps
+from run_logged import expand, make_exports, make_recipe, run_steps
 from state import (
     apply,
     check_doc_ref,
@@ -409,15 +409,49 @@ class Checks(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_recipe("up:\n\tdocker compose -f $(FILE) up\n", "up")
 
+    def test_make_recipe_joins_continuations_strips_prefixes_and_runs_prerequisites(self):
+        makefile = (
+            "export PYTHONUTF8 := 1\n"
+            "gen:\n\t@uv run python gen.py \\\n\t\t--check\n"
+            "lint: gen\n\t+uv run ruff check .\n"
+        )
+        self.assertEqual(
+            make_recipe(makefile, "lint"),
+            [["uv", "run", "python", "gen.py", "--check"], ["uv", "run", "ruff", "check", "."]],
+        )
+
+    def test_make_recipe_rejects_ignored_error_lines(self):
+        with self.assertRaises(ValueError):
+            make_recipe("lint:\n\t-uv run ruff check .\n", "lint")
+
+    def test_make_exports_reads_exported_variables(self):
+        makefile = "export PYTHONUTF8 := 1\nexport A = b c\nX := 2\n\nlint:\n\tuv run mypy .\n"
+        self.assertEqual(make_exports(makefile), {"PYTHONUTF8": "1", "A": "b c"})
+
     def test_keep_going_splits_make_target_even_when_make_exists(self):
-        cwd = Path(tempfile.mkdtemp())
-        (cwd / "Makefile").write_text("lint:\n\tuv run ruff check .\n\tuv run mypy .\n", encoding="utf-8")
-        with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
-            self.assertEqual(expand(["make", "lint"], cwd), [["make", "lint"]])
-            self.assertEqual(
-                expand(["make", "lint"], cwd, keep_going=True),
-                [["uv", "run", "ruff", "check", "."], ["uv", "run", "mypy", "."]],
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "Makefile").write_text(
+                "lint:\n\tuv run ruff check .\n\tuv run mypy .\n", encoding="utf-8"
             )
+            with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
+                self.assertEqual(expand(["make", "lint"], cwd), [["make", "lint"]])
+                self.assertEqual(
+                    expand(["make", "lint"], cwd, keep_going=True),
+                    [["uv", "run", "ruff", "check", "."], ["uv", "run", "mypy", "."]],
+                )
+
+    def test_keep_going_falls_back_to_make_when_recipe_cannot_be_split(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "Makefile").write_text("up:\n\tdocker compose -f $(FILE) up\n", encoding="utf-8")
+            with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
+                self.assertEqual(expand(["make", "up"], cwd, keep_going=True), [["make", "up"]])
+            with (
+                mock.patch("run_logged.shutil.which", return_value=None),
+                self.assertRaises(ValueError),
+            ):
+                expand(["make", "up"], cwd, keep_going=True)
 
     def test_keep_going_runs_every_step_and_reports_each_failure(self):
         py = sys.executable

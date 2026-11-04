@@ -33,7 +33,7 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
    - Vòng 1 làm hết mục đã chọn thành một lô; vòng 2 chỉ xử lý thứ vòng 1 để lại đỏ hoặc làm hỏng.
    - Mục đổi hành vi: test red trước khi sửa.
    - Mỗi vòng một commit: `commit.py <T> --task R1` (vòng 2: `R2`), subject `fix(<scope>): address review findings on <chủ đề>`, thân liệt kê mã finding đã sửa (`B1`, `S2`…).
-   - Cuối vòng: `make fmt`, `make lint --keep-going`, `make test`, `check_ac_trace.py`.
+   - Cuối vòng: `make fmt`, `make lint` (qua `run_logged.py --keep-going --`, `reference/rules.md` → *Check máy*), `make test`, `check_ac_trace.py`.
 
    Còn mở sau vòng 2 → đưa lên G2.
 6. **Ghi** bảng kết luận vào `report.md` (mục *Review*): mỗi finding một dòng (mã, `file:line`, đã sửa / chỉ báo / hoàn tác / bác, lý do vài chữ); gom smell vào một dòng. Cập nhật bảng AC → bằng chứng nếu test đổi.

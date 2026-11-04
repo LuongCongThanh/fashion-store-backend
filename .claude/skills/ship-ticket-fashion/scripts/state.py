@@ -254,7 +254,7 @@ def plan_ready(
         if missing_refs:
             missing.append("Tài liệu chi phối: " + ", ".join(missing_refs))
     if missing:
-        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 6-10)"
+        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 7-9)"
     if ticket_dirty:
         return f"{SPEC} và {PLAN} chưa commit (commit.py --task plan)"
     return None
