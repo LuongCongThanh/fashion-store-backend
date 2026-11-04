@@ -2,7 +2,7 @@
 
 **What to build:** Người dùng back-office có thể dùng refresh token để nhận đúng một successor và đăng xuất để family hiện tại không cấp thêm token. Retry hợp lệ trong cửa sổ nhận lại đúng response; reuse đáng ngờ thu hồi family.
 
-Blocked by: 01 — Staff/Admin đăng nhập back-office.
+Blocked by: 01 — Staff/Admin đăng nhập back-office; one-app-per-module/03 — chuyển code sang cấu trúc ADR 0018 trước khi viết module mới.
 
 Status: ready-for-agent
 

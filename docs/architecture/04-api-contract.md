@@ -128,9 +128,9 @@ Các mã cần Frontend xử lý riêng:
 | DELETE | `me/addresses/{id}` | identity | Customer | Xoá địa chỉ | US-504 |
 | POST | `me/erasure-request` | identity | Customer | Gửi Yêu cầu xoá dữ liệu | US-1101 |
 
-`checkout` (với Khách vãng lai) và `orders/lookup` trả về một `lookup_token` JWT Ed25519 gắn với đúng một đơn, hết hạn sau 30 phút. Claims bắt buộc: `iss` theo cấu hình, `aud = order_lookup`, `token_use = lookup`, `sub = Mã đơn`, `iat`, `exp`; header có `kid`. Cấp và xác minh qua `identity.contracts` (02 mục 7.1), không lưu token vào DB. `IsOrderOwner` kiểm tra token hợp lệ và Mã đơn khớp URL; không chấp nhận access/refresh token thay thế. Lookup token cũng không được dùng như access token ở endpoint khác. Token không thu hồi sớm được; hạn 30 phút là đánh đổi đã chọn. Next.js cất token trong session và gửi qua header `X-Lookup-Token` (05 mục 2).
+`checkout` (với Khách vãng lai) và `orders/lookup` trả về một `lookup_token` JWT Ed25519 gắn với đúng một đơn, hết hạn sau 30 phút. Claims bắt buộc: `iss` theo cấu hình, `aud = order_lookup`, `token_use = lookup`, `sub = Mã đơn`, `iat`, `exp`; header có `kid`. Cấp và xác minh qua `identity.contracts` ([`identity`](./modules/identity.md) mục 5.2), không lưu token vào DB. `IsOrderOwner` kiểm tra token hợp lệ và Mã đơn khớp URL; không chấp nhận access/refresh token thay thế. Lookup token cũng không được dùng như access token ở endpoint khác. Token không thu hồi sớm được; hạn 30 phút là đánh đổi đã chọn. Next.js cất token trong session và gửi qua header `X-Lookup-Token` (05 mục 2).
 
-Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/login`, vì `identity` ở lớp dưới không được gọi `ordering` ([02-backend-structure.md](./02-backend-structure.md) mục 4).
+Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/login`, vì `identity` ở lớp dưới không được gọi `ordering` ([02-backend-structure.md](./02-backend-structure.md) mục 3).
 
 ### 4.2. Back-office: `/api/v1/backoffice/`
 

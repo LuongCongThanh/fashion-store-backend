@@ -52,7 +52,7 @@ sequenceDiagram
 
 ### 1.2. Không bảo đảm
 
-**Thứ tự.** Handler không tự kiểm tra thứ tự. Với Đơn hàng, các transition do sự kiện kích hoạt tự đối chiếu trạng thái hiện tại ([02-backend-structure.md](./02-backend-structure.md) mục 7.7, [05-order-lifecycle.md](../business/05-order-lifecycle.md) mục 4.2): sự kiện cho bước đơn đã qua thì không làm gì, sự kiện tới sớm thì báo consumer thử lại sau, sự kiện mâu thuẫn với trạng thái đơn thì bị từ chối.
+**Thứ tự.** Handler không tự kiểm tra thứ tự. Với Đơn hàng, các transition do sự kiện kích hoạt tự đối chiếu trạng thái hiện tại ([`ordering`](./modules/ordering.md#52-máy-trạng-thái-và-transition) mục 5.2, [05-order-lifecycle.md](../business/05-order-lifecycle.md) mục 4.2): sự kiện cho bước đơn đã qua thì không làm gì, sự kiện tới sớm thì báo consumer thử lại sau, sự kiện mâu thuẫn với trạng thái đơn thì bị từ chối.
 
 **Gửi ra hệ thống ngoài đúng một lần.** Chống trùng bằng transaction chỉ bao phủ tác động trong PostgreSQL. Email hoặc request nhà cung cấp phải chạy ngoài transaction và có cơ chế khôi phục riêng; email vẫn có thể trùng khi nhà cung cấp đã nhận nhưng worker chết trước lúc lưu `sent`. Việc tự khôi phục đòi hỏi PostgreSQL và relay/worker hoạt động trở lại; delivery `failed` cần người vận hành xử lý.
 

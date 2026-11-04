@@ -28,7 +28,7 @@ Toàn bộ tài liệu trong `docs/` ở trạng thái **Đã chốt cho MVP** t
 
 - Tài liệu được cập nhật **cùng PR với code** khi code chạm tới phần đó. Code và tài liệu lệch nhau thì sửa cho khớp trong cùng PR, không để tài liệu đi sau.
 - Quyết định khó đảo ngược, có đánh đổi thật thì thêm ADR mới trong `docs/adr/`; không sửa lại ADR cũ để đổi quyết định.
-- Mỗi quy tắc có **một nơi sở hữu**; nơi khác chỉ tóm tắt một câu và dẫn link. Ví dụ checkout: luồng ở [02 mục 6.2](./docs/architecture/02-backend-structure.md#62-ví-dụ-luồng-một-request), thứ tự khoá ở [13 mục 4](./docs/architecture/13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài), `quote_token` ở [04 mục 5.3](./docs/architecture/04-api-contract.md#53-vòng-đời-quote_token).
+- Mỗi quy tắc có **một nơi sở hữu**; nơi khác chỉ tóm tắt một câu và dẫn link. Ví dụ checkout: luồng ở [`ordering` mục 5.1](./docs/architecture/modules/ordering.md#51-luồng-checkout), thứ tự khoá ở [13 mục 4](./docs/architecture/13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài), `quote_token` ở [04 mục 5.3](./docs/architecture/04-api-contract.md#53-vòng-đời-quote_token).
 
 Hai loại nhãn còn lại trong tài liệu:
 
@@ -49,7 +49,7 @@ Hai loại nhãn còn lại trong tài liệu:
 ### Architecture (`docs/architecture/`)
 
 1. [Bối cảnh hệ thống (C4)](./docs/architecture/01-system-context.md)
-2. [Cấu trúc Backend: thư mục, công nghệ, package, vai trò từng file](./docs/architecture/02-backend-structure.md) ⭐
+2. [Cấu trúc Backend: thư mục, module, vai trò từng file](./docs/architecture/02-backend-structure.md) ⭐ và [từng module](./docs/architecture/modules/README.md)
 3. [Mô hình dữ liệu](./docs/architecture/03-data-model.md)
 4. [API contract](./docs/architecture/04-api-contract.md)
 5. [Xác thực và bảo mật](./docs/architecture/05-auth-security.md)
@@ -60,6 +60,8 @@ Hai loại nhãn còn lại trong tài liệu:
 10. [Yêu cầu phi chức năng](./docs/architecture/10-nfr.md)
 11. [Quy ước Git](./docs/architecture/11-git-workflow.md)
 12. [Chiến lược test](./docs/architecture/12-testing-strategy.md)
+13. [Coding style Python/Django](./docs/architecture/13-python-django-coding-style.md)
+14. [Package dùng và không dùng](./docs/architecture/14-dependencies.md)
 
 ### Quyết định kiến trúc (`docs/adr/`)
 
@@ -70,7 +72,7 @@ Hai loại nhãn còn lại trong tài liệu:
 | [0003](./docs/adr/0003-postgres-redis-celery.md) | PostgreSQL, Redis và Celery làm runtime |
 | [0004](./docs/adr/0004-custom-nextjs-admin.md) | Back-office tự xây bằng Next.js thay vì Django Admin |
 | [0005](./docs/adr/0005-provider-adapters-fake-gateways.md) | Adapter cho nhà cung cấp, cổng giả lập và job đối soát |
-| [0006](./docs/adr/0006-modular-monolith.md) | Modular monolith: một app `modules` chia module con |
+| [0006](./docs/adr/0006-modular-monolith.md) | Modular monolith: một app `modules` chia module con (đã thay bởi 0018) |
 | [0007](./docs/adr/0007-events-outbox-celery-no-kafka.md) | Sự kiện qua Outbox + Celery, chưa dùng Kafka |
 | [0008](./docs/adr/0008-uuid-v7-primary-keys.md) | Khoá chính UUID v7, sinh qua hàm bọc `shared.models.uuid7` (dùng `uuid.uuid7()` của Python 3.14) |
 | [0009](./docs/adr/0009-nextjs-bff-django-private.md) | Next.js là BFF cho mọi request, Django chỉ mở webhook ra internet |
@@ -82,6 +84,7 @@ Hai loại nhãn còn lại trong tài liệu:
 | [0015](./docs/adr/0015-local-postgres-on-host.md) | PostgreSQL ở local cài trên máy, bản major mới nhất |
 | [0016](./docs/adr/0016-erasure-evidence-phone-hmac.md) | Bằng chứng tuân thủ giữ HMAC số điện thoại, không giữ số thô sau khi ẩn danh |
 | [0017](./docs/adr/0017-windows-native-dev-api-on-host.md) | Windows dev không qua WSL2, API chạy trên máy |
+| [0018](./docs/adr/0018-one-django-app-per-module.md) | Mỗi module là một Django app; `common` và `infrastructure` |
 
 ### Cấu hình cho agent (`docs/agents/`)
 

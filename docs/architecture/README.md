@@ -30,17 +30,20 @@ Liên quan: [ADR 0001](../adr/0001-nextjs-frontend-django-api.md), [ADR 0009](..
 
 ### [02. Cấu trúc Backend](./02-backend-structure.md)
 
-Backend là modular monolith: một Django project gồm hai app. App `modules` chứa nghiệp vụ, chia thành 8 module con: `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`. App `shared` chứa hạ tầng và không chứa nghiệp vụ. File này còn ghi:
+Bản đồ của repo. Backend là modular monolith: một Django project ở gốc repo, mỗi module nghiệp vụ là một Django app trong `apps/` (`geo`, `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`), cùng `common/` (hạ tầng nội bộ) và `infrastructure/` (code gọi API bên thứ ba). File này ghi:
 
-- công nghệ và package được dùng hoặc không dùng, kèm lý do;
+- cây thư mục của toàn repo, mỗi file một dòng vai trò;
 - thứ tự phụ thuộc giữa các module;
-- cây thư mục;
-- khuôn mẫu một module theo HackSoft Styleguide (`models`, `services`, `selectors`, `contracts`, `events`…);
+- khuôn mẫu một module theo HackSoft Styleguide (`models`, `services`, `selectors`, `contracts`, `events`…), khi nào dùng file hay package, và test đặt ở đâu;
 - quy tắc FK sang module khác và cách `import-linter` kiểm tra ranh giới module;
-- liên kết tới coding style Python/Django được sở hữu bởi tài liệu 13.
+- settings theo môi trường và các bước thêm module mới.
 
-Đây là file dài nhất và hay tra cứu nhất khi viết code.
-Liên quan: [ADR 0006](../adr/0006-modular-monolith.md), [ADR 0007](../adr/0007-events-outbox-celery-no-kafka.md).
+Hay tra cứu nhất khi viết code.
+Liên quan: [ADR 0018](../adr/0018-one-django-app-per-module.md), [ADR 0007](../adr/0007-events-outbox-celery-no-kafka.md).
+
+### [Các module](./modules/README.md)
+
+Mỗi module một file: sở hữu gì, cây thư mục, sơ đồ quan hệ với module khác, public API (`contracts`, `events`, `exceptions`), quy tắc riêng và job. Luồng checkout nằm ở [`ordering`](./modules/ordering.md#51-luồng-checkout).
 
 ## Thiết kế chi tiết
 
@@ -111,3 +114,7 @@ Test chạy trên PostgreSQL thật, chỉ giả lập hệ thống bên ngoài,
 Nguồn chuẩn duy nhất cho code Python/Django: ngôn ngữ, type hints, ranh giới tầng, transaction, naming,
 Ruff/mypy, model và migration, docstring, test, logging và checklist dành cho AI agent. Tài liệu không
 định nghĩa style TypeScript/Next.js khi frontend chưa được bootstrap.
+
+### [14. Package dùng và không dùng](./14-dependencies.md)
+
+Vì sao chọn hoặc loại từng package runtime và dev. Phiên bản chính xác ở `pyproject.toml` và `uv.lock`, không chép vào tài liệu.

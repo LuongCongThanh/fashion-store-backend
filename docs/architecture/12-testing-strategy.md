@@ -17,15 +17,17 @@ Quy ước viết code test (factory, mock, thời gian) nằm ở [13-python-dj
 
 Xếp theo số lượng, từ nhiều đến ít. Hàm thuần không cần DB (ví dụ `Money`, kiểm tra chữ ký) không có loại riêng, mà xếp vào loại của module chứa nó.
 
+Test nằm trong `tests/` của app sở hữu và **đường dẫn test soi gương đường dẫn code**, thêm `test_` trước tên file ([02 mục 4.4](./02-backend-structure.md#44-test-đặt-ở-đâu-tên-là-gì)). Cột "Đặt ở" dưới đây áp quy tắc đó cho từng loại.
+
 | # | Loại | Đặt ở | Kiểm tra gì |
 |---|---|---|---|
-| 1 | Service | `modules/<module>/tests/test_services_<chủ đề>.py` | Business rule, chuyển trạng thái, sự kiện ghi vào outbox |
-| 2 | Concurrency | `modules/<module>/tests/test_concurrency_<chủ đề>.py` | Không bán vượt Tồn kho, không vượt lượt Voucher, không deadlock |
-| 3 | Handler và outbox | `modules/<module>/tests/test_handlers_<chủ đề>.py`, `shared/events/tests/` | Mỗi sự kiện chỉ xử lý một lần, sự kiện tới sai thứ tự, consumer xử lý đúng từng loại lỗi, relay gửi đúng và gửi lại được |
-| 4 | API | `modules/<module>/tests/test_api_<store\|backoffice\|webhooks>.py` | Phân quyền, `X-Lookup-Token`, định dạng lỗi, `Idempotency-Key`, throttle theo `X-Client-IP`, N+1 query |
-| 5 | Bảo mật auth/JWT | `modules/identity/tests/test_services_tokens.py` | Theo OWASP JWT Cheat Sheet |
-| 6 | Adapter nhà cung cấp | `modules/<payments\|shipping>/tests/test_providers_<tên>.py` | Chữ ký VNPay/MoMo, gọi HTTP lỗi, IPN bất thường |
-| 7 | Flow xuyên module | `backend/tests/flows/test_<flow>_flow.py` | Một luồng nghiệp vụ đi hết từ đầu đến cuối qua HTTP |
+| 1 | Service | `apps/<module>/tests/test_services.py` hoặc `tests/services/test_<file>.py` | Business rule, chuyển trạng thái, sự kiện ghi vào outbox |
+| 2 | Concurrency | `apps/<module>/tests/concurrency/test_<chủ đề>.py` | Không bán vượt Tồn kho, không vượt lượt Voucher, không deadlock |
+| 3 | Handler và outbox | `apps/<module>/tests/test_handlers.py`, `common/tests/events/` | Mỗi sự kiện chỉ xử lý một lần, sự kiện tới sai thứ tự, consumer xử lý đúng từng loại lỗi, relay gửi đúng và gửi lại được |
+| 4 | API | `apps/<module>/tests/api/<store\|backoffice\|webhooks>/test_views.py` | Phân quyền, `X-Lookup-Token`, định dạng lỗi, `Idempotency-Key`, throttle theo `X-Client-IP`, N+1 query |
+| 5 | Bảo mật auth/JWT | `apps/identity/tests/auth/test_tokens.py` | Theo OWASP JWT Cheat Sheet |
+| 6 | Adapter nhà cung cấp | `infrastructure/tests/<payment\|shipping\|google>/test_<tên>.py` | Chữ ký VNPay/MoMo, gọi HTTP lỗi, IPN bất thường |
+| 7 | Flow xuyên module | `tests/flows/test_<flow>_flow.py` | Một luồng nghiệp vụ đi hết từ đầu đến cuối qua HTTP |
 
 Ngoài pytest, CI còn có các **cổng kiểm tra tĩnh** (mục 8).
 
@@ -140,7 +142,7 @@ Bắt buộc có các test handler sau:
 
 ### 2.5. Bảo mật auth/JWT
 
-Kịch bản bắt buộc nằm ở [05-auth-security.md](./05-auth-security.md) mục 9; test đặt ở `modules/identity/tests/test_services_tokens.py` và test API của `identity`.
+Kịch bản bắt buộc nằm ở [05-auth-security.md](./05-auth-security.md) mục 9; test đặt ở `apps/identity/tests/auth/test_tokens.py` và test API của `identity`.
 
 ### 2.6. Adapter nhà cung cấp
 
@@ -150,7 +152,7 @@ Kịch bản bắt buộc (chữ ký, HTTP lỗi, IPN/webhook, khởi tạo than
 
 Flow test gọi qua **HTTP** (`api_client`, `staff_client`, endpoint IPN của Fake Gateway), để đi qua đúng auth, `X-Lookup-Token`, `Idempotency-Key` và serializer như thực tế. Các bước do Celery Beat kích hoạt thì dùng `time-machine` để vượt mốc thời gian, rồi gọi thẳng task (ví dụ `ordering.cancel_expired_pending_orders`, `ordering.complete_delivered_orders`). Đánh dấu bằng `@pytest.mark.flow`.
 
-Sau mỗi bước HTTP, flow test gọi `drain_events()` trong `shared/testing/events.py`. Hàm chạy các callback `on_commit` đang chờ, relay rồi handler (Celery chạy đồng bộ), và lặp tới khi không còn delivery tới hạn. Không chờ retry tương lai; test retry dùng time-machine tiến tới hạn rồi drain tiếp. Ví dụ sau IPN thành công, nó đưa `payments.payment-succeeded` tới handler của `ordering` để chạy T3; sau khi bàn giao, nó chạy task tạo Vận đơn và đưa `shipping.shipment-created` tới T10. Test riêng về mất task và worker dùng các điểm dừng/mô phỏng lỗi, không dựa vào eager mode để chứng minh broker bền vững.
+Sau mỗi bước HTTP, flow test gọi `drain_events()` trong `common/events/testing.py`. Hàm chạy các callback `on_commit` đang chờ, relay rồi handler (Celery chạy đồng bộ), và lặp tới khi không còn delivery tới hạn. Không chờ retry tương lai; test retry dùng time-machine tiến tới hạn rồi drain tiếp. Ví dụ sau IPN thành công, nó đưa `payments.payment-succeeded` tới handler của `ordering` để chạy T3; sau khi bàn giao, nó chạy task tạo Vận đơn và đưa `shipping.shipment-created` tới T10. Test riêng về mất task và worker dùng các điểm dừng/mô phỏng lỗi, không dựa vào eager mode để chứng minh broker bền vững.
 
 Bắt buộc có 6 flow:
 
@@ -333,7 +335,7 @@ def test_payment_succeeded_handler_is_idempotent(
 **Chứng minh:** lần giao đầu tạo effect và hoàn tất delivery; lần giao lặp không chạy nghiệp vụ lần nữa.
 Test riêng cho `RetryLater`, `DomainError` và exception bất ngờ phải assert cả state nghiệp vụ rollback,
 trạng thái delivery, `attempts`, `next_attempt_at` và việc log không chứa PII. Chi tiết ma trận lỗi thuộc
-[07 mục 5](./07-async-events-jobs.md#5-kiểm-thử-bắt-buộc).
+[07 mục 5](./07-async-events-jobs.md#5-kịch-bản-kiểm-thử).
 
 #### 2.9.5. API permission và error contract
 
@@ -398,7 +400,7 @@ def test_cod_checkout_flow(
 
 Flow đi qua HTTP ở các entry point và gọi `drain_events()` sau bước có thể phát event/task. Assert các
 mốc nghiệp vụ quan trọng, không chép mọi assertion của service test. Khi cần đọc module khác, dùng public
-test helper/contract theo mục 4; không import model nội bộ chỉ vì flow nằm ở `backend/tests/flows/`.
+test helper/contract theo mục 4; không import model nội bộ chỉ vì flow nằm ở `tests/flows/`.
 
 #### 2.9.7. Data migration và database constraint
 
@@ -445,13 +447,13 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 
 - Dữ liệu test tạo bằng `factory-boy`, không dùng fixture JSON.
 - Test kiểm nội dung log (không lộ IP, email, secret) đọc output của chuỗi processor thật qua fixture `json_logging`; `structlog.testing.capture_logs` thay cả chuỗi nên bỏ qua `merge_contextvars` và không thấy key do middleware gắn. Gọi `logging.config.dictConfig(json_logging)` trong thân test, không ở pha setup của fixture khác, để handler ghi vào stderr mà `capsys` bắt ở pha call.
-- Fixture không cần nghiệp vụ (ví dụ `api_client`) ở `shared/testing/fixtures.py`. Fixture phải tạo Tài khoản (`customer_client`, `staff_client`, `admin_client`) ở `backend/conftest.py`, vì `shared` không được import `modules.identity`. `staff_client`/`admin_client` dùng fixture `jwt_keyring` (keyring Ed25519 tạm) và gắn `Authorization: Bearer` bằng access token back-office thật, nên đi qua `JWTAuthentication` như request thật; không dùng `force_authenticate` để chứng minh JWT. `customer_client` thêm ở M6.
-- Mỗi module để factory ở `modules/<module>/tests/factories.py`.
-- Test trong một module chỉ dùng factory của chính module đó và của các module lớp dưới, theo đúng chiều phụ thuộc trong [02-backend-structure.md](./02-backend-structure.md) mục 4. Ví dụ test của `ordering` dùng được factory của `catalog` và `inventory`; test của `inventory` không dùng được factory của `ordering`.
-- `backend/tests/flows/` được dùng factory của mọi module.
-- Contract `layers` của `import-linter` đã giữ quy tắc này, không cần contract riêng: test của `inventory` import factory của `ordering` là import ngược lớp. `backend/tests/` không thuộc `root_packages` nên không bị kiểm tra.
-- Code ngoài `tests` (service, API…) không import factory của module khác; `scripts/gen_importlinter.py` sinh contract `forbidden` cho quy tắc này ([02-backend-structure.md](./02-backend-structure.md) mục 8).
-- Muốn kiểm tra dữ liệu của module khác (ví dụ Tồn kho sau khi đặt Đơn hàng), test gọi `contracts` của module đó, **không** import `models`, `services`, `selectors` của module đó. Test tuân theo cùng ranh giới như code thật ([02-backend-structure.md](./02-backend-structure.md) mục 8).
+- Fixture dùng chung cho mọi module (ví dụ `api_client`, `customer_client`, `staff_client`, `admin_client`) ở `conftest.py` ở gốc repo. File này nằm ngoài mọi package nên được import cả `common` lẫn `apps.identity`. `staff_client`/`admin_client` dùng fixture `jwt_keyring` (keyring Ed25519 tạm) và gắn `Authorization: Bearer` bằng access token back-office thật, nên đi qua `JWTAuthentication` như request thật; không dùng `force_authenticate` để chứng minh JWT. `customer_client` thêm ở M6.
+- Mỗi module để factory ở `apps/<module>/tests/factories.py`; factory nền (outbox…) ở `common/tests/factories.py`. Helper `drain_events()` ở `common/events/testing.py`.
+- Test trong một module chỉ dùng factory của chính module đó và của các module lớp dưới, theo đúng chiều phụ thuộc trong [02-backend-structure.md](./02-backend-structure.md) mục 3. Ví dụ test của `ordering` dùng được factory của `catalog` và `inventory`; test của `inventory` không dùng được factory của `ordering`.
+- `tests/flows/` được dùng factory của mọi module.
+- Contract `layers` của `import-linter` đã giữ quy tắc này, không cần contract riêng: test của `inventory` import factory của `ordering` là import ngược lớp. `tests/` ở gốc không thuộc `root_packages` nên không bị kiểm tra.
+- Code ngoài `tests` (service, API…) không import factory của module khác; `scripts/gen_importlinter.py` sinh contract `forbidden` cho quy tắc này ([02-backend-structure.md](./02-backend-structure.md) mục 6).
+- Muốn kiểm tra dữ liệu của module khác (ví dụ Tồn kho sau khi đặt Đơn hàng), test gọi `contracts` của module đó, **không** import `models`, `services`, `selectors` của module đó. Test tuân theo cùng ranh giới như code thật ([02-backend-structure.md](./02-backend-structure.md) mục 6).
 
 ## 5. Hợp đồng API với frontend (OpenAPI)
 
@@ -496,7 +498,7 @@ Job `backend` trong `.github/workflows/ci.yml`:
 |---|---|
 | `ruff check`, `ruff format --check` | Không lỗi |
 | `mypy` | Không lỗi (`--strict` cho `services`, `selectors`, `contracts`) |
-| `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp với cây `modules/` hiện tại; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 8) |
+| `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp với cây `modules/` hiện tại; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 6) |
 | `lint-imports` | Không vi phạm ranh giới module, kể cả quy tắc factory (mục 4) |
 | `python scripts/gen_openapi.py --check` | `backend/openapi.yaml` khớp schema sinh từ code, schema hợp lệ theo chuẩn OpenAPI và drf-spectacular không có warning, mọi operation `/api/v1/` đủ chú thích (mục 5); lệch thì exit 1 kèm diff và nhắc `make openapi` (mục 5) |
 | `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`. Chạy `pytest -n auto --cov=modules --cov=shared --cov-report=` (`pytest-cov` gom coverage từ các worker của `pytest-xdist`) |

@@ -1,5 +1,7 @@
 # Modular monolith: một Django app `modules`, bên trong chia module nghiệp vụ
 
+> **Đã được thay thế** ở phần tổ chức Django app bởi [ADR 0018](./0018-one-django-app-per-module.md): mỗi module là một Django app trong `apps/`, `shared` đổi thành `common`. Các quy tắc ranh giới giữa module dưới đây vẫn áp dụng.
+
 Backend là một Django project duy nhất, deploy một lần. Toàn bộ nghiệp vụ nằm trong **một** Django app tên `modules`. Bên trong app này, mỗi module nghiệp vụ là một package con (`modules/catalog/`, `modules/ordering/`…) có models, services, selectors và API riêng. Hạ tầng dùng chung (outbox sự kiện, dữ liệu địa giới hành chính) nằm trong một app thứ hai là `shared`; app này không chứa nghiệp vụ và không import `modules`.
 
 Ranh giới giữa các module được giữ bằng ba quy tắc:
