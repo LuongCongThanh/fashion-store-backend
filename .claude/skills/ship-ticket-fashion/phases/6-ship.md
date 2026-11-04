@@ -4,7 +4,7 @@ Base conventions: `docs/architecture/11-git-workflow.md`. This file covers only 
 
 ## `gh` account
 
-The machine has several GitHub accounts. Every `gh` command runs through the Bash tool with the prefix:
+The machine has several GitHub accounts. `ci.py` and `merge.py` handle the account themselves (`scripts/github.py`). Every other `gh` command runs through the Bash tool with the prefix:
 
 ```bash
 GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh …
@@ -33,49 +33,24 @@ python3 S/scripts/state.py set <T> pr=<number>
 
 ## 3. CI
 
-```bash
-GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr checks <number> --watch
-```
+`python3 S/scripts/ci.py <T>` waits for the checks (minutes: run it in the background or with a long timeout), then prints `CI OK | RED | WAIT`, each failing check, SonarCloud counts, failed Quality Gate conditions with their `SONAR <path>:<line>` annotations, and `COMMENT <path>:<line>` line comments from bots and reviewers. Exit 0 = every check green and SonarCloud clean.
 
-`no checks reported` (run right after the push, before the workflow registered checks) → run it again.
+- `RED` → read `.git/ship-ticket-fashion/logs/ci.log` (cause unclear or red only on CI → `mattpocock-skills:diagnosing-bugs`). Full: send the log path to the implementer (`SKILL.md` → *Sub-agents*). Lite: the main session fixes. Fix within the ticket's scope, commit `--task ci`, push, rerun `ci.py`. Red outside scope → *Needs user*.
+- Each `SONAR` and `COMMENT` line → handle like a phase 4 *fix* finding and record it under *Thay đổi theo yêu cầu* in the report. An issue reflecting a code convention not yet in `CONTRIBUTING.md` section *Quy ước code* → propose adding it in retro.
+- Every later push to the open PR: update the PR body (`gh pr edit <number> -F .git/PR_BODY.md`) and add a comment summarising what was fixed (`gh pr comment <number> -F <file>`).
 
-Red → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, read the failing part (cause unclear or red only on CI → `mattpocock-skills:diagnosing-bugs`). Full: send the log path to the implementer (`SKILL.md` → *Sub-agents*). Lite: the main session fixes. Fix within the ticket's scope, commit `--task ci`, push. Red outside scope → *Needs user*.
-
-The SonarCloud check stays green even with issues (Quality Gate still passes), so also read the bot's comment:
-
-```bash
-GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr view <number> --json comments --jq '.comments[] | select(.author.login=="sonarqubecloud") | .body' | grep -oE '[0-9]+ (New issues?|Security Hotspots?)'
-```
-
-Line comments (bots, reviewers) are not in `comments` above; read them separately and handle them like phase 4 findings:
-
-```bash
-GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh api repos/LuongCongThanh/fashion-store-backend/pulls/<number>/comments --jq '.[] | "\(.path):\(.line) \(.user.login): \(.body)"'
-```
-
-SonarCloud count above 0 → list the issues from the check-run annotations (the Sonar project is private, so Sonar's API returns 0 issues):
-
-```bash
-export GH_TOKEN="$(gh auth token --user LuongCongThanh)"; sha=$(gh pr view <number> --json headRefOid -q .headRefOid)
-id=$(gh api repos/LuongCongThanh/fashion-store-backend/commits/$sha/check-runs --jq '.check_runs[] | select(.name=="SonarCloud Code Analysis") | .id')
-gh api repos/LuongCongThanh/fashion-store-backend/check-runs/$id/annotations --jq '.[] | "\(.path):\(.start_line) \(.title)"'
-```
-
-Handle each issue as a phase 4 *fix* finding and record it under *Thay đổi theo yêu cầu* in the report. An issue reflecting a code convention not yet in `CONTRIBUTING.md` section *Quy ước code* → propose adding it in retro.
-
-Every later push to the open PR: update the PR body (`gh pr edit <number> -F .git/PR_BODY.md`) and add a comment summarising what was fixed (`gh pr comment <number> -F <file>`).
-
-## 4. Close the ticket in the PR, once CI is green
+## 4. Close the ticket in the PR, once `ci.py` exits 0
 
 ```bash
 python3 S/scripts/close_ticket.py <T> --pr <number>
-python3 S/scripts/progress.py --feature <feature>
 python3 S/scripts/metrics.py <T> --write   # metrics.md: the ticket's token usage up to closing
 ```
 
-`close_ticket.py` fails closed when state, phase `ship`, G2, a PR matching state, finished slices or the AC trace are missing. It prints the ACs it ticked; compare them with the AC → evidence table. `untestable` ACs are not ticked and are printed separately: already checked by hand, or a CI AC that section 3 turned green → tick them; otherwise note them in the PR's Notes.
+`close_ticket.py` fails closed when state, phase `ship`, G2, a PR matching state, finished slices or the AC trace are missing. It marks the ticket `resolved`, ticks ACs, appends the ticket to **Đã xong** in `docs/agents/ticket-history.md` (dropping it from **Còn mở**) and adds its number to the ✅ group of the milestone's row in the **Tiến độ** table of `.scratch/mvp-roadmap/map.md`. Then:
 
-In the same commit, update `.scratch/mvp-roadmap/map.md`: the milestone's row in the **Tiến độ** table matches `progress.py`; **Decisions-so-far** gets `DD/MM/YYYY: …` for each decision reaching beyond the ticket. Update `docs/agents/ticket-history.md`: append the ticket to the end of the feature's **Đã xong** (`link · description · PR #<number> · DD/MM/YYYY`), remove it from **Còn mở**.
+- Compare the ticked ACs with the AC → evidence table. `untestable` ACs are printed separately: already checked by hand, or a CI AC that section 3 turned green → tick them; otherwise note them in the PR's Notes.
+- Each `WARN` line (the number still sits in another group such as `⬜ 02–12`, a missing section) → fix that spot by hand.
+- **Decisions-so-far** in `map.md` gets `DD/MM/YYYY: …` for each decision reaching beyond the ticket.
 
 `commit.py <T> --task close -m "docs: close <topic> ticket" -- <ticket folder> .scratch/mvp-roadmap/map.md docs/agents/ticket-history.md`, push.
 
