@@ -4,9 +4,9 @@
 
 Blocked by: None — can start immediately.
 
-Status: ready-for-agent
+Status: resolved
 
-**PR:** —
+**PR:** #65
 
 ## Việc cần làm
 
@@ -16,7 +16,7 @@ Status: ready-for-agent
 
 ## Quyết định
 
-Chốt khi grilling ngày 04/11/2026; chờ duyệt G1 trước khi viết code.
+Chốt khi grilling ngày 04/11/2026. G1 đã duyệt trước khi code; G2 duyệt 04/11/2026 (giữ `JWTAuthentication` khai theo từng view).
 
 | Chủ đề | Quyết định |
 |---|---|
@@ -34,10 +34,10 @@ Chốt khi grilling ngày 04/11/2026; chờ duyệt G1 trước khi viết code.
 
 ## Acceptance criteria
 
-- [ ] **AC1:** Staff và Admin đăng nhập thành công, nhận đủ `TokenPairDTO` và dùng access token gọi `GET backoffice/auth/me`, endpoint trả `AccountDTO`.
-- [ ] **AC2:** Customer, tài khoản vô hiệu, email/mật khẩu sai bị từ chối mà không lộ nguyên nhân.
-- [ ] **AC3:** Token có đúng issuer/audience/`token_use`/kid/expiry và claims bắt buộc; token sai mục đích/audience/algorithm bị từ chối.
-- [ ] **AC4:** `RefreshToken` và `RefreshReplay` có schema đúng data model; login chỉ tạo refresh family/hash, chưa tạo replay record và không lưu/log token thô.
-- [ ] **AC5:** Failure ledger giới hạn đăng nhập sai theo email/IP, atomic khi Redis hoạt động, trả đúng `Retry-After` và fail-open có metric khi Redis lỗi.
-- [ ] **AC6:** Mọi request back-office đọc trạng thái auth từ PostgreSQL; DB không xác minh được trả `503 AUTH_STATE_UNAVAILABLE`.
-- [ ] **AC7:** OpenAPI và security/API tests chứng minh đầy đủ hành vi trên.
+- [x] **AC1:** Staff và Admin đăng nhập thành công, nhận đủ `TokenPairDTO` và dùng access token gọi `GET backoffice/auth/me`, endpoint trả `AccountDTO`.
+- [x] **AC2:** Customer, tài khoản vô hiệu, email/mật khẩu sai bị từ chối mà không lộ nguyên nhân.
+- [x] **AC3:** Token có đúng issuer/audience/`token_use`/kid/expiry và claims bắt buộc; token sai mục đích/audience/algorithm bị từ chối.
+- [x] **AC4:** `RefreshToken` và `RefreshReplay` có schema đúng data model; login chỉ tạo refresh family/hash, chưa tạo replay record và không lưu/log token thô.
+- [x] **AC5:** Failure ledger giới hạn đăng nhập sai theo email/IP, atomic khi Redis hoạt động, trả đúng `Retry-After` và fail-open có metric khi Redis lỗi.
+- [x] **AC6:** Mọi request back-office đọc trạng thái auth từ PostgreSQL; DB không xác minh được trả `503 AUTH_STATE_UNAVAILABLE`.
+- [x] **AC7:** OpenAPI và security/API tests chứng minh đầy đủ hành vi trên.

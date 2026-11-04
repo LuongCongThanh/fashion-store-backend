@@ -77,11 +77,10 @@ Chưa có spec.
 
 ### Đã xong
 
-Chưa có.
+1. [01](../../.scratch/module-plans/m1-catalog-inventory/issues/01-backoffice-login/spec.md) · Staff/Admin đăng nhập back-office, `JWTAuthentication`, failure ledger đăng nhập · PR #65 · 04/11/2026
 
 ### Còn mở
 
-- [01](../../.scratch/module-plans/m1-catalog-inventory/issues/01-backoffice-login/spec.md) · Staff/Admin đăng nhập back-office · `ready-for-agent`
 - [02](../../.scratch/module-plans/m1-catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01
 - [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01
 - [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01

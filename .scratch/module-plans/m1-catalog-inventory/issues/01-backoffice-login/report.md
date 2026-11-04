@@ -2,7 +2,7 @@
 
 ### Báo cáo 04/11/2026
 
-**Nhánh:** `feat/backoffice-login` · **PR:** chưa mở · **Mode:** full
+**Nhánh:** `feat/backoffice-login` · **PR:** #65 · **Mode:** full
 
 #### Đã làm
 
@@ -18,7 +18,7 @@
 | 6. Đọc trạng thái auth từ PostgreSQL mỗi request; DB lỗi → 503 | `test_api_backoffice_me.py::test_me_reads_auth_state_from_db_each_request[tv,inactive,kind]`, `::test_me_rejects_token_of_deleted_account`, `::test_me_returns_503_when_auth_state_unavailable` |
 | 7. OpenAPI và security/API tests | `test_api_backoffice_me.py::test_openapi_declares_me_auth_errors`, `::test_openapi_declares_login_errors`; `test_api_backoffice_clients.py` (fixture `staff_client`/`admin_client` dùng JWT thật) |
 
-`make lint` xanh · `make test`: 487 passed trong 16,29s, coverage nhánh identity 12/12 (100%), shared 86/88 (97,73%). Test Redis thật cần `REDIS_URL` trỏ Redis chạy được trên máy (đã chạy với `redis://localhost:6380/0`; CI có service Redis).
+`make lint` xanh · `make test`: 486 passed trong 16,43s (sau rebase lên `dev` #64), coverage nhánh identity 12/12 (100%), shared 86/88 (97,73%). Test Redis thật cần `REDIS_URL` trỏ Redis chạy được trên máy (đã chạy với `redis://localhost:6380/0`; CI có service Redis).
 
 #### Chưa làm
 
@@ -37,11 +37,11 @@
 
 #### Thay đổi theo yêu cầu
 
-- Hook `PreToolUse` gọi Python qua `.claude/hooks/run_py.sh` để chạy được trên Linux/macOS/Windows (commit `adb0284`). Kiểm: `python -m unittest discover -s .claude/hooks` 10/10 xanh.
+- Hook `PreToolUse` gọi Python qua `.claude/hooks/run_py.sh` để chạy được trên Linux/macOS/Windows (commit `55cfc2d`). Kiểm: `python -m unittest discover -s .claude/hooks` 10/10 xanh.
 
 #### Review
 
-Ba trục (Spec, Standards, Bug) chạy song song; người dùng chọn sửa cả bốn nhóm A–D trong vòng `R1` (commit `0ae2e4c`). Red → green lưu ở log `r1-red-round1|2`, `r1-green-round1|2`.
+Ba trục (Spec, Standards, Bug) chạy song song; người dùng chọn sửa cả bốn nhóm A–D trong vòng `R1` (commit `60c2b31`). Red → green lưu ở log `r1-red-round1|2`, `r1-green-round1|2`.
 
 | Mã | Chỗ | Kết luận | Lý do |
 | --- | --- | --- | --- |
@@ -70,15 +70,16 @@ Ba trục (Spec, Standards, Bug) chạy song song; người dùng chọn sửa c
 
 | Commit | Task | Subject |
 | --- | --- | --- |
-| `c625cb6` | plan | docs: plan backoffice login ticket |
-| `8d3c241` | S1 | feat: add backoffice token foundation |
-| `fd4cfee` | S2 | feat: add refresh token persistence |
-| `0c557fa` | S3 | feat: add login failure ledger |
-| `adb0284` | — (yêu cầu thêm) | chore: run claude hooks with any available python 3 |
-| `ef3af86` | S4 | feat: add backoffice login endpoint |
-| `6f3a039` | S5 | feat: protect backoffice authentication |
-| `0ae2e4c` | R1 | fix(identity): address review findings on backoffice login |
-| (commit chứa báo cáo này) | sync | docs: sync docs and report for backoffice login ticket |
+| `2851a9e` | plan | docs: plan backoffice login ticket |
+| `f6d5fec` | S1 | feat: add backoffice token foundation |
+| `eb245fa` | S2 | feat: add refresh token persistence |
+| `8c7622f` | S3 | feat: add login failure ledger |
+| `55cfc2d` | — (yêu cầu thêm) | chore: run claude hooks with any available python 3 |
+| `7edc1d9` | S4 | feat: add backoffice login endpoint |
+| `5dd51bf` | S5 | feat: protect backoffice authentication |
+| `60c2b31` | R1 | fix(identity): address review findings on backoffice login |
+| `a7503ec` | sync | docs: sync docs and report for backoffice login ticket |
+| `fb099aa` | ci | fix(identity): return typed reservation when ledger fails open (SonarCloud) |
 
 #### Tài liệu đã cập nhật
 
@@ -92,6 +93,6 @@ Ba trục (Spec, Standards, Bug) chạy song song; người dùng chọn sửa c
 
 #### Ghi chú cho retro
 
-- Hook dự án gọi `python3` nên chặn mọi lệnh shell trên Windows → sửa bằng `run_py.sh` + test `RunPyWrapper` (commit `adb0284`).
-- `state.py`/`commit_map.py`/`check_ac_trace.py` không resolve được ticket ở `.scratch/module-plans/<mốc>/issues/` → theo dõi tay; S1–S3 lọt thiếu test AC5 và lỗi ledger (B1, B2, S5) mà không check máy nào báo, review mới bắt được (finding B1, B2, T7, commit `0ae2e4c`).
+- Hook dự án gọi `python3` nên chặn mọi lệnh shell trên Windows → sửa bằng `run_py.sh` + test `RunPyWrapper` (commit `55cfc2d`).
+- `state.py`/`commit_map.py`/`check_ac_trace.py` không resolve được ticket ở `.scratch/module-plans/<mốc>/issues/` → theo dõi tay; S1–S3 lọt thiếu test AC5 và lỗi ledger (B1, B2, S5) mà không check máy nào báo, review mới bắt được (finding B1, B2, T7, commit `60c2b31`).
 - `run_logged.py --cwd` tính từ gốc repo; `.env` local trỏ Redis container nên test Redis thật trên máy cần `REDIS_URL=redis://localhost:6380/0`.
