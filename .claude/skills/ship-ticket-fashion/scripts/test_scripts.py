@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -24,7 +26,7 @@ from commit_map import parse_log, problems, render
 from common import resolve, state_dir, ticket_ref
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
-from run_logged import make_recipe
+from run_logged import expand, make_exports, make_recipe, run_steps
 from state import (
     apply,
     check_doc_ref,
@@ -253,7 +255,7 @@ class StateMachine(unittest.TestCase):
         self.assertIn("--gate g1", check_transition(make_state(phase="sync"), "ship", "g1"))
         self.assertIsNone(check_transition(make_state(phase="sync"), "ship", "g2"))
 
-    def test_done_can_close_between_retros_without_skipping_delivery_phases(self):
+    def test_done_closes_only_with_pr_and_without_skipping_phases(self):
         self.assertIsNone(check_transition(make_state(phase="done", pr=54), "closed", None))
         self.assertIsNotNone(check_transition(make_state(phase="done"), "closed", None))
         self.assertIsNotNone(check_transition(make_state(phase="ship", pr=54), "closed", None))
@@ -292,6 +294,14 @@ class StateMachine(unittest.TestCase):
         test_id = done["tests"][0]
         done["tdd"] = {test_id: {"redAt": "r", "greenAt": "g"}}
         self.assertEqual(validate(make_state(slices=[done]), 1), [])
+
+    def test_validate_rejects_file_level_test_ids(self):
+        file_id = "tests/test_x.py"
+        slice_ = complete_slice(
+            tests=[file_id], tddTests=[], verificationTests=[file_id], expectedRed={}
+        )
+        errors = validate(make_state(slices=[slice_]), 1)
+        self.assertTrue(any("cấp hàm" in e and file_id in e for e in errors))
 
     def test_validate_splits_tdd_and_verification_tests(self):
         test_id = "tests/test_x.py::test_x"
@@ -422,6 +432,63 @@ class Checks(unittest.TestCase):
             make_recipe("test:\n\tuv run pytest\n", "up")
         with self.assertRaises(ValueError):
             make_recipe("up:\n\tdocker compose -f $(FILE) up\n", "up")
+
+    def test_make_recipe_joins_continuations_strips_prefixes_and_runs_prerequisites(self):
+        makefile = (
+            "export PYTHONUTF8 := 1\n"
+            "gen:\n\t@uv run python gen.py \\\n\t\t--check\n"
+            "lint: gen\n\t+uv run ruff check .\n"
+        )
+        self.assertEqual(
+            make_recipe(makefile, "lint"),
+            [["uv", "run", "python", "gen.py", "--check"], ["uv", "run", "ruff", "check", "."]],
+        )
+
+    def test_make_recipe_rejects_ignored_error_lines(self):
+        with self.assertRaises(ValueError):
+            make_recipe("lint:\n\t-uv run ruff check .\n", "lint")
+
+    def test_make_exports_reads_exported_variables(self):
+        makefile = "export PYTHONUTF8 := 1\nexport A = b c\nX := 2\n\nlint:\n\tuv run mypy .\n"
+        self.assertEqual(make_exports(makefile), {"PYTHONUTF8": "1", "A": "b c"})
+
+    def test_keep_going_splits_make_target_even_when_make_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "Makefile").write_text(
+                "lint:\n\tuv run ruff check .\n\tuv run mypy .\n", encoding="utf-8"
+            )
+            with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
+                self.assertEqual(expand(["make", "lint"], cwd), [["make", "lint"]])
+                self.assertEqual(
+                    expand(["make", "lint"], cwd, keep_going=True),
+                    [["uv", "run", "ruff", "check", "."], ["uv", "run", "mypy", "."]],
+                )
+
+    def test_keep_going_falls_back_to_make_when_recipe_cannot_be_split(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "Makefile").write_text("up:\n\tdocker compose -f $(FILE) up\n", encoding="utf-8")
+            with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
+                self.assertEqual(expand(["make", "up"], cwd, keep_going=True), [["make", "up"]])
+            with (
+                mock.patch("run_logged.shutil.which", return_value=None),
+                self.assertRaises(ValueError),
+            ):
+                expand(["make", "up"], cwd, keep_going=True)
+
+    def test_keep_going_runs_every_step_and_reports_each_failure(self):
+        py = sys.executable
+        steps = [
+            [py, "-c", "import sys; print('ruff: E501'); sys.exit(1)"],
+            [py, "-c", "print('format ok')"],
+            [py, "-c", "import sys; print('mypy: attr-defined'); sys.exit(2)"],
+        ]
+        results = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=True)
+        self.assertEqual([r.code for r in results], [1, 0, 2])
+        self.assertIn("mypy: attr-defined", results[2].output)
+        stop_first = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=False)
+        self.assertEqual([r.code for r in stop_first], [1])
 
 
 REF = ".scratch/f/issues/01-x"

@@ -1,14 +1,14 @@
-# Phase 3 — báo cáo
+# Phase 3 — report
 
-1. Viết báo cáo theo `templates/report.md` vào `report.md` của ticket (tạo file với dòng đầu `# Báo cáo` nếu chưa có), có ngày. Lần chạy sau (sau review, sync) **ghi đè** báo cáo này, không thêm bản mới: ticket chỉ giữ kết quả mới nhất.
-   - Mỗi AC một dòng: test chứng minh (`file::test`, lấy từ state), hoặc lý do trong `untestable` và cách kiểm tay.
-   - Số liệu lấy từ log `.git/ship-ticket-fashion/logs/lint.log` và `test.log` (số test, thời gian, coverage nếu có).
-   - Mục *Commit*: output của `python3 S/scripts/commit_map.py <T> --md`.
-   - *Ghi chú cho retro*: tối đa 3 dòng về việc đã tốn công và con trỏ bằng chứng, hoặc `Không`. Giữ và cập nhật khi ghi đè báo cáo ở review/sync; dùng bằng chứng còn lưu được thay vì chỉ trỏ log sẽ bị ticket sau ghi đè. Bước này chỉ ghi nhận, chưa phân loại hay đề xuất sửa skill.
-2. Đưa người dùng bản báo cáo (in nguyên văn phần đã ghi vào `report.md`).
-3. Để `report.md` chưa commit: report còn được ghi đè ở phase 4 và 5, rồi commit một lần trong task `sync`.
-4. `state.py transition <T> --to review --next "chạy check máy rồi code-review" --reason "báo cáo đã ghi"`, in điểm clear.
+1. Write the report per `templates/report.md` into the ticket's `report.md` (create it with first line `# Báo cáo` if missing), dated, in Vietnamese. Later runs (after review, sync) **overwrite** this report instead of adding a new one: the ticket keeps only the latest result.
+   - One row per AC: the proving test (`file::test`, from state), or the `untestable` reason and manual check.
+   - Numbers from the logs `.git/ship-ticket-fashion/logs/lint.log` and `test.log` (test count, duration, coverage if any).
+   - *Commit* section: output of `python3 S/scripts/commit_map.py <T> --md`.
+   - *Ghi chú cho retro*: at most 3 lines on what cost effort, with an evidence pointer, or `Không`. Keep and update it when the report is overwritten in review/sync; point to durable evidence rather than logs a later ticket will overwrite. This step only records; phase 5 retro analyses.
+2. Show the user the report (the exact text written to `report.md`).
+3. Leave `report.md` uncommitted: phases 4 and 5 still overwrite it, and it is committed once in task `sync`.
+4. `state.py transition <T> --to review --next "chạy check máy rồi code-review" --reason "báo cáo đã ghi"`, print the clear point.
 
-## Xong khi
+## Done when
 
-Mọi AC có một dòng trong bảng AC → bằng chứng; mục Đã làm, Chưa làm, Gap đều có nội dung hoặc ghi "Không"; mục *Commit* liệt kê mọi commit của nhánh; `phase` là `review`.
+Every AC has a row in the AC → evidence table; sections Đã làm, Chưa làm, Gap have content or "Không"; the *Commit* section lists every commit on the branch; `phase` is `review`.

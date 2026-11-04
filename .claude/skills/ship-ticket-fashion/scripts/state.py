@@ -23,7 +23,7 @@ from common import git, load_state, repo_root, resolve, save_state, state_dir, t
 from progress import PLAN, SPEC, find_section, frontier, load_features
 
 SKILL = ".claude/skills/ship-ticket-fashion"
-PHASES = ["grill", "code", "report", "review", "sync", "ship", "done", "retro", "closed"]
+PHASES = ["grill", "code", "report", "review", "sync", "ship", "done", "closed"]
 BACK_EDGES = {("review", "code"), ("sync", "code"), ("sync", "review")}
 GATE_EDGES = {"g1": ("grill", "code"), "g2": ("sync", "ship")}
 TRANSITION_ONLY = ("phase", "gates", "transitions")  # set/push không được ghi
@@ -39,7 +39,6 @@ PHASE_FILES = {
     "sync": "5-sync",
     "ship": "6-ship",
     "done": "7-done",
-    "retro": "8-retro",
 }
 
 
@@ -135,6 +134,12 @@ def validate(state: dict, ac_total: int | None = None) -> list[str]:
             )
         if len(tests) != len(set(tests)):
             errors.append(f"slice {slice_id}: tests bị trùng")
+        file_level = [t for t in tests if "::" not in t]
+        if file_level:
+            errors.append(
+                f"slice {slice_id}: test id phải ở cấp hàm (file.py::test_x): "
+                + ", ".join(file_level)
+            )
         expected_red = s.get("expectedRed")
         if not isinstance(expected_red, dict):
             errors.append(f"slice {slice_id}: expectedRed phải là object test → exception")
@@ -216,11 +221,7 @@ def check_transition(state: dict, to: str, gate: str | None) -> str | None:
     current = state["phase"]
     if to not in PHASES:
         return f"phase lạ: {to}"
-    step_ok = (
-        PHASES.index(to) == PHASES.index(current) + 1
-        or (current, to) in BACK_EDGES
-        or (current, to) == ("done", "closed")
-    )
+    step_ok = PHASES.index(to) == PHASES.index(current) + 1 or (current, to) in BACK_EDGES
     if not step_ok:
         return f"không đi được {current} → {to}"
     if gate and GATE_EDGES[gate] != (current, to):
@@ -254,7 +255,7 @@ def plan_ready(
         if missing_refs:
             missing.append("Tài liệu chi phối: " + ", ".join(missing_refs))
     if missing:
-        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 6-10)"
+        return "ticket thiếu " + ", ".join(missing) + " (phase 1 bước 7-9)"
     if ticket_dirty:
         return f"{SPEC} và {PLAN} chưa commit (commit.py --task plan)"
     return None
@@ -475,7 +476,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     for flag in flags:
         print(f"FLAG {flag}")
     print(f"READ {SKILL}/reference/rules.md")
-    if flags or state["phase"] in ("done", "retro", "closed"):
+    if flags or state["phase"] in ("done", "closed"):
         print(f"READ {SKILL}/reference/resume.md")
     if state["phase"] in PHASE_FILES:
         print(f"READ {SKILL}/phases/{PHASE_FILES[state['phase']]}.md")

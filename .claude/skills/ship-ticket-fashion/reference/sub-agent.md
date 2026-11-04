@@ -1,18 +1,20 @@
-# Hợp đồng sub-agent
+# Sub-agent contract
 
-Mọi sub-agent skill này tạo ra đọc file này trước khi làm. Phiên chính chỉ đọc kết quả trả về và state, nên thứ gì không nằm trên đĩa hoặc trong kết quả trả về sẽ mất.
+Every sub-agent this skill spawns reads this file first. The main session only reads returned results and state: anything not on disk or in the result is lost.
 
-- **Ghi trước khi trả về.** Mọi thứ bước sau cần đều ghi xuống đĩa: state (`slices.<id>.status`, `handoff`, `tests`, `next`, `untestable`), commit của slice.
-- **Quyết định thuộc về người dùng.** Gặp một trường hợp *Cần người dùng* (`reference/rules.md`): ghi vào `notes` của state, trả về ở dòng *Cần người dùng* rồi dừng. Câu trả lời quay lại qua `SendMessage`, context còn nguyên.
-- **Field của người dùng**: `gates`, `userRequested` do phiên chính ghi.
-- **Sửa file trong `backend/shared/`** ngoài kế hoạch: *Cần người dùng* kèm phạm vi ảnh hưởng (`grep -rl "<module>" backend --include=*.py | wc -l` và các module nào), cùng lựa chọn *giữ nguyên `shared`* và AC mất gì nếu chọn nó.
-- **Trả về ≤ 15 dòng**, đúng khuôn:
+- **Map first, explore second.** `.git/ship-ticket-fashion/<K>-map.md` already lists the ticket's files, signatures, callers, tests and fixtures: start from it, read only files you are changing and files the map lacks. A newly found file a later slice needs → add one line to the map.
+- **The implementer keeps the work to the end.** Phase 2: every slice in DAG order (start a slice only after its `dependsOn` are done), one commit per slice, then return once. Review fix rounds and CI failures arrive later via `SendMessage`, reusing the code context you already have.
+- **Write before returning.** Everything a later step needs goes to disk: state (`slices.<id>.status`, `handoff`, `tests`, `next`, `untestable`) and commits. Reviewers only return a report; the main session writes `<K>-review.md`.
+- **Decisions belong to the user.** On *Needs user* (`reference/rules.md`): record it in state `notes`, return it on the *Needs user* line and stop. The answer comes back via `SendMessage`.
+- **User-owned fields**: `gates`, `userRequested` are written by the main session.
+- **Unplanned change to `backend/shared/`**: *Needs user* with the blast radius (`grep -rl "<module>" backend --include=*.py | wc -l` and which modules), plus the option *keep `shared` unchanged* and what the AC loses with it.
+- **Return ≤ 15 lines**, exactly:
 
   ```
-  <Slice / vòng>: <xong / bị chặn>
-  File đổi: <tên> (<n> file)
-  Test: <x/y xanh> · lint: <ok / lỗi>
-  check_ac_trace: <ok / AC thiếu>
-  Lệch kế hoạch: <không / gì + "đã cập nhật state">
-  Cần người dùng: <không / mỗi câu một dòng, có lựa chọn và khuyến nghị>
+  <Slice / round>: <done / blocked>
+  Files changed: <names> (<n> files)
+  Tests: <x/y green> · lint: <ok / errors>
+  check_ac_trace: <ok / missing AC>
+  Plan drift: <none / what + "state updated">
+  Needs user: <none / one question per line, with options and a recommendation>
   ```

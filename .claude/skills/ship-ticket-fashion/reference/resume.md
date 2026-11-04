@@ -1,21 +1,21 @@
-# Làm tiếp
+# Resume
 
-Đọc khi `state.py start` in `READ …/reference/resume.md`: có cờ, có slice đang mở, hoặc phase không chỉ đơn giản tiếp tục từ `next`.
+Read when `state.py start` prints `READ …/reference/resume.md`: flags are set, a slice is open, or the phase needs more than continuing from `next`.
 
-## Cờ trước, trước mọi việc
+## Flags first, before anything else
 
-- `BRANCH RED` (nhánh hiện tại khác `branch` của state) → hỏi người dùng: chuyển sang nhánh của state (khuyên dùng), hay lấy nhánh hiện tại làm `branch` mới.
-- `DIRTY` → xem `git status --short`: file của ticket thì làm tiếp; file của việc khác thì hỏi người dùng giữ hay stash.
-- `BEHIND origin/dev` → `git fetch origin && git rebase origin/dev` trước phase 6; ở phase sớm hơn thì rebase khi tiện, chạy lại test sau rebase.
-- `SLICE OPEN` → `ListAgents` trước khi tạo agent mới; agent đang chạy trên slice đó giữ slice tới khi trả về.
-- `NO PR` ở phase `done` → PR chưa mở được: quay lại phase 6 bước mở PR.
+- `BRANCH RED` (current branch differs from state `branch`) → ask the user: switch to the state's branch (recommended), or make the current branch the new `branch`.
+- `DIRTY` → check `git status --short`: ticket files → continue; files from other work → ask the user whether to keep or stash.
+- `BEHIND origin/dev` → `git fetch origin && git rebase origin/dev` before phase 6; in earlier phases rebase when convenient and rerun tests afterwards.
+- `SLICE OPEN` → the implementer per `SKILL.md` → *Sub-agents*; if the agent is still running, wait for it to return.
+- `NO PR` in phase `done` → the PR was never opened: go back to phase 6, open-PR step.
 
-## Theo phase
+## By phase
 
-| Phase | Làm tiếp |
+| Phase | Resume |
 | --- | --- |
-| `grill` | G1 đã hỏi nhưng chưa trả lời → trình lại G1 từ `## Quyết định` trong `spec.md` và slice trong state |
-| `sync` | G2 đã hỏi nhưng chưa trả lời → trình lại G2; các phase trước giữ nguyên |
-| `done` | `gh pr view <pr> --json state` (tài khoản ở `phases/6-ship.md`): `MERGED` → bước kiểm đếm sau merge của phase 7; `OPEN` → hỏi merge hay chờ |
-| `retro` | Kiểm `retro_batch.py status`: chưa đủ đợt (kể cả state cũ) → `transition --to closed`, ghi lý do hoãn hoặc đợt đã hoàn tất; đủ đợt → tiếp tục phase 8, tìm PR đợt đang mở trước khi tạo mới |
-| `closed` | Ticket đã xong: chạy `progress.py`, đề xuất ticket tiếp theo |
+| `grill` | G1 asked but unanswered → present G1 again from `## Quyết định` in `spec.md` and the slices in state |
+| `review` | `<K>-review.md` has all three axes → skip the review step, continue from verification; a missing axis → rerun only that axis |
+| `sync` | G2 asked but unanswered → present G2 again; G2 approved but no `Task: retro` commit → `phases/8-retro.md` steps 4–5 |
+| `done` | `gh pr view <pr> --json state` (account in `phases/6-ship.md`): `MERGED` → phase 7 step 4; `OPEN` → ask merge or wait |
+| `closed` | Ticket finished: run `progress.py`, propose the next ticket |
