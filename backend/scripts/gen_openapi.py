@@ -76,7 +76,7 @@ def quality_violations(
     openapi: Mapping[str, Any], default_error_descriptions: Mapping[str, str]
 ) -> list[str]:
     """Luật chú thích của 04 mục 5.6 trên schema đã render; mỗi vi phạm là
-    `<operationId>: <thiếu gì>`.
+    `<operationId>: <thiếu gì>`, riêng vi phạm ở component là `<tên component>: <thiếu gì>`.
 
     `default_error_descriptions` là mô tả lỗi mặc định của `AutoSchema`: response lỗi mang đúng mô
     tả đó đã có ví dụ chung, còn mã view tự khai (mô tả khác) phải có ví dụ `ErrorDTO` riêng.
@@ -87,6 +87,14 @@ def quality_violations(
     `shared.api.schema.API_APP_PATH`.
     """
     violations: list[str] = []
+    # Component (serializer) hiện trên Swagger ở mọi operation dùng nó: mô tả field lấy từ
+    # `help_text`, nên cũng phải tiếng Anh (luật 7)
+    for name, component in openapi.get("components", {}).get("schemas", {}).items():
+        violations.extend(
+            f"{name}: Vietnamese text in description of {where}"
+            for where, text in _schema_descriptions(component)
+            if _VIETNAMESE_LETTERS.search(text)
+        )
     for path, item in openapi.get("paths", {}).items():
         # Chỉ operation của API (`/api/v1/`) bắt buộc chú thích; schema, docs được miễn
         if not path.startswith(_API_PREFIX):
@@ -169,11 +177,15 @@ def _examples(body: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _shown_texts(operation: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """Chữ Swagger hiển thị kèm vị trí: summary, description và ví dụ."""
+    """Chữ Swagger hiển thị kèm vị trí: summary, description, mô tả parameter và ví dụ."""
     texts = [
         ("summary", operation.get("summary", "")),
         ("description", operation.get("description", "")),
     ]
+    texts.extend(
+        (f"parameter {parameter.get('name', '')} description", parameter.get("description", ""))
+        for parameter in operation.get("parameters", [])
+    )
     request = operation.get("requestBody", {})
     texts.append(("request description", request.get("description", "")))
     texts.extend(("request example", str(example)) for example in _examples(request).values())
@@ -188,6 +200,25 @@ def _shown_texts(operation: Mapping[str, Any]) -> list[tuple[str, str]]:
             )
             for example in _examples(response).values()
         )
+    return texts
+
+
+def _schema_descriptions(schema: Any, where: str = "<root>") -> list[tuple[str, str]]:
+    """Mọi `description` trong một JSON schema, kèm đường dẫn tới nó (`<root>`, `name`,
+    `items.name`…); `example`/`default` là dữ liệu, không duyệt."""
+    if not isinstance(schema, Mapping):
+        return []
+    texts: list[tuple[str, str]] = []
+    if isinstance(schema.get("description"), str):
+        texts.append((where, schema["description"]))
+    prefix = "" if where == "<root>" else f"{where}."
+    for name, child in schema.get("properties", {}).items():
+        texts.extend(_schema_descriptions(child, f"{prefix}{name}"))
+    for key in ("items", "additionalProperties"):
+        texts.extend(_schema_descriptions(schema.get(key), f"{prefix}{key}"))
+    for key in ("allOf", "oneOf", "anyOf"):
+        for child in schema.get(key, []):
+            texts.extend(_schema_descriptions(child, where))
     return texts
 
 

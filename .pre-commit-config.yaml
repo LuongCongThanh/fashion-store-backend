@@ -47,13 +47,14 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
 
-  # Commit message không được nhắc tới Claude (kể cả trailer `Co-Authored-By`), không phân biệt hoa thường
+  # Commit message không được nhắc tới Claude (kể cả trailer `Co-Authored-By`), không phân biệt hoa thường.
+  # sed dừng ở dòng cắt `>8` mà `git commit -v` chèn trước diff, và bỏ dòng comment `#`
   - repo: local
     hooks:
       - id: no-claude-in-commit-msg
         name: no "claude" in commit message
         entry: >-
-          bash -c 'if grep -v "^#" "$1" | grep -qi claude; then echo "Commit message chứa chữ \"claude\": bỏ đi rồi commit lại." >&2; grep -v "^#" "$1" | grep -ni claude >&2; exit 1; fi' --
+          bash -c 'msg=$(sed -n "/^# -* >8 -*\$/q;/^#/d;p" "$1"); if grep -qi claude <<< "$msg"; then echo "Commit message chứa chữ \"claude\": bỏ đi rồi commit lại." >&2; grep -ni claude <<< "$msg" >&2; exit 1; fi' --
         language: system
         stages: [commit-msg]
 

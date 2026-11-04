@@ -3,9 +3,10 @@
 
 `AutoSchema` là `DEFAULT_SCHEMA_CLASS`: thêm 400, 500 cho mọi operation, 429 (kèm header
 `Retry-After`) khi view có throttle, 404 khi path có tham số hoặc có query `page` của phân trang,
-401/403/503 khi view cần đăng nhập (permission không phải chỉ `AllowAny`); mỗi lỗi mặc định có mô
-tả và một ví dụ `ErrorDTO` tiếng Anh. View tự khai mã đặc thù (409, 422…) bằng `extend_schema`; mã
-đã khai thì giữ nguyên.
+415 khi operation có request body (media type ngoài parser của view), 401/403/503 khi view cần
+đăng nhập (permission không phải chỉ `AllowAny`); mỗi lỗi mặc định có mô tả và một ví dụ
+`ErrorDTO` tiếng Anh. View tự khai mã đặc thù (409, 422…) bằng `extend_schema`; mã đã khai thì giữ
+nguyên.
 
 Chữ hiển thị trên Swagger viết tiếng Anh, còn docstring viết tiếng Việt (13 mục 2), nên schema
 không lấy docstring của view và serializer: mô tả chỉ đến từ `extend_schema` và
@@ -53,6 +54,7 @@ ERROR_DESCRIPTIONS = {
     "401": "Not authenticated or invalid token (`NOT_AUTHENTICATED`, `TOKEN_EXPIRED`).",
     "403": "Insufficient permissions (`PERMISSION_DENIED`).",
     "404": "Not found (`NOT_FOUND`).",
+    "415": "Unsupported request body media type (`UNSUPPORTED_MEDIA_TYPE`).",
     "429": "Too many requests (`THROTTLED`); retry after `Retry-After` seconds.",
     "500": "Internal error (`INTERNAL_ERROR`).",
     "503": "Authentication state could not be verified in the database (`AUTH_STATE_UNAVAILABLE`).",
@@ -68,6 +70,11 @@ _ERROR_EXAMPLES: dict[str, tuple[str, str, dict[str, Any]]] = {
     "401": ("NOT_AUTHENTICATED", "Authentication credentials were not provided.", {}),
     "403": ("PERMISSION_DENIED", "You do not have permission to perform this action.", {}),
     "404": ("NOT_FOUND", "Not found.", {}),
+    "415": (
+        "UNSUPPORTED_MEDIA_TYPE",
+        'Unsupported media type "application/x-www-form-urlencoded" in request.',
+        {},
+    ),
     "429": ("THROTTLED", "Request was throttled. Expected available in 30 seconds.", {}),
     "500": ("INTERNAL_ERROR", "Internal server error.", {}),
     "503": ("AUTH_STATE_UNAVAILABLE", "Authentication state is temporarily unavailable.", {}),
@@ -152,6 +159,9 @@ class AutoSchema(SpectacularAutoSchema):
             for param in operation.get("parameters", [])
         ):
             codes.append("404")
+        # Body có media type ngoài parser của view (mặc định chỉ `JSONParser`) trả 415
+        if "requestBody" in operation:
+            codes.append("415")
         if self.view.get_throttles():
             codes.append("429")
         # Endpoint cần đăng nhập đọc trạng thái auth từ DB mỗi request (05 mục 2.2)
