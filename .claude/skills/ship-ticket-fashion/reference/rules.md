@@ -4,13 +4,13 @@
 - **`docs/` is the source of truth**: code follows the docs. A file's *governing docs* (*tài liệu chi phối*) are the sections that rule how it is written: `docs/architecture/` (map in `docs/architecture/README.md`), rules in `docs/business/`, ADRs in `docs/adr/`. Phase 1 records them in `## Quyết định`; code and review check against them. A ticket that deliberately deviates → reason in `## Quyết định`, fix the docs in phase 5 of the same PR.
 - **One home per kind of knowledge.**
   - Ticket decisions → `## Quyết định` in `spec.md` (table Chủ đề | Quyết định).
-  - Decisions reaching beyond the ticket (`shared` API, ticket splits, scope changes) → **Decisions-so-far** in `.scratch/mvp-roadmap/map.md`.
+  - Decisions reaching beyond the ticket (`common` API, ticket splits, scope changes) → **Decisions-so-far** in `.scratch/mvp-roadmap/map.md`.
   - Lasting architecture decisions → ADR via `mattpocock-skills:domain-modeling`. Terms → `GLOSSARY.md`, avoiding words under _Avoid_.
   - Slices, `next`, AC → test → state; the human-readable print is `plan.md`.
   - Code the ticket touches → `.git/ship-ticket-fashion/<K>-map.md`; review findings → `<K>-review.md`.
   - Outcome (done, not done, gaps) → `report.md`. Anything a machine can check → a test, a script in `S/scripts/`, lint or a hook.
-- **Needs user** is a decision outside the gates: out-of-scope change; touching `shared/` when the ticket does not mention it; a red test outside the ticket and not in the baseline; a hook block not fixable within scope; missing or contradictory docs, or code forced to break an ADR (`docs/agents/domain.md`); environment errors (DB, Redis, `.env`). The main session asks at once with `AskUserQuestion`; sub-agents follow `reference/sub-agent.md`.
-- **Design vocabulary**: *module* means a business module under `modules/` (ADR 0006). In code design talk use *seam*, *interface*, *depth*, *adapter*, *deletion test* from `mattpocock-skills:codebase-design`; what that skill calls a module, name concretely (function, class, package).
+- **Needs user** is a decision outside the gates: out-of-scope change; touching `common/` when the ticket does not mention it; a red test outside the ticket and not in the baseline; a hook block not fixable within scope; missing or contradictory docs, or code forced to break an ADR (`docs/agents/domain.md`); environment errors (DB, Redis, `.env`). The main session asks at once with `AskUserQuestion`; sub-agents follow `reference/sub-agent.md`.
+- **Design vocabulary**: *module* means a business module, one Django app under `apps/` (ADR 0018). In code design talk use *seam*, *interface*, *depth*, *adapter*, *deletion test* from `mattpocock-skills:codebase-design`; what that skill calls a module, name concretely (function, class, package).
 - **Talking to the user**: codes the user did not write come with their meaning: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
 
 ## Machine checks

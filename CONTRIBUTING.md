@@ -40,7 +40,7 @@ Chi tiết ở [Coding style Python/Django](./docs/architecture/13-python-django
 - Hàm service đặt tên `<verb>_<noun>` (`place_order`); selector dùng `get_` / `find_` / `list_`.
 - Format bằng `ruff format` (dòng tối đa 100 ký tự), lint bằng `ruff check` + `mypy` + `lint-imports`. Chạy `make fmt` trước khi commit.
 - Docstring Google style, bắt buộc cho hàm public trong `contracts.py` và `services/`.
-- Model kế thừa `shared.models.BaseModel` (khoá chính UUID v7), không tự khai báo `id`. Tên thuộc tính class không trùng tên field chỉ khác hoa/thường (alias `Status` cạnh field `status`); dùng thẳng class `TextChoices` ở cấp module.
+- Model kế thừa `common.models.BaseModel` (khoá chính UUID v7), không tự khai báo `id`. Tên thuộc tính class không trùng tên field chỉ khác hoa/thường (alias `Status` cạnh field `status`); dùng thẳng class `TextChoices` ở cấp module.
 - Cột NOT NULL thêm vào bảng đã có khai báo `db_default`, không chỉ `default`: `default` làm migration `DROP DEFAULT`, code bản cũ còn chạy trong lúc rolling deploy INSERT lỗi (09 mục 4, migration tương thích ngược).
 - Test: dữ liệu tạo bằng `factory-boy`, không mock ORM, chỉ giả lập hệ thống bên ngoài. Branch coverage của `services/` và `handlers.py` tối thiểu 80%, tính riêng từng module.
 - Hành vi dựa vào việc một transaction đã commit (code chạy nhiều transaction nối tiếp, `on_commit`, khoá giữa các kết nối) test bằng `@pytest.mark.django_db(transaction=True)`; `django_db` thường bọc test trong một transaction nên `transaction.atomic()` bên trong chỉ là savepoint.

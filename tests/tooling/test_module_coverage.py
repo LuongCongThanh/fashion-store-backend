@@ -13,7 +13,7 @@ from tests.tooling.helpers import ROOT, isolated_env, write_tree
 
 GATE = ROOT / "scripts/check_module_coverage.py"
 # Cùng cờ với `make test` và job `backend` của CI (12 mục 8)
-PYTEST_COV = ["--cov=modules", "--cov=shared", "--cov-report="]
+PYTEST_COV = ["--cov=apps", "--cov=common", "--cov-report="]
 SERVICE = "def choose(flag):\n    if flag:\n        return 1\n    return 2\n"
 
 
@@ -25,7 +25,7 @@ def _choices(count: int) -> str:
 
 
 def _write(root: Path, files: dict[str, str]) -> None:
-    write_tree(root, {"modules/__init__.py": "", "shared/__init__.py": "", **files})
+    write_tree(root, {"apps/__init__.py": "", "common/__init__.py": "", **files})
 
 
 def _measure(
@@ -39,7 +39,7 @@ def _measure(
     _write(root, files)
     (root / "exercise.py").write_text(exercise, encoding="utf-8")
     path = root / data_file
-    command = [sys.executable, "-m", "coverage", "run", "--source=modules,shared"]
+    command = [sys.executable, "-m", "coverage", "run", "--source=apps,common"]
     if branch:
         command.append("--branch")
     result = subprocess.run(  # noqa: S603 -- Python cố định, chỉ chạy fixture do test tạo.
@@ -107,8 +107,8 @@ def test_gate_rejects_low_branches_despite_high_combined_coverage(tmp_path: Path
     source = SERVICE + "\n".join(f"value_{number} = {number}" for number in range(30)) + "\n"
     data_file = _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": source},
-        "from modules.catalog.services.product import choose\nchoose(True)\n",
+        {"apps/catalog/services/product.py": source},
+        "from apps.catalog.services.product import choose\nchoose(True)\n",
     )
     coverage = Coverage(data_file=str(data_file), config_file=False)
     coverage.load()
@@ -125,11 +125,11 @@ def test_gate_checks_modules_independently(tmp_path: Path) -> None:
     _measure(
         tmp_path,
         {
-            "modules/catalog/services/product.py": _choices(5),
-            "modules/inventory/services/stock.py": _choices(5),
+            "apps/catalog/services/product.py": _choices(5),
+            "apps/inventory/services/stock.py": _choices(5),
         },
-        "from modules.catalog.services.product import choose as product\n"
-        "from modules.inventory.services.stock import choose as stock\n"
+        "from apps.catalog.services.product import choose as product\n"
+        "from apps.inventory.services.stock import choose as stock\n"
         "for value in range(-1, 5):\n    product(value)\nstock(-1)\nstock(0)\n",
     )
 
@@ -141,7 +141,7 @@ def test_gate_checks_modules_independently(tmp_path: Path) -> None:
 
 
 def test_gate_skips_empty_modules(tmp_path: Path) -> None:
-    _measure(tmp_path, {"modules/catalog/__init__.py": ""}, "import modules.catalog\n")
+    _measure(tmp_path, {"apps/catalog/__init__.py": ""}, "import apps.catalog\n")
 
     result = _gate(tmp_path)
 
@@ -153,12 +153,12 @@ def test_gate_ignores_django_app_packages(tmp_path: Path) -> None:
     _measure(
         tmp_path,
         {
-            "modules/catalog/__init__.py": "",
-            "modules/management/commands/purge.py": "",
-            "modules/migrations/0001_initial.py": "",
-            "modules/templates/email.txt": "",
+            "apps/catalog/__init__.py": "",
+            "apps/management/commands/purge.py": "",
+            "apps/migrations/0001_initial.py": "",
+            "apps/templates/email.txt": "",
         },
-        "import modules.catalog\n",
+        "import apps.catalog\n",
     )
 
     result = _gate(tmp_path)
@@ -170,8 +170,8 @@ def test_gate_ignores_django_app_packages(tmp_path: Path) -> None:
 def test_gate_checks_handlers_without_services(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/handlers.py": SERVICE},
-        "from modules.catalog.handlers import choose\nchoose(True)\n",
+        {"apps/catalog/handlers.py": SERVICE},
+        "from apps.catalog.handlers import choose\nchoose(True)\n",
     )
 
     result = _gate(tmp_path)
@@ -183,8 +183,8 @@ def test_gate_checks_handlers_without_services(tmp_path: Path) -> None:
 def test_gate_counts_unexecuted_service_files(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": SERVICE},
-        "import modules.catalog\n",
+        {"apps/catalog/services/product.py": SERVICE},
+        "import apps.catalog\n",
     )
 
     result = _gate(tmp_path)
@@ -197,33 +197,33 @@ def test_gate_checks_shared_targets(tmp_path: Path) -> None:
     _measure(
         tmp_path,
         {
-            "shared/events/relay.py": SERVICE,
-            "shared/idempotency/http.py": SERVICE,
-            "shared/idempotency/__init__.py": SERVICE,
-            "shared/tasks.py": SERVICE,
+            "common/events/relay.py": SERVICE,
+            "common/idempotency/http.py": SERVICE,
+            "common/idempotency/__init__.py": SERVICE,
+            "common/tasks.py": SERVICE,
         },
-        "from shared.events.relay import choose as relay\n"
-        "from shared.idempotency.http import choose as idempotency\n"
-        "from shared.idempotency import choose as claim\n"
-        "from shared.tasks import choose as task\n"
+        "from common.events.relay import choose as relay\n"
+        "from common.idempotency.http import choose as idempotency\n"
+        "from common.idempotency import choose as claim\n"
+        "from common.tasks import choose as task\n"
         "relay(True)\nidempotency(True)\nclaim(True)\ntask(True)\n",
     )
 
     result = _gate(tmp_path)
 
     assert result.returncode == 1
-    assert "shared: 4/8 branches (50.00%) FAIL" in result.stdout
+    assert "common: 4/8 branches (50.00%) FAIL" in result.stdout
 
 
 def test_gate_ignores_unrelated_low_coverage(tmp_path: Path) -> None:
     _measure(
         tmp_path,
         {
-            "modules/catalog/services/product.py": SERVICE,
-            "modules/catalog/selectors/products.py": SERVICE,
-            "shared/geo/selectors.py": SERVICE,
+            "apps/catalog/services/product.py": SERVICE,
+            "apps/catalog/selectors/products.py": SERVICE,
+            "common/geo/selectors.py": SERVICE,
         },
-        "from modules.catalog.services.product import choose\nchoose(True)\nchoose(False)\n",
+        "from apps.catalog.services.product import choose\nchoose(True)\nchoose(False)\n",
     )
 
     result = _gate(tmp_path)
@@ -235,8 +235,8 @@ def test_gate_ignores_unrelated_low_coverage(tmp_path: Path) -> None:
 def test_gate_rejects_statement_only_data(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": SERVICE},
-        "from modules.catalog.services.product import choose\nchoose(True)\n",
+        {"apps/catalog/services/product.py": SERVICE},
+        "from apps.catalog.services.product import choose\nchoose(True)\n",
         branch=False,
     )
 
@@ -254,16 +254,16 @@ def test_gate_rejects_missing_data(tmp_path: Path) -> None:
 
 
 def test_gate_reads_data_file_from_coverage_environment(tmp_path: Path) -> None:
-    files = {"modules/catalog/services/product.py": SERVICE}
+    files = {"apps/catalog/services/product.py": SERVICE}
     _measure(
         tmp_path,
         files,
-        "from modules.catalog.services.product import choose\nchoose(True)\nchoose(False)\n",
+        "from apps.catalog.services.product import choose\nchoose(True)\nchoose(False)\n",
     )
     fresh = _measure(
         tmp_path,
         files,
-        "from modules.catalog.services.product import choose\nchoose(True)\n",
+        "from apps.catalog.services.product import choose\nchoose(True)\n",
         data_file="fresh.coverage",
     )
 
@@ -279,9 +279,9 @@ def test_gate_applies_project_coverage_config(tmp_path: Path) -> None:
         {
             "pyproject.toml": '[tool.coverage.run]\ndata_file = "branch.coverage"\n\n'
             '[tool.coverage.report]\nexclude_also = ["if flag:"]\n',
-            "modules/catalog/services/product.py": SERVICE,
+            "apps/catalog/services/product.py": SERVICE,
         },
-        "from modules.catalog.services.product import choose\nchoose(False)\n",
+        "from apps.catalog.services.product import choose\nchoose(False)\n",
         data_file="branch.coverage",
     )
 
@@ -295,8 +295,8 @@ def test_gate_resolves_data_file_option_from_working_directory(tmp_path: Path) -
     root = tmp_path / "project"
     _measure(
         root,
-        {"modules/catalog/services/product.py": SERVICE},
-        "from modules.catalog.services.product import choose\nchoose(True)\n",
+        {"apps/catalog/services/product.py": SERVICE},
+        "from apps.catalog.services.product import choose\nchoose(True)\n",
     )
 
     result = _gate(root, "project/.coverage", cwd=tmp_path)
@@ -308,8 +308,8 @@ def test_gate_resolves_data_file_option_from_working_directory(tmp_path: Path) -
 def test_gate_reports_targets_without_branches(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": "def price():\n    return 100\n"},
-        "from modules.catalog.services.product import price\nprice()\n",
+        {"apps/catalog/services/product.py": "def price():\n    return 100\n"},
+        "from apps.catalog.services.product import price\nprice()\n",
     )
 
     result = _gate(tmp_path)
@@ -321,21 +321,21 @@ def test_gate_reports_targets_without_branches(tmp_path: Path) -> None:
 def test_gate_excludes_shared_event_tests_from_branch_totals(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"shared/events/relay.py": SERVICE, "shared/events/tests/test_relay.py": SERVICE},
-        "from shared.events.relay import choose\nchoose(True)\nchoose(False)\n",
+        {"common/events/relay.py": SERVICE, "common/events/tests/test_relay.py": SERVICE},
+        "from common.events.relay import choose\nchoose(True)\nchoose(False)\n",
     )
 
     result = _gate(tmp_path)
 
     assert result.returncode == 0
-    assert "shared: 2/2 branches (100.00%) PASS" in result.stdout
+    assert "common: 2/2 branches (100.00%) PASS" in result.stdout
 
 
 def test_gate_rejects_branch_percentage_that_rounds_up_to_eighty(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": _choices(201)},
-        "from modules.catalog.services.product import choose\n"
+        {"apps/catalog/services/product.py": _choices(201)},
+        "from apps.catalog.services.product import choose\n"
         "for value in range(119):\n    choose(value)\nchoose(-1)\n",
     )
 
@@ -348,8 +348,8 @@ def test_gate_rejects_branch_percentage_that_rounds_up_to_eighty(tmp_path: Path)
 def test_gate_accepts_exactly_eighty_percent(tmp_path: Path) -> None:
     _measure(
         tmp_path,
-        {"modules/catalog/services/product.py": _choices(5)},
-        "from modules.catalog.services.product import choose\n"
+        {"apps/catalog/services/product.py": _choices(5)},
+        "from apps.catalog.services.product import choose\n"
         "for value in range(-1, 3):\n    choose(value)\n",
     )
 
@@ -364,14 +364,14 @@ def test_parallel_collection_matches_serial_branch_counts(tmp_path: Path) -> Non
         cases = "".join(
             f"def test_{index}():\n    {name}({number})\n\n" for index, number in enumerate(values)
         )
-        return f"from modules.{name}.services.{name} import choose as {name}\n\n" + cases
+        return f"from apps.{name}.services.{name} import choose as {name}\n\n" + cases
 
     _write(
         tmp_path,
         {
             "pytest.ini": "[pytest]\npythonpath = .\n",
-            "modules/catalog/services/catalog.py": _choices(5),
-            "modules/inventory/services/inventory.py": _choices(5),
+            "apps/catalog/services/catalog.py": _choices(5),
+            "apps/inventory/services/inventory.py": _choices(5),
             "tests/test_catalog_low.py": tests("catalog", range(-1, 2)),
             "tests/test_catalog_high.py": tests("catalog", range(2, 5)),
             "tests/test_inventory.py": tests("inventory", range(-1, 1)),

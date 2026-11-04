@@ -11,7 +11,7 @@ export PYTHONUTF8 := 1
 # Cùng lệnh với job backend của CI: pytest-cov gom coverage từ các worker xdist, rồi cổng
 # branch coverage từng module (12 mục 8)
 test:
-	uv run pytest -n auto --cov=modules --cov=shared --cov-report=
+	uv run pytest -n auto --cov=apps --cov=common --cov-report=
 	uv run python scripts/check_module_coverage.py
 
 lint:

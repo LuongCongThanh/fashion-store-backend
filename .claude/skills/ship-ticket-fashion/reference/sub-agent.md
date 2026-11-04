@@ -7,7 +7,7 @@ Every sub-agent this skill spawns reads this file first. The main session only r
 - **Write before returning.** Everything a later step needs goes to disk: state (`slices.<id>.status`, `handoff`, `tests`, `next`, `untestable`) and commits. Reviewers only return a report; the main session writes `<K>-review.md`.
 - **Decisions belong to the user.** On *Needs user* (`reference/rules.md`): record it in state `notes`, return it on the *Needs user* line and stop. The answer comes back via `SendMessage`.
 - **User-owned fields**: `gates`, `userRequested` are written by the main session.
-- **Unplanned change to `shared/`**: *Needs user* with the blast radius (`git grep -l "<module>" -- "*.py" | wc -l` and which modules), plus the option *keep `shared` unchanged* and what the AC loses with it.
+- **Unplanned change to `common/`**: *Needs user* with the blast radius (`git grep -l "<module>" -- "*.py" | wc -l` and which modules), plus the option *keep `common` unchanged* and what the AC loses with it.
 - **Return ≤ 15 lines**, exactly:
 
   ```

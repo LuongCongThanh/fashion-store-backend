@@ -27,7 +27,7 @@
 
 | Mã | Chỗ | Kết luận | Lý do |
 | --- | --- | --- | --- |
-| S1 | `shared/api/x.py:12` | đã sửa | <vài chữ> |
+| S1 | `common/api/x.py:12` | đã sửa | <vài chữ> |
 
 #### Commit
 

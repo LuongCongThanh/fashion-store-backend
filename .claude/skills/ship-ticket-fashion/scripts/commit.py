@@ -1,7 +1,7 @@
 """Commit một task của ticket: add đúng các file, gắn trailer Refs + Task, hook chạy trong log.
 
 python3 .claude/skills/ship-ticket-fashion/scripts/commit.py <T> --task S1 \
-    -m "feat(shared): add x" [--body "Vì sao …"] -- <file> [<file> …]
+    -m "feat(common): add x" [--body "Vì sao …"] -- <file> [<file> …]
 Task: plan | S<n> (slice trong state) | R1 | R2 | sync | retro | close | ci (templates/commit-msg.md).
 Hook pre-commit sửa file (ruff --fix, end-of-file) thì add lại và thử thêm một lần.
 In `COMMIT <sha> [<task>] <subject> · <n> file`, hoặc `RED` kèm đoạn cuối log.

@@ -4,8 +4,10 @@
 reviewer vẫn phải đọc payload của mọi sự kiện mới.
 """
 
-from shared.events import DomainEvent
-from shared.events.registry import autodiscover, registry
+from django.apps import apps
+
+from common.events import DomainEvent
+from common.events.registry import autodiscover, registry
 
 FORBIDDEN_SUBSTRINGS = ("email", "phone", "address", "name", "token", "password")
 
@@ -36,8 +38,8 @@ def test_forbidden_field_names_detected() -> None:
 
 
 def test_registered_event_payloads_have_no_pii() -> None:
-    # `ModulesConfig.ready()` đã nạp; gọi lại để test không phụ thuộc thứ tự khởi động
-    autodiscover("modules")
+    # `CommonConfig.ready()` đã nạp; gọi lại để test không phụ thuộc thứ tự khởi động
+    autodiscover(config.name for config in apps.get_app_configs())
 
     leaks = {
         f"{cls.event_type} v{cls.schema_version}": names

@@ -117,7 +117,7 @@ jobs:
       # pytest-cov gom coverage từ các worker xdist vào .coverage (12 mục 8)
       - name: Test
         if: steps.detect.outputs.present == 'true'
-        run: pytest -n auto --cov=modules --cov=shared --cov-report=
+        run: pytest -n auto --cov=apps --cov=common --cov-report=
       - name: Coverage
         if: steps.detect.outputs.present == 'true'
         run: python scripts/check_module_coverage.py

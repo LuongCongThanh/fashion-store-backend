@@ -23,4 +23,4 @@ Task: <task>
 
 `type`, `scope`, `BREAKING CHANGE`: `docs/architecture/11-git-workflow.md` section 3. The `commitizen` hook blocks malformed messages. No AI attribution lines (`Co-Authored-By` naming an assistant) and no assistant names in commit text.
 
-Example: `feat(shared): return ErrorDTO for unhandled API errors` + `Task: S2`
+Example: `feat(common): return ErrorDTO for unhandled API errors` + `Task: S2`

@@ -18,15 +18,17 @@ app.conf.result_expires = None
 
 # Lịch job thêm ở ticket tạo ra job đó; giờ theo CELERY_TIMEZONE
 app.conf.beat_schedule = {
-    "shared.purge_old_outbox_events": {
-        "task": "shared.purge_old_outbox_events",
+    "common.purge_old_outbox_events": {
+        "task": "common.purge_old_outbox_events",
         "schedule": crontab(hour=3, minute=30),
     },
-    "shared.purge_idempotency_keys": {
-        "task": "shared.purge_idempotency_keys",
+    "common.purge_idempotency_keys": {
+        "task": "common.purge_idempotency_keys",
         "schedule": crontab(hour=3, minute=45),
     },
 }
 
-# Mặc định Celery chỉ tìm <app>.tasks, nên liệt kê từng package có tasks.py (02 mục 5)
-app.autodiscover_tasks(["shared", "shared.events", "shared.idempotency"])
+# Mặc định Celery tìm <app>.tasks của mọi app trong INSTALLED_APPS; package con có tasks.py
+# của common liệt kê thêm (02 mục 5)
+app.autodiscover_tasks()
+app.autodiscover_tasks(["common.events", "common.idempotency"])

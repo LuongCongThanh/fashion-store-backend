@@ -22,7 +22,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-from shared.privacy import parse_keyring
+from common.security.privacy import parse_keyring
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -55,7 +55,7 @@ class Env(BaseSettings):
     # 1 hoặc 2 secret cách nhau bằng dấu phẩy để xoay không gián đoạn (05 mục 5)
     BFF_SHARED_SECRET: Annotated[tuple[SecretStr, ...], NoDecode]
     # `kid|private-key-base64|public-key-base64`, nhiều khoá cách nhau bằng dấu phẩy.
-    # Để rỗng ở máy chưa làm M1; deploy check `shared.E002` từ chối keyring rỗng.
+    # Để rỗng ở máy chưa làm M1; deploy check `common.E002` từ chối keyring rỗng.
     JWT_SIGNING_KEYS: SecretStr = SecretStr("")
     JWT_ISSUER: str = "fashion-store"
     JWT_AUDIENCE_BACKOFFICE: str = "backoffice"
@@ -164,7 +164,7 @@ def jwt_keyring(raw: str) -> dict[str, dict[str, str]]:
 
     Key đầu phát token mới nên phải có private key; các key sau có thể chỉ có public key để
     verify token cũ khi xoay khoá. Mọi key được load thử là Ed25519. Chuỗi rỗng trả keyring rỗng
-    để local/CI chưa cần JWT vẫn chạy; deploy check `shared.E002` chặn keyring rỗng khi triển khai.
+    để local/CI chưa cần JWT vẫn chạy; deploy check `common.E002` chặn keyring rỗng khi triển khai.
 
     Raises:
         ImproperlyConfigured: `kid` rỗng, trùng hoặc chứa khoảng trắng; base64/PEM sai; key không

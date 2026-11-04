@@ -1,12 +1,12 @@
 """Cấu hình chung mọi môi trường."""
 
+from common.observability.logging import configure_logging
 from config.env import BASE_DIR, database_config, get_env, jwt_keyring
-from shared.logging import configure_logging
 
 env = get_env()
 
 SECRET_KEY = env.DJANGO_SECRET_KEY.get_secret_value()
-# Keyring cho shared.privacy.pii_hmac; khoá đầu dùng cho giá trị mới (ADR 0016)
+# Keyring cho common.security.privacy.pii_hmac; khoá đầu dùng cho giá trị mới (ADR 0016)
 PII_HMAC_KEYS = tuple((kid, secret.get_secret_value()) for kid, secret in env.PII_HMAC_KEYS)
 # Secret Next.js gửi trong X-BFF-Secret; 2 giá trị khi đang xoay (05 mục 5)
 BFF_SHARED_SECRETS = tuple(secret.get_secret_value() for secret in env.BFF_SHARED_SECRET)
@@ -29,12 +29,13 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "django_celery_beat",
     "django_structlog",
-    "shared",
-    "modules",
+    "common",
+    "apps.geo",
+    "apps.identity",
 ]
 
 # Tài khoản là custom user không kế thừa PermissionsMixin (03 mục 2.1)
-AUTH_USER_MODEL = "modules.Account"
+AUTH_USER_MODEL = "identity.Account"
 # Độ mạnh mật khẩu (05 mục 3); Account không có username, first_name nên so với email, full_name
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -62,7 +63,7 @@ MIDDLEWARE = [
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     # Gán request.client_ip cho throttle; đứng trước RequestMiddleware để log dùng được
-    "shared.api.client_ip.ClientIpMiddleware",
+    "common.api.client_ip.ClientIpMiddleware",
     "django_structlog.middlewares.RequestMiddleware",
 ]
 
@@ -114,13 +115,13 @@ REST_FRAMEWORK: dict[str, object] = {
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "UNAUTHENTICATED_USER": None,
     # Thêm ErrorDTO và response lỗi mặc định cho mọi operation (04 mục 5.6)
-    "DEFAULT_SCHEMA_CLASS": "shared.api.schema.AutoSchema",
-    "DEFAULT_PAGINATION_CLASS": "shared.api.pagination.StandardPagination",
-    "EXCEPTION_HANDLER": "shared.api.exception_handler.exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "common.api.schema.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "common.api.pagination.StandardPagination",
+    "EXCEPTION_HANDLER": "common.api.exception_handler.exception_handler",
     # Khoá theo pii_hmac(request.client_ip) hoặc Tài khoản (05 mục 5)
     "DEFAULT_THROTTLE_CLASSES": [
-        "shared.api.throttling.AnonThrottle",
-        "shared.api.throttling.AccountThrottle",
+        "common.api.throttling.AnonThrottle",
+        "common.api.throttling.AccountThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "120/min", "account": "300/min"},
 }
