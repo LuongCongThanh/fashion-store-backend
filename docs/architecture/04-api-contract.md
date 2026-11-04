@@ -363,6 +363,7 @@ Response lỗi mặc định do `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_
 | store POST auth/google | GoogleInput | 200 TokenPairDTO |
 | store/backoffice POST auth/login; auth/refresh | LoginInput; RefreshInput | 200 TokenPairDTO |
 | store/backoffice POST auth/logout | LogoutInput | 204; dùng refresh token để logout kể cả access token hết hạn |
+| backoffice GET auth/me | None | 200 AccountDTO; yêu cầu `IsStaff`, đọc trạng thái auth từ PostgreSQL qua `JWTAuthentication` |
 | store POST auth/verify-email | EmailTokenInput | 204 |
 | store POST auth/verify-email/resend; store/backoffice POST auth/password/forgot | EmailInput | 202 AcceptedDTO |
 | store/backoffice POST auth/password/reset | PasswordResetInput | 204 |
