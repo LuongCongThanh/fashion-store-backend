@@ -7,11 +7,11 @@ import json
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
-from unittest.mock import patch
 
 import jwt
 import pytest
 import yaml
+from django.conf import settings
 from django.core.management import call_command
 from django.db import OperationalError, connection
 from django.utils import timezone
@@ -41,19 +41,9 @@ ACCOUNT_DTO_KEYS = {
 ERROR_DTO_REF = {"$ref": "#/components/schemas/ErrorDTO"}
 
 
-class AllowLedger:
-    def reserve(self, **kwargs: object) -> object:
-        return object()
-
-    def complete_failure(self, reservation: object) -> None:
-        pass
-
-    def complete_success(self, reservation: object) -> None:
-        pass
-
-
-def _access_token(account: Account, *, audience: str = "backoffice", minutes_ago: int = 0) -> str:
+def _access_token(account: Account, *, audience: str | None = None, minutes_ago: int = 0) -> str:
     now = timezone.now() - timedelta(minutes=minutes_ago)
+    audience = audience or settings.JWT_AUDIENCE_BACKOFFICE
     return issue_token_pair(account=account, audience=audience, now=now).access_token
 
 
@@ -75,15 +65,13 @@ def _claims(token: str) -> dict[str, Any]:
     return claims
 
 
+@pytest.mark.usefixtures("allow_login_ledger")
 @pytest.mark.parametrize("kind", [AccountKind.STAFF, AccountKind.ADMIN])
 def test_login_access_token_reads_me(kind: str) -> None:
     account = AccountFactory.create(kind=kind, full_name="Nhân viên")
-    with patch(
-        "modules.identity.api.backoffice.views.get_login_ledger", return_value=AllowLedger()
-    ):
-        login = APIClient().post(
-            LOGIN_PATH, {"email": account.email, "password": DEFAULT_PASSWORD}, format="json"
-        )
+    login = APIClient().post(
+        LOGIN_PATH, {"email": account.email, "password": DEFAULT_PASSWORD}, format="json"
+    )
 
     response = _get_me(login.data["access_token"])
 
@@ -128,7 +116,9 @@ def test_me_rejects_store_audience_token() -> None:
 
 def test_me_rejects_refresh_token_as_bearer() -> None:
     account = AccountFactory.create()
-    pair = issue_token_pair(account=account, audience="backoffice", now=timezone.now())
+    pair = issue_token_pair(
+        account=account, audience=settings.JWT_AUDIENCE_BACKOFFICE, now=timezone.now()
+    )
 
     response = _get_me(pair.refresh_token)
 
@@ -238,16 +228,15 @@ def test_me_returns_503_when_auth_state_unavailable() -> None:
     assert response.data["error"]["code"] == "AUTH_STATE_UNAVAILABLE"
 
 
+@pytest.mark.usefixtures("allow_login_ledger")
 def test_login_ignores_bearer_header() -> None:
     account = AccountFactory.create()
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION="Bearer not-a-jwt")
-    with patch(
-        "modules.identity.api.backoffice.views.get_login_ledger", return_value=AllowLedger()
-    ):
-        response = client.post(
-            LOGIN_PATH, {"email": account.email, "password": DEFAULT_PASSWORD}, format="json"
-        )
+
+    response = client.post(
+        LOGIN_PATH, {"email": account.email, "password": DEFAULT_PASSWORD}, format="json"
+    )
 
     assert response.status_code == 200
 

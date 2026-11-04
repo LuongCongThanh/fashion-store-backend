@@ -3,13 +3,23 @@
 Mỗi biến được khai báo ở mốc đầu tiên dùng tới nó; `.env.example` chỉ chứa biến đã khai báo.
 """
 
+import base64
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from django.core.exceptions import ImproperlyConfigured
-from pydantic import SecretStr, ValidationError, field_validator
+from pydantic import (
+    NonNegativeInt,
+    PositiveInt,
+    SecretStr,
+    ValidationError,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from shared.privacy import parse_keyring
@@ -45,13 +55,13 @@ class Env(BaseSettings):
     # 1 hoặc 2 secret cách nhau bằng dấu phẩy để xoay không gián đoạn (05 mục 5)
     BFF_SHARED_SECRET: Annotated[tuple[SecretStr, ...], NoDecode]
     # `kid|private-key-base64|public-key-base64`, nhiều khoá cách nhau bằng dấu phẩy.
-    # Để rỗng ở máy chưa làm M1; deploy check và token codec từ chối keyring rỗng.
+    # Để rỗng ở máy chưa làm M1; deploy check `shared.E002` từ chối keyring rỗng.
     JWT_SIGNING_KEYS: SecretStr = SecretStr("")
     JWT_ISSUER: str = "fashion-store"
     JWT_AUDIENCE_BACKOFFICE: str = "backoffice"
-    JWT_ACCESS_TTL_SECONDS: int = 600
-    JWT_BACKOFFICE_REFRESH_TTL_SECONDS: int = 43_200
-    JWT_LEEWAY_SECONDS: int = 30
+    JWT_ACCESS_TTL_SECONDS: PositiveInt = 600
+    JWT_BACKOFFICE_REFRESH_TTL_SECONDS: PositiveInt = 43_200
+    JWT_LEEWAY_SECONDS: NonNegativeInt = 30
 
     @field_validator("PII_HMAC_KEYS", mode="before")
     @classmethod
@@ -132,3 +142,50 @@ def database_config(url: str, host: str = "") -> dict[str, Any]:
         "PORT": str(port),
         "OPTIONS": dict(parse_qsl(parts.query)),
     }
+
+
+def _load_ed25519_pair(*, private_pem: str, public_pem: str) -> None:
+    """Load thử key Ed25519; ném ValueError nếu không phải Ed25519 hoặc private/public lệch cặp."""
+    public_key = serialization.load_pem_public_key(public_pem.encode())
+    if not isinstance(public_key, Ed25519PublicKey):
+        raise ValueError
+    if not private_pem:
+        return
+    private_key = serialization.load_pem_private_key(private_pem.encode(), password=None)
+    if not isinstance(private_key, Ed25519PrivateKey):
+        raise ValueError
+    raw = serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    if private_key.public_key().public_bytes(*raw) != public_key.public_bytes(*raw):
+        raise ValueError
+
+
+def jwt_keyring(raw: str) -> dict[str, dict[str, str]]:
+    """Đọc keyring JWT `kid|private-key-base64|public-key-base64,...` (05 mục 2).
+
+    Key đầu phát token mới nên phải có private key; các key sau có thể chỉ có public key để
+    verify token cũ khi xoay khoá. Mọi key được load thử là Ed25519. Chuỗi rỗng trả keyring rỗng
+    để local/CI chưa cần JWT vẫn chạy; deploy check `shared.E002` chặn keyring rỗng khi triển khai.
+
+    Raises:
+        ImproperlyConfigured: `kid` rỗng, trùng hoặc chứa khoảng trắng; base64/PEM sai; key không
+            phải Ed25519; private/public lệch cặp; key đầu thiếu private key.
+    """
+    keys: dict[str, dict[str, str]] = {}
+    if not raw:
+        return keys
+    try:
+        for entry in raw.split(","):
+            raw_kid, private_b64, public_b64 = entry.split("|", 2)
+            kid = raw_kid.strip()
+            if not kid or kid in keys or any(char.isspace() for char in kid):
+                raise ValueError
+            private_pem = base64.b64decode(private_b64, validate=True).decode()
+            public_pem = base64.b64decode(public_b64, validate=True).decode()
+            if not keys and not private_pem:
+                raise ValueError
+            _load_ed25519_pair(private_pem=private_pem, public_pem=public_pem)
+            keys[kid] = {"private_key": private_pem, "public_key": public_pem}
+    except ValueError, TypeError, UnsupportedAlgorithm:
+        # from None: exception gốc có thể chứa byte của private key (13 mục 10)
+        raise ImproperlyConfigured("JWT_SIGNING_KEYS sai định dạng") from None
+    return keys

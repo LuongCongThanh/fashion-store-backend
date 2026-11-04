@@ -1,6 +1,6 @@
 """Cấu hình chung mọi môi trường."""
 
-from config.env import BASE_DIR, database_config, get_env
+from config.env import BASE_DIR, database_config, get_env, jwt_keyring
 from shared.logging import configure_logging
 
 env = get_env()
@@ -16,31 +16,8 @@ JWT_ACCESS_TTL_SECONDS = env.JWT_ACCESS_TTL_SECONDS
 JWT_BACKOFFICE_REFRESH_TTL_SECONDS = env.JWT_BACKOFFICE_REFRESH_TTL_SECONDS
 JWT_LEEWAY_SECONDS = env.JWT_LEEWAY_SECONDS
 
-
-def _jwt_keyring(raw: str) -> dict[str, dict[str, str]]:
-    """Đọc keyring JWT mà không đưa key vào exception hoặc log."""
-    import base64
-
-    keys: dict[str, dict[str, str]] = {}
-    if not raw:
-        return keys
-    try:
-        for entry in raw.split(","):
-            kid, private, public = entry.split("|", 2)
-            if not kid or kid in keys:
-                raise ValueError
-            keys[kid] = {
-                "private_key": base64.b64decode(private).decode() if private else "",
-                "public_key": base64.b64decode(public).decode(),
-            }
-    except (ValueError, UnicodeDecodeError) as exc:
-        from django.core.exceptions import ImproperlyConfigured
-
-        raise ImproperlyConfigured("JWT_SIGNING_KEYS sai định dạng") from exc
-    return keys
-
-
-JWT_SIGNING_KEYS = _jwt_keyring(env.JWT_SIGNING_KEYS.get_secret_value())
+# Keyring JWT đã kiểm: `kid` -> PEM; khoá đầu phát token mới (05 mục 2)
+JWT_SIGNING_KEYS = jwt_keyring(env.JWT_SIGNING_KEYS.get_secret_value())
 DEBUG = False
 ALLOWED_HOSTS: list[str] = []
 

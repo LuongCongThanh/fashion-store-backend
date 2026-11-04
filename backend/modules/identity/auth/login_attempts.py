@@ -1,14 +1,18 @@
 """Failure ledger Redis atomic cho đăng nhập (05 mục 5)."""
 
 import math
-import time
-from dataclasses import dataclass
-from typing import Any, Protocol
+import uuid
+from dataclasses import dataclass, replace
+from functools import cache
+from typing import Protocol, cast
 
 import structlog
 from django.conf import settings
+from django.utils import timezone
 from redis import Redis
+from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
+from redis.retry import Retry
 
 from shared.privacy import pii_hmac
 
@@ -18,36 +22,40 @@ WINDOW_MS = 15 * 60 * 1000
 LEASE_MS = 30 * 1000
 EMAIL_LIMIT = 5
 IP_LIMIT = 20
+# Redis treo không được giữ request đăng nhập: hết hạn thì fail-open như Redis tắt
+REDIS_TIMEOUT_SECONDS = 0.5
 
+# KEYS: email failures, email reservations, ip failures, ip reservations.
+# Mỗi chiều bị chặn khi failures + suất còn chờ >= hạn mức; Retry-After là lúc chiều đó còn dưới
+# hạn mức: phần tử thứ (count - limit + 1) theo thời điểm hết hạn. Nhiều chiều bị chặn thì lấy
+# thời gian chờ dài nhất.
 RESERVE_SCRIPT = """
 local now = tonumber(ARGV[2])
-local window_start = now - tonumber(ARGV[3])
-local lease_start = now - tonumber(ARGV[4])
-redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', window_start)
-redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', lease_start)
-redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', window_start)
-redis.call('ZREMRANGEBYSCORE', KEYS[4], '-inf', lease_start)
-local email_count = redis.call('ZCARD', KEYS[1]) + redis.call('ZCARD', KEYS[2])
-local ip_count = redis.call('ZCARD', KEYS[3]) + redis.call('ZCARD', KEYS[4])
-if email_count >= tonumber(ARGV[5]) or ip_count >= tonumber(ARGV[6]) then
-  local earliest = now
-  local values = {redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES'),
-                  redis.call('ZRANGE', KEYS[2], 0, 0, 'WITHSCORES'),
-                  redis.call('ZRANGE', KEYS[3], 0, 0, 'WITHSCORES'),
-                  redis.call('ZRANGE', KEYS[4], 0, 0, 'WITHSCORES')}
-  local retry = tonumber(ARGV[3])
-  for i, value in ipairs(values) do
-    if #value > 0 then
-      local duration = (i == 2 or i == 4) and tonumber(ARGV[4]) or tonumber(ARGV[3])
-      local ttl = tonumber(value[2]) + duration - now
-      if ttl < retry then retry = ttl end
-    end
-  end
+local window = tonumber(ARGV[3])
+local lease = tonumber(ARGV[4])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now - lease)
+redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', now - window)
+redis.call('ZREMRANGEBYSCORE', KEYS[4], '-inf', now - lease)
+local function wait_ms(failures_key, reservations_key, limit)
+  local failures = redis.call('ZRANGE', failures_key, 0, -1, 'WITHSCORES')
+  local reservations = redis.call('ZRANGE', reservations_key, 0, -1, 'WITHSCORES')
+  local count = (#failures + #reservations) / 2
+  if count < limit then return 0 end
+  local expiries = {}
+  for i = 2, #failures, 2 do table.insert(expiries, tonumber(failures[i]) + window) end
+  for i = 2, #reservations, 2 do table.insert(expiries, tonumber(reservations[i]) + lease) end
+  table.sort(expiries)
+  return expiries[count - limit + 1] - now
+end
+local retry = math.max(wait_ms(KEYS[1], KEYS[2], tonumber(ARGV[5])),
+                       wait_ms(KEYS[3], KEYS[4], tonumber(ARGV[6])))
+if retry > 0 then
   return {0, math.max(1, math.ceil(retry / 1000))}
 end
 redis.call('ZADD', KEYS[2], now, ARGV[1])
 redis.call('ZADD', KEYS[4], now, ARGV[1])
-for i = 1, 4 do redis.call('PEXPIRE', KEYS[i], tonumber(ARGV[3]) + tonumber(ARGV[4])) end
+for i = 1, 4 do redis.call('PEXPIRE', KEYS[i], window + lease) end
 return {1, 0}
 """
 
@@ -60,16 +68,23 @@ for i = 1, 4 do redis.call('PEXPIRE', KEYS[i], ARGV[3]) end
 return 1
 """
 
+# Chỉ xoá failure email có thời điểm không sau lần thành công; lịch sử IP giữ nguyên
 SUCCESS_SCRIPT = """
 redis.call('ZREM', KEYS[2], ARGV[1])
 redis.call('ZREM', KEYS[4], ARGV[1])
-redis.call('DEL', KEYS[1])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[2])
+return 1
+"""
+
+RELEASE_SCRIPT = """
+redis.call('ZREM', KEYS[2], ARGV[1])
+redis.call('ZREM', KEYS[4], ARGV[1])
 return 1
 """
 
 
 class Script(Protocol):
-    def __call__(self, *, keys: list[str], args: list[str | int | float]) -> object: ...
+    def __call__(self, *, keys: list[str], args: list[str | int]) -> object: ...
 
 
 class RedisClient(Protocol):
@@ -84,7 +99,9 @@ class LoginRateLimited(Exception):
 
 @dataclass(frozen=True)
 class LoginReservation:
-    request_id: str
+    """Suất thử mật khẩu; `enforced=False` khi Redis lỗi và ledger fail-open."""
+
+    attempt_id: str
     email_key: str
     ip_key: str
     enforced: bool
@@ -99,52 +116,91 @@ class LoginReservation:
         ]
 
 
-class LoginAttemptLedger:
-    reserve_script = RESERVE_SCRIPT
+def _now_ms() -> int:
+    return math.floor(timezone.now().timestamp() * 1000)
 
+
+def _log_ledger_unavailable(operation: str) -> None:
+    # Log event là nguồn metric cảnh báo; không kèm email, IP hay key (05 mục 5)
+    logger.warning("login_failure_ledger_unavailable", operation=operation)
+
+
+def _run_script(
+    operation: str, script: Script, reservation: LoginReservation, args: list[str | int]
+) -> None:
+    if not reservation.enforced:
+        return
+    try:
+        script(keys=reservation.keys, args=args)
+    except RedisError, OSError:
+        _log_ledger_unavailable(operation)
+
+
+class LoginAttemptLedger:
     def __init__(self, client: RedisClient) -> None:
         self._reserve = client.register_script(RESERVE_SCRIPT)
         self._failure = client.register_script(FAILURE_SCRIPT)
         self._success = client.register_script(SUCCESS_SCRIPT)
+        self._release = client.register_script(RELEASE_SCRIPT)
 
-    def reserve(self, *, email: str, client_ip: str, request_id: str) -> LoginReservation:
-        email_key = f"login:{{email:{pii_hmac(email.strip().lower())}}}"
-        ip_key = f"login:{{ip:{pii_hmac(client_ip)}}}"
-        reservation = LoginReservation(request_id, email_key, ip_key, True)
-        now_ms = math.floor(time.time() * 1000)
+    def reserve(self, *, email: str, client_ip: str) -> LoginReservation:
+        """Giữ suất thử mật khẩu cho email/IP; Redis lỗi thì trả suất không enforced.
+
+        Raises:
+            LoginRateLimited: Email hoặc IP đã chạm hạn mức trong cửa sổ trượt.
+        """
+        # attempt_id sinh mới mỗi lần thử: id do client gửi có thể trùng và gộp nhiều lần thử
+        reservation = LoginReservation(
+            attempt_id=uuid.uuid4().hex,
+            email_key=f"login:{{email:{pii_hmac(email.strip().lower())}}}",
+            ip_key=f"login:{{ip:{pii_hmac(client_ip)}}}",
+            enforced=True,
+        )
+        args: list[str | int] = [
+            reservation.attempt_id,
+            _now_ms(),
+            WINDOW_MS,
+            LEASE_MS,
+            EMAIL_LIMIT,
+            IP_LIMIT,
+        ]
         try:
-            result: Any = self._reserve(
-                keys=reservation.keys,
-                args=[request_id, now_ms, WINDOW_MS, LEASE_MS, EMAIL_LIMIT, IP_LIMIT],
-            )
-            if int(result[0]) == 0:
-                raise LoginRateLimited(int(result[1]))
-            return reservation
-        except LoginRateLimited:
-            raise
-        except RedisError, ConnectionError, OSError, TimeoutError:
-            logger.warning("login_failure_ledger_unavailable", metric=1)
-            return LoginReservation(request_id, email_key, ip_key, False)
+            result = self._reserve(keys=reservation.keys, args=args)
+        except RedisError, OSError:
+            _log_ledger_unavailable("reserve")
+            return replace(reservation, enforced=False)
+        # Lua trả {1, 0} khi giữ được suất, {0, retry_after_seconds} khi bị chặn
+        is_reserved, retry_after = cast("list[int]", result)
+        if not is_reserved:
+            raise LoginRateLimited(retry_after)
+        return reservation
 
     def complete_failure(self, reservation: LoginReservation) -> None:
-        if not reservation.enforced:
-            return
-        try:
-            self._failure(
-                keys=reservation.keys,
-                args=[reservation.request_id, math.floor(time.time() * 1000), WINDOW_MS],
-            )
-        except RedisError, ConnectionError, OSError, TimeoutError:
-            logger.warning("login_failure_ledger_unavailable", metric=1)
+        """Chuyển suất thành một failure của cả email và IP."""
+        args: list[str | int] = [reservation.attempt_id, _now_ms(), WINDOW_MS]
+        _run_script("complete_failure", self._failure, reservation, args)
 
     def complete_success(self, reservation: LoginReservation) -> None:
-        if not reservation.enforced:
-            return
-        try:
-            self._success(keys=reservation.keys, args=[reservation.request_id])
-        except RedisError, ConnectionError, OSError, TimeoutError:
-            logger.warning("login_failure_ledger_unavailable", metric=1)
+        """Trả suất và xoá failure email đã ghi tới thời điểm thành công."""
+        args: list[str | int] = [reservation.attempt_id, _now_ms()]
+        _run_script("complete_success", self._success, reservation, args)
+
+    def release(self, reservation: LoginReservation) -> None:
+        """Trả suất mà không ghi failure: lần thử dừng vì lỗi hạ tầng, không phải sai mật khẩu."""
+        _run_script("release", self._release, reservation, [reservation.attempt_id])
+
+
+@cache
+def _redis_client(url: str) -> Redis:
+    # Một client (connection pool) cho mỗi URL, không tạo pool mới mỗi request
+    return Redis.from_url(
+        url,
+        decode_responses=True,
+        socket_timeout=REDIS_TIMEOUT_SECONDS,
+        socket_connect_timeout=REDIS_TIMEOUT_SECONDS,
+        retry=Retry(NoBackoff(), 0),
+    )
 
 
 def get_login_ledger() -> LoginAttemptLedger:
-    return LoginAttemptLedger(Redis.from_url(settings.REDIS_URL, decode_responses=True))
+    return LoginAttemptLedger(_redis_client(settings.REDIS_URL))

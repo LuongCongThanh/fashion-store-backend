@@ -17,7 +17,6 @@ from modules.identity.auth.login_attempts import (
 )
 from modules.identity.services.auth import login_backoffice
 from shared.api.client_ip import get_client_ip
-from shared.api.exception_handler import current_request_id
 from shared.api.permissions import IsStaff
 from shared.api.schema import ErrorOutput
 
@@ -45,7 +44,6 @@ class BackofficeLoginView(APIView):
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 client_ip=get_client_ip(request),
-                request_id=current_request_id(),
                 ledger=get_login_ledger(),
             )
         except LoginRateLimited as exc:

@@ -1,12 +1,17 @@
 """Factory của identity (13 mục 9, 12 mục 4)."""
 
+import hashlib
+import uuid
+from datetime import timedelta
+
 import factory
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from modules.identity.constants import AccountKind
-from modules.identity.models import Account
+from modules.identity.models import Account, RefreshToken
 
 DEFAULT_PASSWORD = "Fashion-Store-2026"
 
@@ -23,6 +28,19 @@ class AccountFactory(DjangoModelFactory[Account]):
 
     class Params:
         admin = factory.Trait(kind=AccountKind.ADMIN)
+
+
+class RefreshTokenFactory(DjangoModelFactory[RefreshToken]):
+    """Refresh token gốc của một family, chưa dùng và còn hạn 12 giờ."""
+
+    class Meta:
+        model = RefreshToken
+
+    jti = factory.LazyFunction(uuid.uuid4)
+    account = factory.SubFactory(AccountFactory)
+    family_id = factory.LazyFunction(uuid.uuid4)
+    token_hash = factory.LazyFunction(lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest())
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=12))
 
 
 def jwt_test_keyring() -> dict[str, dict[str, str]]:

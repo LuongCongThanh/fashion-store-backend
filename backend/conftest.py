@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -23,7 +24,9 @@ def jwt_keyring(settings: Any) -> dict[str, dict[str, str]]:
 
 def _backoffice_client(account: Account) -> APIClient:
     # Access token thật qua JWTAuthentication, không force_authenticate (05 mục 9)
-    pair = issue_token_pair(account=account, audience="backoffice", now=timezone.now())
+    pair = issue_token_pair(
+        account=account, audience=settings.JWT_AUDIENCE_BACKOFFICE, now=timezone.now()
+    )
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {pair.access_token}")
     return client
