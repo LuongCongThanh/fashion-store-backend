@@ -26,7 +26,7 @@ Quy ước viết code test (factory, mock, thời gian) nằm ở [13-python-dj
 | 3 | Handler và outbox | `apps/<module>/tests/test_handlers.py`, `common/tests/events/` | Mỗi sự kiện chỉ xử lý một lần, sự kiện tới sai thứ tự, consumer xử lý đúng từng loại lỗi, relay gửi đúng và gửi lại được |
 | 4 | API | `apps/<module>/tests/api/<store\|backoffice\|webhooks>/test_views.py` | Phân quyền, `X-Lookup-Token`, định dạng lỗi, `Idempotency-Key`, throttle theo `X-Client-IP`, N+1 query |
 | 5 | Bảo mật auth/JWT | `apps/identity/tests/auth/test_tokens.py` | Theo OWASP JWT Cheat Sheet |
-| 6 | Adapter nhà cung cấp | `infrastructure/tests/<payment\|shipping\|google>/test_<tên>.py` | Chữ ký VNPay/MoMo, gọi HTTP lỗi, IPN bất thường |
+| 6 | Adapter nhà cung cấp | `infrastructure/<payment\|shipping\|google>/tests/test_<tên>.py` | Chữ ký VNPay/MoMo, gọi HTTP lỗi, IPN bất thường |
 | 7 | Flow xuyên module | `tests/flows/test_<flow>_flow.py` | Một luồng nghiệp vụ đi hết từ đầu đến cuối qua HTTP |
 
 Ngoài pytest, CI còn có **cổng kiểm tra tĩnh** (mục 8).

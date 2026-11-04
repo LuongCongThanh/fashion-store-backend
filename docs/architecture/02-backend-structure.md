@@ -208,7 +208,7 @@ Test nằm trong `tests/` của app sở hữu. **Đường dẫn test soi gươ
 | `apps/promotions/services.py` | `apps/promotions/tests/test_services.py` |
 | `apps/identity/api/backoffice/views.py` | `apps/identity/tests/api/backoffice/test_views.py` |
 | `common/api/pagination.py` | `common/tests/api/test_pagination.py` |
-| `infrastructure/payment/vnpay.py` | `infrastructure/tests/payment/test_vnpay.py` |
+| `infrastructure/payment/vnpay.py` | `infrastructure/payment/tests/test_vnpay.py` |
 
 - Test không gắn một file nguồn (tranh chấp khoá nhiều connection): `tests/concurrency/` của app.
 - Factory: `apps/<module>/tests/factories.py`; factory nền: `common/tests/factories.py`.
