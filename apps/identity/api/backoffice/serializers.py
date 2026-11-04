@@ -21,6 +21,27 @@ class LoginInput(serializers.Serializer[Any]):
     password = serializers.CharField(write_only=True, trim_whitespace=False)
 
 
+EXAMPLE_REFRESH_TOKEN = "eyJhbGciOiJFZERTQSJ9.example-refresh.signature"  # noqa: S105 -- ví dụ Swagger, không phải token thật
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample("Refresh", value={"refresh_token": EXAMPLE_REFRESH_TOKEN}, request_only=True)
+    ]
+)
+class RefreshInput(serializers.Serializer[Any]):
+    refresh_token = serializers.CharField(write_only=True)
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample("Logout", value={"refresh_token": EXAMPLE_REFRESH_TOKEN}, request_only=True)
+    ]
+)
+class LogoutInput(serializers.Serializer[Any]):
+    refresh_token = serializers.CharField(write_only=True)
+
+
 @extend_schema_serializer(
     component_name="TokenPairDTO",
     examples=[

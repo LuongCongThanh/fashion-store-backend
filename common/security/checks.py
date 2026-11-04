@@ -35,3 +35,17 @@ def check_jwt_signing_keys(**kwargs: Any) -> list[CheckMessage]:
     if settings.JWT_SIGNING_KEYS:
         return []
     return [Error("JWT_SIGNING_KEYS rỗng: cần ít nhất một khoá Ed25519", id="common.E002")]
+
+
+@register(Tags.security, deploy=True)
+def check_refresh_replay_key(**kwargs: Any) -> list[CheckMessage]:
+    # Thiếu khoá thì refresh trả 503 REFRESH_REPLAY_UNAVAILABLE; độ dài và kid đã được kiểm lúc
+    # đọc settings (config.env.refresh_replay_key)
+    if settings.REFRESH_REPLAY_KEY_ID and settings.REFRESH_REPLAY_KEY:
+        return []
+    return [
+        Error(
+            "Thiếu khoá RefreshReplay: cần REFRESH_REPLAY_KEY_ID và REFRESH_REPLAY_KEY_PATH",
+            id="common.E003",
+        )
+    ]

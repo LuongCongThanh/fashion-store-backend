@@ -2,14 +2,16 @@
 
 import hashlib
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import factory
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from django.conf import settings
 from django.utils import timezone
 from factory.django import DjangoModelFactory
 
+from apps.identity.auth.tokens import IssuedTokenPair, issue_token_pair
 from apps.identity.constants import AccountKind
 from apps.identity.models import Account, RefreshToken
 
@@ -41,6 +43,19 @@ class RefreshTokenFactory(DjangoModelFactory[RefreshToken]):
     family_id = factory.LazyFunction(uuid.uuid4)
     token_hash = factory.LazyFunction(lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest())
     expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=12))
+
+
+def stored_refresh_session(*, account: Account, now: datetime) -> IssuedTokenPair:
+    """Cặp token back-office phát tại `now` kèm RefreshToken gốc đã lưu hash, như sau đăng nhập."""
+    issued = issue_token_pair(account=account, audience=settings.JWT_AUDIENCE_BACKOFFICE, now=now)
+    RefreshTokenFactory.create(
+        jti=issued.refresh_jti,
+        account=account,
+        family_id=issued.family_id,
+        token_hash=hashlib.sha256(issued.refresh_token.encode()).hexdigest(),
+        expires_at=issued.refresh_expires_at,
+    )
+    return issued
 
 
 def jwt_test_keyring() -> dict[str, dict[str, str]]:

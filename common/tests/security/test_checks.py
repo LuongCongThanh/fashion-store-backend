@@ -30,3 +30,13 @@ def test_deploy_check_accepts_configured_jwt_keyring() -> None:
     errors = run_checks(include_deployment_checks=True, tags=[Tags.security])
 
     assert "common.E002" not in [e.id for e in errors]
+
+
+@override_settings(REFRESH_REPLAY_KEY_ID="", REFRESH_REPLAY_KEY=b"")
+def test_deploy_check_requires_refresh_replay_key() -> None:
+    errors = run_checks(include_deployment_checks=True, tags=[Tags.security])
+
+    assert "common.E003" in [e.id for e in errors]
+    with override_settings(REFRESH_REPLAY_KEY_ID="replay-1", REFRESH_REPLAY_KEY=b"k" * 32):
+        configured = run_checks(include_deployment_checks=True, tags=[Tags.security])
+    assert "common.E003" not in [e.id for e in configured]

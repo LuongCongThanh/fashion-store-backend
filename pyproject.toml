@@ -206,6 +206,7 @@ forbidden_modules = [
     "apps.identity.migrations",
     "apps.identity.models",
     "apps.identity.services",
+    "apps.identity.tasks",
 ]
 allow_indirect_imports = true
 
@@ -222,6 +223,7 @@ source_modules = [
     "apps.identity.migrations",
     "apps.identity.models",
     "apps.identity.services",
+    "apps.identity.tasks",
 ]
 forbidden_modules = [
     "apps.geo.tests",

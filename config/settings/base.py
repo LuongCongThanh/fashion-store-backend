@@ -1,7 +1,7 @@
 """Cấu hình chung mọi môi trường."""
 
 from common.observability.logging import configure_logging
-from config.env import BASE_DIR, database_config, get_env, jwt_keyring
+from config.env import BASE_DIR, database_config, get_env, jwt_keyring, refresh_replay_key
 
 env = get_env()
 
@@ -18,6 +18,11 @@ JWT_LEEWAY_SECONDS = env.JWT_LEEWAY_SECONDS
 
 # Keyring JWT đã kiểm: `kid` -> PEM; khoá đầu phát token mới (05 mục 2)
 JWT_SIGNING_KEYS = jwt_keyring(env.JWT_SIGNING_KEYS.get_secret_value())
+# Khoá AESGCM 32 byte của RefreshReplay; rỗng khi chưa cấu hình (05 mục 2.1)
+REFRESH_REPLAY_KEY_ID = env.REFRESH_REPLAY_KEY_ID
+REFRESH_REPLAY_KEY = refresh_replay_key(
+    key_id=env.REFRESH_REPLAY_KEY_ID, path=env.REFRESH_REPLAY_KEY_PATH
+)
 DEBUG = False
 ALLOWED_HOSTS: list[str] = []
 

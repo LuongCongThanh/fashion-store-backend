@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from django.core.exceptions import ImproperlyConfigured
 
-from config.env import Env, jwt_keyring, load_env
+from config.env import Env, jwt_keyring, load_env, refresh_replay_key
 
 M0_VARS = {
     "DJANGO_SECRET_KEY": "test-secret",
@@ -206,3 +206,44 @@ def test_jwt_keyring_rejects_invalid_entry_without_leaking_key(case: str) -> Non
     assert exc_info.value.__cause__ is None
     assert exc_info.value.__suppress_context__ is True
     assert "PRIVATE KEY" not in str(exc_info.value)
+
+
+def test_refresh_replay_key_reads_32_byte_file(tmp_path: Path) -> None:
+    key = bytes(range(32))
+    key_file = tmp_path / "refresh_replay.key"
+    key_file.write_bytes(key)
+
+    actual = refresh_replay_key(key_id="replay-1", path=str(key_file))
+
+    assert actual == key
+    assert refresh_replay_key(key_id="", path="") == b""
+
+
+REPLAY_KEY = bytes(range(100, 133))
+
+
+REPLAY_KEY_CASES = {
+    "short": ("replay-1", REPLAY_KEY[:31]),
+    "long": ("replay-1", REPLAY_KEY),
+    "missing-file": ("replay-1", None),
+    "id-without-path": ("replay-1", REPLAY_KEY[:32]),
+    "path-without-id": ("", REPLAY_KEY[:32]),
+    "id-too-long": ("r" * 33, REPLAY_KEY[:32]),
+    "id-with-space": ("replay 1", REPLAY_KEY[:32]),
+}
+
+
+@pytest.mark.parametrize("case", list(REPLAY_KEY_CASES))
+def test_refresh_replay_key_rejects_wrong_length_without_leaking(tmp_path: Path, case: str) -> None:
+    key_id, content = REPLAY_KEY_CASES[case]
+    key_file = tmp_path / "refresh_replay.key"
+    if content is not None:
+        key_file.write_bytes(content)
+    path = "" if case == "id-without-path" else str(key_file)
+
+    with pytest.raises(ImproperlyConfigured, match="REFRESH_REPLAY_KEY") as exc_info:
+        refresh_replay_key(key_id=key_id, path=path)
+
+    assert exc_info.value.__cause__ is None
+    assert REPLAY_KEY[:31].hex() not in str(exc_info.value)
+    assert repr(REPLAY_KEY[:8])[2:-1] not in str(exc_info.value)

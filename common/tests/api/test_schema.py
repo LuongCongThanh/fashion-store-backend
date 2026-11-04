@@ -26,6 +26,8 @@ WARDS_PATH = "/api/v1/store/geo/provinces/{code}/wards"
 PROVINCES_PATH = "/api/v1/store/geo/provinces"
 LOGIN_PATH = "/api/v1/backoffice/auth/login"
 ME_PATH = "/api/v1/backoffice/auth/me"
+REFRESH_PATH = "/api/v1/backoffice/auth/refresh"
+LOGOUT_PATH = "/api/v1/backoffice/auth/logout"
 CUSTOM_NOT_FOUND_DESCRIPTION = "No variant with this SKU."
 # Mã lỗi của ví dụ `ErrorDTO` chung mà `AutoSchema` gắn cho từng lỗi mặc định
 DEFAULT_ERROR_EXAMPLE_CODES = {
@@ -38,8 +40,17 @@ DEFAULT_ERROR_EXAMPLE_CODES = {
     "500": "INTERNAL_ERROR",
     "503": "AUTH_STATE_UNAVAILABLE",
 }
-# Mã lỗi view tự khai (ngoài lỗi mặc định của `AutoSchema`) và `code` của ví dụ `ErrorDTO`
-DECLARED_ERROR_EXAMPLE_CODES = {f"POST {LOGIN_PATH}": {"401": "INVALID_CREDENTIALS"}}
+# Mã lỗi view tự khai (ngoài lỗi mặc định của `AutoSchema`) và `code` của các ví dụ `ErrorDTO`,
+# theo thứ tự khai
+DECLARED_ERROR_EXAMPLE_CODES = {
+    f"POST {LOGIN_PATH}": {"401": ["INVALID_CREDENTIALS"]},
+    f"POST {REFRESH_PATH}": {
+        "401": ["NOT_AUTHENTICATED", "TOKEN_EXPIRED"],
+        "409": ["REFRESH_SUPERSEDED"],
+        "503": ["AUTH_STATE_UNAVAILABLE", "REFRESH_REPLAY_UNAVAILABLE"],
+    },
+    f"POST {LOGOUT_PATH}": {"401": ["NOT_AUTHENTICATED"], "503": ["AUTH_STATE_UNAVAILABLE"]},
+}
 
 
 class ItemOutput(serializers.Serializer[Any]):
@@ -367,7 +378,14 @@ def test_current_operations_have_summary_and_examples(schema: dict[str, Any]) ->
     violations = load_openapi_generator().quality_violations(schema, ERROR_DESCRIPTIONS)
 
     assert operation_names == sorted(
-        [f"POST {LOGIN_PATH}", f"GET {ME_PATH}", f"GET {PROVINCES_PATH}", f"GET {WARDS_PATH}"]
+        [
+            f"POST {LOGIN_PATH}",
+            f"POST {REFRESH_PATH}",
+            f"POST {LOGOUT_PATH}",
+            f"GET {ME_PATH}",
+            f"GET {PROVINCES_PATH}",
+            f"GET {WARDS_PATH}",
+        ]
     )
     assert violations == []
 
@@ -377,11 +395,12 @@ def test_declared_errors_have_examples_with_matching_code(schema: dict[str, Any]
     error_keys = set(error_body("X", "y")["error"])
 
     for name, declared in DECLARED_ERROR_EXAMPLE_CODES.items():
-        for code, error_code in declared.items():
+        for code, expected_codes in declared.items():
             response = operations[name]["responses"][code]
             # Tên ví dụ do drf-spectacular camelize nên kiểm theo `error.code` của giá trị
             errors = [example["value"]["error"] for example in _json_examples(response).values()]
             error_codes = [error["code"] for error in errors]
-            assert error_codes == [error_code], f"{name} {code}"
-            assert set(errors[0]) == error_keys, f"{name} {code}"
-            assert f"`{error_code}`" in response["description"], f"{name} {code}"
+            assert error_codes == expected_codes, f"{name} {code}"
+            assert all(set(error) == error_keys for error in errors), f"{name} {code}"
+            for error_code in expected_codes:
+                assert f"`{error_code}`" in response["description"], f"{name} {code}"

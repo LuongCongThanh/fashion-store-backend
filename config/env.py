@@ -62,6 +62,10 @@ class Env(BaseSettings):
     JWT_ACCESS_TTL_SECONDS: PositiveInt = 600
     JWT_BACKOFFICE_REFRESH_TTL_SECONDS: PositiveInt = 43_200
     JWT_LEEWAY_SECONDS: NonNegativeInt = 30
+    # Khoá AESGCM của RefreshReplay, độc lập khoá JWT (05 mục 2.1). Để rỗng ở máy chưa cần
+    # refresh; deploy check `common.E003` từ chối khi thiếu khoá
+    REFRESH_REPLAY_KEY_ID: str = ""
+    REFRESH_REPLAY_KEY_PATH: str = ""
 
     @field_validator("PII_HMAC_KEYS", mode="before")
     @classmethod
@@ -189,3 +193,45 @@ def jwt_keyring(raw: str) -> dict[str, dict[str, str]]:
         # from None: exception gốc có thể chứa byte của private key (13 mục 10)
         raise ImproperlyConfigured("JWT_SIGNING_KEYS sai định dạng") from None
     return keys
+
+
+REFRESH_REPLAY_KEY_BYTES = 32
+REFRESH_REPLAY_KEY_ID_MAX_LENGTH = 32
+
+
+def refresh_replay_key(*, key_id: str, path: str) -> bytes:
+    """Đọc khoá AESGCM của RefreshReplay từ file đúng 32 byte (05 mục 2.1, 08 mục 2.3).
+
+    Đường dẫn tương đối tính từ ``. Cả hai biến rỗng trả `b""` để local/CI chưa cần
+    replay vẫn chạy; deploy check `common.E003` chặn khi triển khai. Lỗi không chứa nội dung khoá.
+
+    Raises:
+        ImproperlyConfigured: Chỉ có một trong hai biến; `key_id` dài quá 32 ký tự hoặc chứa
+            khoảng trắng; file không đọc được hoặc không đúng 32 byte.
+    """
+    if not key_id and not path:
+        return b""
+    if not key_id or not path:
+        raise ImproperlyConfigured(
+            "REFRESH_REPLAY_KEY_ID và REFRESH_REPLAY_KEY_PATH phải đi cùng nhau"
+        )
+    if len(key_id) > REFRESH_REPLAY_KEY_ID_MAX_LENGTH or any(char.isspace() for char in key_id):
+        raise ImproperlyConfigured(
+            f"REFRESH_REPLAY_KEY_ID dài quá {REFRESH_REPLAY_KEY_ID_MAX_LENGTH} ký tự "
+            "hoặc có khoảng trắng"
+        )
+    key_path = Path(path)
+    if not key_path.is_absolute():
+        key_path = BASE_DIR / key_path
+    try:
+        key = key_path.read_bytes()
+    except OSError:
+        raise ImproperlyConfigured(
+            "REFRESH_REPLAY_KEY_PATH không đọc được; tạo khoá theo 08 mục 2.3"
+        ) from None
+    if len(key) != REFRESH_REPLAY_KEY_BYTES:
+        # Chỉ nêu số byte mong đợi, không nêu độ dài hay nội dung thực của file
+        raise ImproperlyConfigured(
+            f"REFRESH_REPLAY_KEY_PATH phải chứa đúng {REFRESH_REPLAY_KEY_BYTES} byte"
+        )
+    return key

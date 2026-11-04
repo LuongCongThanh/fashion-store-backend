@@ -1,9 +1,22 @@
 """Persistence cho vòng đời refresh token (03 mục 2.4-2.5)."""
 
+import uuid
+from datetime import datetime
+from typing import ClassVar, Self
+
 from django.conf import settings
 from django.db import models
 
-from common.models import BaseModel
+from common.models import BaseModel, BaseQuerySet
+
+
+class RefreshTokenQuerySet(BaseQuerySet["RefreshToken"]):
+    def unrevoked(self) -> Self:
+        return self.filter(revoked_at__isnull=True)
+
+
+# Gán tên ở cấp module để plugin django-stubs suy được kiểu của manager sinh động
+RefreshTokenManager = models.Manager.from_queryset(RefreshTokenQuerySet)
 
 
 class RefreshToken(BaseModel):
@@ -26,6 +39,10 @@ class RefreshToken(BaseModel):
     )
     revoked_at = models.DateTimeField(null=True, blank=True)
 
+    # Cùng gốc BaseQuerySet với manager của BaseModel; stub coi hai lớp manager sinh từ
+    # from_queryset là khác kiểu
+    objects: ClassVar[RefreshTokenManager] = RefreshTokenManager()  # type: ignore[assignment]
+
     class Meta:
         db_table = "identity_refresh_token"
         constraints = (
@@ -38,6 +55,28 @@ class RefreshToken(BaseModel):
             models.Index(fields=["account"], name="identity_refresh_account_idx"),
             models.Index(fields=["family_id"], name="identity_refresh_family_idx"),
         )
+
+    @classmethod
+    def revoke_family(cls, family_id: uuid.UUID, *, now: datetime) -> int:
+        """Thu hồi mọi token chưa thu hồi của family; bên gọi đã khoá Account (05 mục 2.1).
+
+        Token đã thu hồi giữ `revoked_at` cũ để còn dấu vết lần thu hồi đầu.
+        """
+        return cls.objects.filter(family_id=family_id).unrevoked().update(revoked_at=now)
+
+    def mark_used(self, *, successor: RefreshToken, now: datetime) -> None:
+        """Đánh dấu đã đổi lấy `successor`; UNIQUE(successor_jti) chặn successor thứ hai."""
+        self.used_at = now
+        self.successor = successor
+        self.save(update_fields=["used_at", "successor", "updated_at"])
+
+
+class RefreshReplayQuerySet(BaseQuerySet["RefreshReplay"]):
+    def expired(self, now: datetime) -> Self:
+        return self.filter(expires_at__lte=now)
+
+
+RefreshReplayManager = models.Manager.from_queryset(RefreshReplayQuerySet)
 
 
 class RefreshReplay(BaseModel):
@@ -52,6 +91,8 @@ class RefreshReplay(BaseModel):
     nonce = models.BinaryField()
     response_ciphertext = models.BinaryField()
     expires_at = models.DateTimeField()
+
+    objects: ClassVar[RefreshReplayManager] = RefreshReplayManager()  # type: ignore[assignment]
 
     class Meta:
         db_table = "identity_refresh_replay"

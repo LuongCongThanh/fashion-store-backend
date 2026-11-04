@@ -2,6 +2,7 @@
 
 import uuid
 from collections.abc import Callable, Iterator
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,8 +12,11 @@ import time_machine
 
 from apps.identity.auth.tokens import (
     ACCESS_CLAIMS,
+    ExpiredToken,
     InvalidToken,
+    TokenPairDTO,
     decode_access_token,
+    decode_refresh_token,
     issue_token_pair,
 )
 from apps.identity.constants import AccountKind
@@ -80,6 +84,53 @@ def test_refresh_token_carries_family_and_twelve_hour_expiry() -> None:
     assert claims["exp"] == int(refresh_exp.timestamp())
     assert pair.refresh_expires_at == refresh_exp
     assert jwt.get_unverified_header(pair.refresh_token)["kid"] == "current"
+
+
+def test_token_pair_dto_has_only_output_fields() -> None:
+    actual = [field.name for field in fields(TokenPairDTO)]
+
+    assert actual == ["access_token", "refresh_token", "token_type", "expires_in"]
+
+
+def test_issue_token_pair_keeps_given_family() -> None:
+    account = AccountFactory.create()
+    family_id = uuid.uuid4()
+
+    issued = issue_token_pair(account=account, audience=AUDIENCE, now=NOW, family_id=family_id)
+
+    assert issued.family_id == family_id
+    assert _claims(issued.refresh_token)["fam"] == str(family_id)
+
+
+def test_decode_refresh_token_returns_verified_claims() -> None:
+    account = AccountFactory.create(kind=AccountKind.ADMIN)
+    issued = issue_token_pair(account=account, audience=AUDIENCE, now=NOW)
+
+    claims = decode_refresh_token(issued.refresh_token, expected_audience=AUDIENCE, now=NOW)
+
+    actual = (claims.subject, claims.kind, claims.token_version, claims.jti, claims.family_id)
+    assert actual == (account.id, AccountKind.ADMIN, 0, issued.refresh_jti, issued.family_id)
+    assert claims.audience == AUDIENCE
+
+
+def test_decode_refresh_token_rejects_access_token() -> None:
+    issued = issue_token_pair(account=AccountFactory.create(), audience=AUDIENCE, now=NOW)
+
+    with pytest.raises(InvalidToken):
+        decode_refresh_token(issued.access_token, expected_audience=AUDIENCE, now=NOW)
+
+
+def test_decode_refresh_token_can_skip_expiry_check() -> None:
+    issued_at = NOW - timedelta(hours=13)
+    issued = issue_token_pair(account=AccountFactory.create(), audience=AUDIENCE, now=issued_at)
+
+    with pytest.raises(ExpiredToken):
+        decode_refresh_token(issued.refresh_token, expected_audience=AUDIENCE, now=NOW)
+    claims = decode_refresh_token(
+        issued.refresh_token, expected_audience=AUDIENCE, now=NOW, verify_exp=False
+    )
+
+    assert claims.jti == issued.refresh_jti
 
 
 def test_decode_access_token_returns_verified_claims() -> None:
