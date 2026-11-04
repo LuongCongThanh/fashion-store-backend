@@ -1,17 +1,14 @@
 # 13. Coding style Python/Django
 
-Tài liệu này là cẩm nang tổng hợp cách viết code Python/Django trong Fashion Store. Nó áp dụng cho
-toàn bộ `backend/`, gồm code production, migration, management command và test.
-Quy ước TypeScript/Next.js chưa thuộc phạm vi này; chỉ bổ sung sau khi frontend được bootstrap và
-có cấu hình lint/format thực tế.
+Cẩm nang tổng hợp cách viết code Python/Django cho toàn bộ `backend/`: code production, migration,
+management command và test. Quy ước TypeScript/Next.js chỉ bổ sung sau khi frontend được bootstrap và có
+cấu hình lint/format thực tế.
 
-Mức độ của quy tắc:
+Mức độ quy tắc:
 
 - **MUST** (`phải`, `không được`): bắt buộc để giữ correctness, security hoặc contract kiến trúc.
 - **SHOULD** (`nên`, `ưu tiên`): mặc định phải theo; được làm khác khi có lý do cụ thể ghi tại code/PR.
-- **MAY** (`có thể`): một lựa chọn hợp lệ, không phải yêu cầu.
-
-Nguồn sở hữu quy tắc được chia như sau:
+- **MAY** (`có thể`): lựa chọn hợp lệ, không phải yêu cầu.
 
 | Loại quy tắc | Nguồn sở hữu |
 |---|---|
@@ -19,13 +16,12 @@ Nguồn sở hữu quy tắc được chia như sau:
 | Design constraint | Tài liệu architecture và ADR được dẫn chiếu tại từng mục |
 | Convention không tự động kiểm | Tài liệu này |
 
-Tài liệu này tóm tắt design constraint để tiện dùng hằng ngày nhưng không thay thế nguồn sở hữu. Nếu
-ví dụ hoặc bản tóm tắt bị lệch, ưu tiên nguồn sở hữu và sửa tài liệu này trong cùng PR.
+Tài liệu này chỉ tóm tắt design constraint, không thay thế nguồn sở hữu. Nếu lệch, ưu tiên nguồn sở hữu
+và sửa tài liệu này trong cùng PR.
 
 ## 1. Phạm vi và ngoại lệ
 
-Quy tắc chung áp dụng cho mọi code dưới `backend/`; các ngoại lệ có chủ đích sau được ưu tiên hơn rule
-chung nhưng không miễn trừ yêu cầu về secret, PII và correctness:
+Ngoại lệ dưới đây được ưu tiên hơn rule chung nhưng không miễn trừ yêu cầu về secret, PII và correctness:
 
 | Phạm vi | Ngoại lệ |
 |---|---|
@@ -48,40 +44,37 @@ Quy trình riêng cho AI agent nằm ở `CLAUDE.md`, không thuộc coding conv
 | Tiền | DB dùng `BigIntegerField` theo đồng VND; code dùng `shared.money.Money`; API trả object gồm `amount` và `currency` |
 | Thời gian | Lưu UTC với `USE_TZ = True`, lấy giờ bằng `django.utils.timezone.now()`; hiển thị theo `Asia/Ho_Chi_Minh` |
 
-Không dùng `Any` để né type checking nếu có thể biểu diễn kiểu cụ thể. Không thêm `# type: ignore` hay
-`# noqa` chỉ để làm CI xanh. Mỗi suppression phải hẹp và có mã rule; thêm comment giải thích khi lý do
-không hiển nhiên hoặc là workaround cho type stub/tooling.
+- Không dùng `Any` để né type checking khi biểu diễn được kiểu cụ thể.
+- Không thêm `# type: ignore` hay `# noqa` chỉ để CI xanh. Suppression phải hẹp, có mã rule; thêm comment
+  khi lý do không hiển nhiên hoặc là workaround cho type stub/tooling (ví dụ ở mục 11.7).
 
 ## 3. Ranh giới tầng và module
 
 - View/API chỉ parse, validate, phân quyền và gọi service/selector; không chứa nghiệp vụ hoặc transaction.
-- `services` thực hiện hành động ghi; `selectors` thực hiện truy vấn đọc; `models` giữ schema và invariant
-  cục bộ, không trở thành service layer ẩn.
+- `services` ghi; `selectors` đọc; `models` giữ schema và invariant cục bộ, không thành service layer ẩn.
 - Module khác gọi đồng bộ qua `contracts.py`, dùng schema sự kiện công khai trong `events.py` và bắt
-  domain exception thuộc contract từ `exceptions.py`; ngoại lệ FK được chốt trong
+  domain exception thuộc contract từ `exceptions.py`; ngoại lệ FK chốt trong
   [02](./02-backend-structure.md#5-giao-tiếp-giữa-module).
 - Không import trực tiếp `models`, `services`, `selectors` hoặc test factory nội bộ của module khác.
 - `shared` chỉ chứa hạ tầng dùng chung, không chứa nghiệp vụ riêng của một module.
-- Không tạo abstraction dùng chung khi mới có một use case. Ưu tiên code rõ ràng trong đúng module; chỉ
-  tách khi đã có trách nhiệm chung ổn định.
-
-`import-linter` là cổng thực thi cho một phần các ranh giới trên. Việc lint qua không thay thế code review,
-vì ORM traversal có thể vượt module mà không tạo import.
+- Không tạo abstraction dùng chung khi mới có một use case; chỉ tách khi đã có trách nhiệm chung ổn định.
+- `import-linter` chỉ thực thi một phần các ranh giới trên; vẫn cần code review vì ORM traversal có thể
+  vượt module mà không tạo import.
 
 ### 3.1. View, serializer và permission
 
-- View phải khai báo permission phù hợp và coi dữ liệu từ request là không tin cậy cho tới khi serializer
-  validate thành công.
-- Serializer chỉ chuyển đổi representation và validate cấu trúc/field cục bộ. Không mở transaction,
-  gọi provider, ghi nhiều aggregate hoặc điều phối workflow trong `create()`, `update()` hay `validate()`.
-- Validation cần query nhiều model hoặc phụ thuộc trạng thái cạnh tranh thuộc service; service phải kiểm
-  tra lại bên trong transaction thay vì tin kết quả kiểm tra trước đó của serializer.
-- View gọi service cho command và selector cho query. Không gọi ORM trực tiếp, trừ boundary hạ tầng đã
-  được [02](./02-backend-structure.md) cho phép rõ ràng.
-- Dùng `APIView`, generic view hoặc ViewSet theo hình dạng API, không tạo base view riêng chỉ để giảm vài
-  dòng lặp. Pagination, filtering và permission dùng component chuẩn của DRF hoặc component chung đã có.
-- Không trả Django model, exception message nội bộ hoặc `serializer.errors` chưa qua API error contract
-  trực tiếp cho client.
+- View khai báo permission phù hợp; dữ liệu request là không tin cậy cho tới khi serializer validate xong.
+- Serializer chỉ chuyển đổi representation và validate cấu trúc/field cục bộ. Không mở transaction, gọi
+  provider, ghi nhiều aggregate hoặc điều phối workflow trong `create()`, `update()` hay `validate()`.
+- Validation cần query nhiều model hoặc phụ thuộc trạng thái cạnh tranh thuộc service; service kiểm tra
+  lại trong transaction, không tin kết quả serializer trước đó.
+- View gọi service cho command, selector cho query. Không gọi ORM trực tiếp, trừ boundary hạ tầng
+  [02](./02-backend-structure.md) cho phép rõ ràng.
+- Dùng `APIView`, generic view hoặc ViewSet theo hình dạng API; không tạo base view riêng chỉ để giảm vài
+  dòng lặp. Pagination, filtering, permission dùng component chuẩn của DRF hoặc component chung đã có.
+- Không trả Django model, exception message nội bộ hoặc `serializer.errors` chưa qua API error contract.
+- Lý do: cùng service được gọi từ API, command hoặc task mà không sao chép nghiệp vụ; service chịu
+  invariant và race condition tại thời điểm ghi.
 
 ```python
 # ✅ Serializer kiểm tra representation; view gọi service.
@@ -106,25 +99,32 @@ class CartLineInputSerializer(serializers.Serializer):
         with transaction.atomic():
             stock = StockItem.objects.select_for_update().get(...)
             return CartLine.objects.create(stock=stock, **validated_data)
-```
 
-**Vì sao:** cùng một service có thể được gọi từ API, command hoặc task mà không sao chép nghiệp vụ.
-Serializer vẫn trả lỗi input chuẩn của DRF; service chịu trách nhiệm invariant và race condition tại thời
-điểm ghi.
+
+# ❌ View tự query, mở transaction và thực hiện business rule.
+class OrderCreateView(APIView):
+    def post(self, request: Request) -> Response:
+        with transaction.atomic():
+            cart = Cart.objects.select_for_update().get(id=request.data["cart_id"])
+            if cart.items.count() == 0:
+                raise ValidationError("Cart is empty")
+            order = Order.objects.create(account=request.user, total=cart.total)
+        return Response({"id": order.id})
+```
 
 ### 3.2. ORM và query
 
 - Query đọc dùng selector; query ghi, row lock và kiểm tra invariant cạnh tranh dùng service.
-- Chủ động tránh N+1 bằng `select_related()` cho quan hệ đơn và `prefetch_related()` cho collection. Chỉ
-  prefetch dữ liệu response thực sự cần; xác nhận query count ở test cho endpoint có nguy cơ hồi quy.
-- Không đưa `QuerySet` chưa evaluate qua module boundary nếu caller có thể nối thêm traversal vào model
-  nội bộ. Public contract trả DTO hoặc kiểu đã được [02](./02-backend-structure.md) cho phép.
-- Dùng `get_or_create()` hoặc `update_or_create()` chỉ khi database constraint bảo đảm tính duy nhất và
-  semantics khi race đã được xử lý. Không coi chúng là thay thế cho lock hoặc idempotency.
-- `bulk_create()` và `bulk_update()` bỏ qua `save()` và nhiều hook của Django; chỉ dùng khi invariant,
-  event, audit và timestamp đã được xử lý tường minh.
-- Không dùng raw SQL khi ORM biểu diễn được truy vấn rõ ràng. Raw SQL phải parameterized, nằm sau một API
-  hẹp và có test trên PostgreSQL thật.
+- Tránh N+1: `select_related()` cho quan hệ đơn (JOIN), `prefetch_related()` cho collection (query riêng).
+  Chỉ prefetch dữ liệu response cần; xác nhận query count ở test cho endpoint có nguy cơ hồi quy.
+- Không đưa `QuerySet` chưa evaluate qua module boundary nếu caller có thể nối traversal vào model nội
+  bộ. Public contract trả DTO hoặc kiểu [02](./02-backend-structure.md) cho phép.
+- `get_or_create()`/`update_or_create()` chỉ dùng khi database constraint bảo đảm tính duy nhất và
+  semantics khi race đã xử lý; không thay cho lock hoặc idempotency.
+- `bulk_create()`/`bulk_update()` bỏ qua `save()` và nhiều hook; chỉ dùng khi invariant, event, audit và
+  timestamp đã xử lý tường minh.
+- Không dùng raw SQL khi ORM biểu diễn rõ được. Raw SQL phải parameterized, nằm sau API hẹp và có test
+  trên PostgreSQL thật.
 
 ```python
 # ✅ Selector định nghĩa query shape mà response cần.
@@ -142,10 +142,6 @@ def list_order_summaries(*, account_id: UUID) -> list[OrderSummaryDTO]:
 orders = Order.objects.filter(account_id=request.user.pk)
 return Response(OrderSerializer(orders, many=True).data)
 ```
-
-**Vì sao:** selector làm rõ dữ liệu được tải và giữ cấu trúc ORM bên trong module. `select_related()` dùng
-JOIN cho quan hệ đơn; `prefetch_related()` tải collection bằng query riêng thay vì query lại cho mỗi
-Đơn hàng.
 
 ### 3.3. Quy tắc theo file của module
 
@@ -196,7 +192,7 @@ quy tắc hành vi của từng file.
 
 Mục này là nguồn sở hữu thứ tự khoá và quy tắc writer của catalog. Luồng checkout ở
 [`ordering` mục 5.1](./modules/ordering.md#51-luồng-checkout); ràng buộc dữ liệu ở [03](./03-data-model.md),
-[10](./10-nfr.md) và [ADR-0012](../adr/0012-checkout-price-snapshot.md).
+[10](./10-nfr.md) và [ADR-0012](../adr/0012-checkout-price-snapshot.md). Ví dụ ở mục 11.2.
 
 ## 5. Đặt tên và cấu trúc Python
 
@@ -222,101 +218,79 @@ Theo PEP 8: `snake_case` cho hàm, biến, module; `PascalCase` cho class; `UPPE
 | Test module | `test_<layer>_<topic>.py` | `test_services_checkout.py` |
 | Test xuyên module | Đặt trong `backend/tests/flows/` | `test_cod_checkout_flow.py` |
 
-Project chủ ý dùng `<verb>_<noun>`, khác convention `<entity>_<action>` của HackSoft Styleguide.
-Không trộn hai cách đặt tên.
+Project chủ ý dùng `<verb>_<noun>`, khác `<entity>_<action>` của HackSoft Styleguide; không trộn hai cách.
 
 ### 5.2. Khai báo hàm
 
-- Hàm public phải có type hints đầy đủ cho parameter và return type. Hàm không trả giá trị khai báo
-  `-> None`; không bỏ return type chỉ vì mypy có thể suy luận.
-- Service, selector và public contract dùng keyword-only parameter (`*`) để call site tự mô tả và tránh
-  lỗi khi nhiều đối số có cùng primitive type. Positional parameter chỉ nên dùng cho hàm nhỏ có thứ tự
-  tự nhiên, ví dụ value object hoặc callback theo protocol của framework.
-- Thứ tự parameter: dữ liệu bắt buộc trước, tuỳ chọn sau; dependency được inject đặt riêng và có tên mô
-  tả vai trò. Không thêm boolean flag làm hàm thực hiện hai workflow khác nhau; tách thành hai hàm có tên
-  thể hiện intent.
-- Không dùng mutable default như `items=[]` hoặc `options={}`. Dùng `None` rồi khởi tạo trong hàm, hoặc
-  immutable value như tuple/frozenset khi đó là contract phù hợp.
-- Hàm bắt đầu bằng động từ và làm một việc ở cùng mức abstraction. Tách helper private `_name` khi nó
-  đặt tên được cho một bước nghiệp vụ hoặc loại bỏ nhánh phức tạp; không tách chỉ để đạt số dòng tuỳ ý.
-- Không bắt `Exception` để đổi mọi lỗi thành một giá trị mặc định. Return `None` chỉ khi absence là một
-  phần được đặt tên rõ trong contract, thường bằng tiền tố `find_`.
-- Chỉ dùng `async def` khi toàn bộ call chain và dependency thực sự hỗ trợ async. Không bọc ORM sync hoặc
-  HTTP client sync trong async function rồi chặn event loop.
+- Hàm public có type hints đầy đủ cho parameter và return type; hàm không trả giá trị khai `-> None`,
+  không bỏ return type dù mypy suy luận được.
+- Service, selector và public contract dùng keyword-only parameter (`*`). Positional chỉ cho hàm nhỏ có
+  thứ tự tự nhiên, ví dụ value object hoặc callback theo protocol của framework.
+- Thứ tự parameter: bắt buộc trước, tuỳ chọn sau; dependency inject đặt riêng, tên mô tả vai trò.
+- Không thêm boolean flag làm hàm chạy hai workflow khác nhau; tách hai hàm có tên thể hiện intent.
+- Không dùng mutable default (`items=[]`, `options={}`); dùng `None` rồi khởi tạo trong hàm, hoặc
+  tuple/frozenset khi đó là contract phù hợp. Mutable default chỉ tạo một lần nên dữ liệu rò giữa các lần gọi.
+- Hàm bắt đầu bằng động từ, làm một việc ở cùng mức abstraction. Tách helper private `_name` khi nó đặt
+  tên được một bước nghiệp vụ hoặc bỏ nhánh phức tạp; không tách chỉ để đạt số dòng tuỳ ý.
+- Không bắt `Exception` để đổi mọi lỗi thành giá trị mặc định. Return `None` chỉ khi absence là phần được
+  đặt tên rõ trong contract, thường bằng tiền tố `find_`.
+- Chỉ dùng `async def` khi toàn bộ call chain và dependency hỗ trợ async; không bọc ORM/HTTP client sync
+  trong async function rồi chặn event loop.
 
 ```python
 # ✅ Call site tự mô tả; không có mutable default.
 def reserve_stock(
-    *,
-    order_id: UUID,
-    lines: Sequence[StockLine],
-    expires_at: datetime | None = None,
-) -> Reservation:
-    ...
+    *, order_id: UUID, lines: Sequence[StockLine], expires_at: datetime | None = None
+) -> Reservation: ...
+def find_order_for_guest(*, order_code: str, email: str) -> Order | None: ...
+def list_orders_backoffice(*, status: OrderStatus | None = None) -> QuerySet[Order]: ...
 
 
-# ❌ Nhiều positional primitive, boolean flag mơ hồ và mutable default.
-def reserve(order_id, lines=[], notify=True): ...
+class ShippingQuoteDTO(pydantic.BaseModel):
+    amount: int
+    currency: Literal["VND"]
+
+
+# ❌
+def reserve(order_id, lines=[], notify=True): ...  # Positional primitive, flag mơ hồ, mutable default.
+def order_get(code, email): ...  # Sai convention, thiếu type hints, không rõ có thể trả None không.
+def process(data: Any) -> Any: ...  # Tên mơ hồ và dùng Any để né contract.
+class ShippingQuote(pydantic.BaseModel): ...  # DTO public thiếu hậu tố DTO.
 ```
-
-**Vì sao:** keyword-only giúp reviewer thấy ngay ý nghĩa từng đối số và cho phép thêm parameter tuỳ chọn
-mà ít làm hỏng call site. Mutable default được tạo một lần khi định nghĩa hàm, nên dữ liệu có thể rò từ
-lần gọi trước sang lần gọi sau. Boolean flag thường là dấu hiệu hai hành vi cần hai tên hàm riêng.
 
 ### 5.3. Tên biến
 
-- Tên phải thể hiện vai trò nghiệp vụ, không chỉ kiểu dữ liệu. Tránh `data`, `obj`, `item`, `value`,
-  `result`, `tmp` khi có tên cụ thể hơn như `order_payload`, `variant`, `shipping_quote`.
-- Boolean dùng tiền tố tạo thành mệnh đề: `is_`, `has_`, `can_`, `should_`. Không dùng phủ định kép như
-  `not_disabled` hoặc tên không cho biết giá trị `True` có nghĩa gì.
-- Collection dùng danh từ số nhiều (`orders`, `variant_ids`); mapping nên thể hiện hai phía khi cần,
-  ví dụ `price_by_variant_id`.
+- Tên thể hiện vai trò nghiệp vụ, không chỉ kiểu. Tránh `data`, `obj`, `item`, `value`, `result`, `tmp`
+  khi có tên cụ thể hơn như `order_payload`, `variant`, `shipping_quote`.
+- Boolean dùng tiền tố `is_`, `has_`, `can_`, `should_`; không phủ định kép (`not_disabled`) hoặc tên không
+  rõ `True` nghĩa là gì.
+- Collection dùng số nhiều (`orders`, `variant_ids`); mapping thể hiện hai phía khi cần (`price_by_variant_id`).
 - Phân biệt object và identifier: `order`/`order_id`, `account`/`account_id`. Không dùng `id` đứng một
   mình ngoài scope rất ngắn và không nhập nhằng.
-- Giá trị có đơn vị phải thể hiện bằng type hoặc tên: ưu tiên `Money`, `timedelta`; nếu buộc dùng primitive,
-  dùng tên như `timeout_seconds`, không dùng `timeout` mơ hồ.
-- Trong test, dùng `actual` và `expected` khi phép so sánh có thể nhập nhằng; nếu không, tên nghiệp vụ cụ
-  thể như `available_quantity` tốt hơn tên chung.
-
-```python
-# ✅ Tên cho biết domain concept, cardinality và đơn vị.
-variant_ids = [line.variant_id for line in order_lines]
-price_by_variant_id = get_effective_prices(variant_ids=variant_ids)
-has_reservation_expired = reservation.expires_at <= timezone.now()
-timeout_seconds = 5
-
-# ❌ Người đọc phải lần theo từng giá trị để đoán ý nghĩa.
-ids = [x.variant_id for x in items]
-data = get_data(ids)
-flag = end > timezone.now()
-timeout = 5
-```
-
-**Vì sao:** tên biến là phần gần call site nhất của tài liệu thiết kế. Tên chính xác ngăn việc truyền nhầm
-`order_id` thành `variant_id`, đồng thời khiến điều kiện boolean đọc như một mệnh đề thay vì một cờ mơ hồ.
+- Giá trị có đơn vị thể hiện bằng type (`Money`, `timedelta`) hoặc tên (`timeout_seconds`, không `timeout`).
+- Trong test, dùng `actual`/`expected` khi phép so sánh có thể nhập nhằng; nếu không, ưu tiên tên nghiệp
+  vụ như `available_quantity`.
 
 ### 5.4. Class và OOP
 
-- Ưu tiên function/module cho logic stateless. Chỉ tạo class khi cần giữ invariant/state qua nhiều thao
-  tác, biểu diễn một value/domain object, hoặc implement một protocol/framework extension.
+- Ưu tiên function/module cho logic stateless. Chỉ tạo class khi giữ invariant/state qua nhiều thao tác,
+  biểu diễn value/domain object, hoặc implement protocol/framework extension.
 - Ưu tiên composition và dependency injection hơn inheritance. Chỉ kế thừa khi subtype thực sự thay thế
-  được base type và dùng contract của base; không tạo base class chỉ để chia sẻ vài helper.
-- Không tạo class chỉ chứa `@staticmethod`. Đặt các hàm stateless ở module; dùng `@classmethod` cho named
-  constructor cần `cls` và có tên như `from_payload`, `from_model`.
-- `@property` phải rẻ, deterministic và không thực hiện I/O hoặc query ẩn. Hành động có side effect dùng
-  method mang động từ.
-- Attribute nội bộ dùng tiền tố `_`; không dựa vào name mangling `__name` như một security boundary.
-  Public API nhỏ, thể hiện invariant qua method thay vì cho caller sửa state tuỳ ý.
-- Dùng Django model cho persistence/schema, Pydantic model cho contract/validation ở boundary và event,
-  `dataclass(frozen=True)` cho value object nội bộ không cần Pydantic. Không dùng một type cho cả ba vai
-  trò chỉ để tránh mapping.
-- Dùng `Protocol` khi consumer cần một interface nhỏ và có nhiều implementation/adapters. Chỉ dùng ABC
-  khi cần chia sẻ lifecycle hoặc framework bắt buộc; không tạo interface dự phòng cho một use case.
-- Exception biểu diễn tình huống thất bại, không dùng làm control flow thông thường trong vòng lặp nóng.
-  Giữ hierarchy nông và bắt exception cụ thể tại boundary có trách nhiệm chuyển đổi/log/retry.
+  được base type; không tạo base class chỉ để chia sẻ vài helper.
+- Không tạo class chỉ chứa `@staticmethod`; đặt hàm stateless ở module. `@classmethod` dùng cho named
+  constructor cần `cls` (`from_payload`, `from_model`).
+- `@property` phải rẻ, deterministic, không I/O hoặc query ẩn. Hành động có side effect dùng method mang động từ.
+- Attribute nội bộ dùng tiền tố `_`; không coi name mangling `__name` là security boundary. Public API
+  nhỏ, thể hiện invariant qua method thay vì cho caller sửa state tuỳ ý.
+- Django model cho persistence/schema, Pydantic model cho contract/validation ở boundary và event,
+  `dataclass(frozen=True)` cho value object nội bộ. Không dùng một type cho cả ba vai trò để tránh mapping.
+- `Protocol` khi consumer cần interface nhỏ và có nhiều implementation/adapter. ABC chỉ khi cần chia sẻ
+  lifecycle hoặc framework bắt buộc; không tạo interface dự phòng cho một use case.
+- Exception biểu diễn thất bại, không làm control flow trong vòng lặp nóng. Hierarchy nông; bắt exception
+  cụ thể tại boundary chịu trách nhiệm chuyển đổi/log/retry.
 
 ```python
-# ✅ Consumer phụ thuộc một capability nhỏ; adapter giữ chi tiết provider.
+# ✅ Consumer phụ thuộc capability nhỏ; adapter giữ chi tiết provider, test thay bằng fake.
 class ShippingRateProvider(Protocol):
     def quote(self, *, destination: AddressDTO, lines: Sequence[ShippingLineDTO]) -> Money: ...
 
@@ -332,93 +306,57 @@ class ShippingFeeCalculator:
         except ShippingProviderUnavailable:
             return self._fallback_fee
 
-
-# ❌ Class chỉ làm namespace cho static method và tự chọn dependency toàn cục.
-class ShippingUtils:
-    @staticmethod
-    def get_quote(address, lines):
-        return ghn_client.quote(address, lines)
 ```
-
-**Vì sao:** composition cho phép thay adapter thật bằng fake trong test mà không kế thừa calculator.
-`Protocol` chỉ mô tả phần consumer cần; calculator sở hữu chính sách Phí ship dự phòng, còn class
-`ShippingUtils` không sở hữu state hay invariant nên không mang lại lợi ích so với function/module.
 
 ## 6. Format, import và static analysis
 
-- Python 3.14, indent 4 space, UTF-8, LF, dòng tối đa 100 ký tự và nháy kép.
+- Python 3.14, indent 4 space, UTF-8, LF, dòng tối đa 100 ký tự, nháy kép.
 - Chỉ dùng `ruff format`; không chạy Black, isort hoặc flake8 riêng.
 - Import theo nhóm stdlib → third-party → `config`, `shared`, `modules`; để Ruff sắp xếp.
-- `ruff check` là lint chuẩn. Không vô hiệu hoá rule ở cấp file hoặc project nếu chưa có lý do áp dụng
-  cho toàn bộ phạm vi đó.
-- `mypy` với Django/DRF plugin là type checker chuẩn. Các service, selector và contract phải đạt mức strict
-  được cấu hình trong `backend/pyproject.toml`.
-- File không phải Python tuân theo `.editorconfig` và pre-commit hooks. Project không dùng Prettier.
-- Không sửa tay vùng `# BEGIN gen_importlinter` trong `backend/pyproject.toml`; chạy generator được ghi ở [02](./02-backend-structure.md#6-kiểm-tra-ranh-giới-bằng-import-linter).
-
-`make fmt` là lệnh sửa format tự động. `make lint` là cổng kiểm tra và phải giữ cùng thứ tự với CI.
+- `ruff check` là lint chuẩn. Không tắt rule ở cấp file/project nếu lý do không áp dụng cho toàn phạm vi đó.
+- `mypy` với Django/DRF plugin là type checker chuẩn; service, selector và contract đạt mức strict cấu hình
+  trong `backend/pyproject.toml`.
+- File không phải Python theo `.editorconfig` và pre-commit hooks. Project không dùng Prettier.
+- Không sửa tay vùng `# BEGIN gen_importlinter` trong `backend/pyproject.toml`; chạy generator ghi ở [02](./02-backend-structure.md#6-kiểm-tra-ranh-giới-bằng-import-linter).
+- `make fmt` tự sửa format; `make lint` là cổng kiểm tra, phải giữ cùng thứ tự với CI.
 
 ## 7. Django model và migration
 
-- Model nghiệp vụ do dự án sở hữu kế thừa `shared.models.BaseModel`, dùng UUID v7 và không tự khai báo
-  `id`. Model dữ liệu địa giới, framework và audit/history dùng khoá theo thiết kế riêng; xem ngoại lệ
-  tại [03](./03-data-model.md) và [ADR-0008](../adr/0008-uuid-v7-primary-keys.md).
-- `TextChoices` đặt ở cấp module. Không tạo alias class chỉ khác hoa/thường với field, ví dụ `Status`
-  cạnh `status`.
+- Model nghiệp vụ do dự án sở hữu kế thừa `shared.models.BaseModel`, dùng UUID v7, không tự khai `id`.
+  Model địa giới, framework và audit/history dùng khoá riêng; xem [03](./03-data-model.md) và
+  [ADR-0008](../adr/0008-uuid-v7-primary-keys.md).
+- `TextChoices` đặt ở cấp module; không tạo alias class chỉ khác hoa/thường với field (`Status` cạnh `status`).
 - Khai báo rõ `Meta.db_table`, constraint và index theo [03](./03-data-model.md); không chỉ dựa vào
   validation ở serializer.
-- Không đặt business workflow trong `save()`, signal hoặc serializer. Workflow thuộc service.
-- Cột `NOT NULL` thêm vào bảng đã có dữ liệu phải có kế hoạch migration tương thích ngược. Khi code cũ
-  còn có thể INSERT trong rolling deploy, dùng `db_default`, không chỉ `default`.
-- Không sửa migration đã chạy ở môi trường dùng chung. Tạo migration mới.
-- Migration do Django sinh có thể giữ style framework; không refactor migration chỉ để giống code
-  production.
+- Không đặt business workflow trong `save()`, signal hoặc serializer; workflow thuộc service.
+- Cột `NOT NULL` thêm vào bảng đã có dữ liệu cần kế hoạch migration tương thích ngược. Khi code cũ còn
+  INSERT trong rolling deploy, dùng `db_default`, không chỉ `default` (ví dụ ở mục 11.3).
+- Không sửa migration đã chạy ở môi trường dùng chung; tạo migration mới.
+- Migration do Django sinh giữ style framework (mục 1).
 
 ### 7.1. Model, manager và command
 
-- Model giữ field, constraint và invariant cục bộ có thể kiểm tra từ chính instance. Workflow chạm nhiều
-  aggregate, provider hoặc event thuộc service, kể cả khi có thể viết ngắn hơn trong model method.
-- Custom `QuerySet`/manager chỉ chứa query primitive có thể compose và không che giấu side effect. Query
-  theo use case vẫn được đặt sau selector để caller không phụ thuộc cấu trúc ORM.
-- Chuyển trạng thái hàng loạt của một model (`UPDATE` theo danh sách id mà caller đã khoá và lọc) là
-  `@classmethod` của model, không phải method của `QuerySet`: model quyết cột nào được ghi, còn
-  `QuerySet` giữ nguyên là primitive không side effect. Ví dụ: `EventDelivery.reopen`,
-  `EventDelivery.mark_dispatched`.
-- Không dùng signal cho workflow nghiệp vụ. Signal chỉ phù hợp với tích hợp hạ tầng cục bộ, bắt buộc có
-  lý do vì sao explicit call không phù hợp và có test chứng minh transaction semantics.
-- Django Admin và management command là adapter: parse/validate input, gọi service/selector và trình bày
-  kết quả. Không sao chép nghiệp vụ vào `ModelAdmin`, `handle()` hoặc form admin.
+- Model giữ field, constraint và invariant cục bộ kiểm tra được từ chính instance. Workflow chạm nhiều
+  aggregate, provider hoặc event thuộc service, kể cả khi viết trong model method ngắn hơn.
+- Custom `QuerySet`/manager chỉ chứa query primitive compose được, không che side effect. Query theo use
+  case vẫn đặt sau selector.
+- Chuyển trạng thái hàng loạt của một model (`UPDATE` theo danh sách id caller đã khoá và lọc) là
+  `@classmethod` của model, không phải method của `QuerySet`: model quyết cột nào được ghi, `QuerySet` giữ
+  là primitive không side effect. Ví dụ: `EventDelivery.reopen`, `EventDelivery.mark_dispatched`.
+- Không dùng signal cho workflow nghiệp vụ. Signal chỉ cho tích hợp hạ tầng cục bộ, phải có lý do vì sao
+  explicit call không phù hợp và có test chứng minh transaction semantics.
+- Django Admin và management command là adapter: parse/validate input, gọi service/selector, trình bày
+  kết quả. Không sao chép nghiệp vụ vào `ModelAdmin`, `handle()` hoặc form admin, để mọi entry point
+  (API, task, command, admin) dùng chung validation, transaction, event và audit.
 - Code chạy lúc import hoặc `AppConfig.ready()` không query database hay gọi mạng. Import đăng ký check,
   event handler hoặc admin phải idempotent và tránh circular import.
 
-```python
-# ✅ Command là adapter mỏng, nghiệp vụ nằm trong service dùng lại được.
-class Command(BaseCommand):
-    def handle(self, *args: object, **options: object) -> None:
-        account = create_staff_account(
-            email=str(options["email"]),
-            password=str(options["password"]),
-            kind=AccountKind.STAFF,
-        )
-        self.stdout.write(str(account.id))
-
-
-# ❌ Command ghi model trực tiếp và sao chép invariant của service.
-class Command(BaseCommand):
-    def handle(self, *args, **options):
-        Account.objects.create(email=options["email"], kind="staff")
-```
-
-**Vì sao:** management command, Django Admin, API và task chỉ là các entry point khác nhau. Tất cả gọi
-cùng service thì validation, transaction, event và audit không bị lệch theo từng đường vào hệ thống.
-
 ## 8. Comment và docstring
 
-- Public function trong `contracts.py` và `services/` phải có Google-style docstring mô tả contract.
-- Chỉ ghi mã `BR-xxx` và mục `Raises` khi thực sự áp dụng; không chèn reference hình thức hoặc lặp lại
-  type hints.
-- Comment giải thích **vì sao**, constraint hoặc đánh đổi; không diễn giải từng dòng code đang làm gì.
-- Reference tài liệu bằng file và mục ổn định khi constraint không thể hiện đầy đủ trong code.
+- Public function trong `contracts.py` và `services/` có Google-style docstring mô tả contract.
+- Chỉ ghi mã `BR-xxx` và mục `Raises` khi thực sự áp dụng; không chèn reference hình thức hoặc lặp type hints.
+- Comment giải thích **vì sao**, constraint hoặc đánh đổi; không diễn giải từng dòng code.
+- Reference tài liệu bằng file và mục ổn định khi constraint không thể hiện đủ trong code.
 - Xoá comment lỗi thời trong cùng thay đổi; comment sai nguy hiểm hơn không có comment.
 
 ## 9. Test
@@ -427,94 +365,48 @@ Chiến lược, marker, coverage và CI gate nằm ở [12](./12-testing-strate
 
 - Dùng `factory-boy`; không dùng JSON fixture.
 - Không mock ORM. Test trên PostgreSQL thật và chỉ fake hệ thống bên ngoài.
-- Mỗi public service function phải có bằng chứng cho happy path và từng hành vi lỗi mà contract của nó
-  công bố. Có thể dùng flow test nếu đó là cấp kiểm chứng phù hợp nhất.
+- Mỗi public service function có bằng chứng cho happy path và từng hành vi lỗi contract công bố; có thể
+  dùng flow test nếu đó là cấp kiểm chứng phù hợp nhất.
 - Test business rule gắn `@pytest.mark.br("BR-xxx")`.
 - Cố định thời gian bằng `time-machine`; không patch `timezone.now()` thủ công.
 - Factory đặt trong module sở hữu và chỉ dùng factory của module đó hoặc module lớp dưới.
 - Hành vi cần commit thật, nhiều connection hoặc lock dùng `django_db(transaction=True)`.
-- Service test cần chạy callback `on_commit` dùng
-  `django_capture_on_commit_callbacks(execute=True)`; flow test dùng `drain_events()`.
+- Service test cần chạy callback `on_commit` dùng `django_capture_on_commit_callbacks(execute=True)`;
+  flow test dùng `drain_events()`.
 - Trong `pytest.raises`, chỉ để một lời gọi có thể ném exception.
-- Assert theo dạng `actual == expected`; đặt kết quả thực vào biến khi biểu thức có thể gây hiểu nhầm.
-- Model test kế thừa `BaseModel` phải khai báo manager phù hợp để mypy không suy sai kiểu.
-
-Tên test mô tả hành vi quan sát được, không mô tả chi tiết implementation. Test phải độc lập thứ tự chạy
-và không phụ thuộc dữ liệu còn lại từ test khác.
+- Assert dạng `actual == expected`; đặt kết quả thực vào biến khi biểu thức có thể gây hiểu nhầm.
+- Model test kế thừa `BaseModel` khai báo manager phù hợp để mypy không suy sai kiểu.
+- Tên test mô tả hành vi quan sát được, không mô tả implementation.
+- Test độc lập thứ tự chạy, không phụ thuộc dữ liệu còn lại từ test khác.
 
 ## 10. Logging, exception và dữ liệu nhạy cảm
 
 - Dùng `logger = structlog.get_logger(__name__)`; không dùng `print` hoặc `logging.getLogger` trong code
   ứng dụng.
-- Message là tên sự kiện tiếng Anh dạng `snake_case`; dữ liệu truyền bằng keyword. Không dùng f-string
-  hoặc `%` để ghép message.
-- Chọn log level theo boundary và ý nghĩa vận hành: domain error dự kiến ở API thường là `INFO`; event
-  hoặc job bị từ chối và cần quan sát có thể là `WARNING`; lỗi ngoài dự kiến là `ERROR`. Xem thêm
-  [07](./07-async-events-jobs.md) cho consumer và task.
+- Message là tên sự kiện tiếng Anh `snake_case`; dữ liệu truyền bằng keyword, không ghép bằng f-string hoặc `%`.
+- Log level: domain error dự kiến ở API thường `INFO`; event/job bị từ chối cần quan sát có thể `WARNING`;
+  lỗi ngoài dự kiến `ERROR`. Consumer và task xem [07](./07-async-events-jobs.md).
 - Không log PII, IP thô, email, số điện thoại, địa chỉ, token, mật khẩu, secret hoặc payload thanh toán.
   Processor redact chỉ là lưới an toàn, không phải quyền log dữ liệu nhạy cảm.
-- Khi exception gốc có thể chứa secret hoặc connection URL, raise exception đã lọc bằng `from None`.
-- Không bắt `Exception` rồi im lặng. Nếu có thể phục hồi, log đủ identifier không nhạy cảm và giữ nguyên
-  semantics retry; nếu không, để exception truyền lên boundary chịu trách nhiệm xử lý.
-
-```python
-logger.info("stock_reserved", variant_id=variant.id, quantity=quantity)
-logger.warning("shipping_fee_fallback", provider="ghn", reason="timeout")
-```
+- Exception gốc có thể chứa secret hoặc connection URL thì raise exception đã lọc bằng `from None`.
+- Không bắt `Exception` rồi im lặng. Phục hồi được thì log đủ identifier không nhạy cảm và giữ semantics
+  retry; nếu không, để exception lên boundary chịu trách nhiệm xử lý.
 
 ## 11. Mẫu code Good/Bad
 
-Các ví dụ dưới đây minh hoạ hình dạng code cần hướng tới và có thể lược import. Khi type hoặc namespace
-có thể nhập nhằng, ví dụ phải ghi rõ nguồn. Tên model và service chỉ là ví dụ; khi triển khai phải dùng
-đúng thuật ngữ trong `GLOSSARY.md` và API thật của module.
+Ví dụ minh hoạ hình dạng code, có thể lược import; khi type hoặc namespace có thể nhập nhằng thì ghi rõ
+nguồn. Tên model/service chỉ là ví dụ; khi triển khai dùng đúng thuật ngữ trong `GLOSSARY.md` và API thật
+của module. View mỏng gọi service: xem ví dụ ở mục 3.1.
 
-### 11.1. View mỏng, nghiệp vụ nằm trong service
-
-✅ **Good** — view chỉ validate input, gọi service và serialize output:
+### 11.1. Module khác chỉ gọi public contract
 
 ```python
-class OrderCreateView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request: Request) -> Response:
-        serializer = OrderCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        account_id = request.user.pk  # Boundary xác thực bảo đảm đây là Account đang active.
-
-        order = place_order(
-            account_id=account_id,
-            cart_id=serializer.validated_data["cart_id"],
-            payment_method=serializer.validated_data["payment_method"],
-        )
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
-```
-
-❌ **Bad** — view tự query, mở transaction và thực hiện business rule:
-
-```python
-class OrderCreateView(APIView):
-    def post(self, request: Request) -> Response:
-        with transaction.atomic():
-            cart = Cart.objects.select_for_update().get(id=request.data["cart_id"])
-            if cart.items.count() == 0:
-                raise ValidationError("Cart is empty")
-            order = Order.objects.create(account=request.user, total=cart.total)
-        return Response({"id": order.id})
-```
-
-### 11.2. Module khác chỉ gọi public contract
-
-✅ **Good** — `ordering` gọi public API của `inventory`:
-
-```python
+# ✅ `ordering` gọi public API của `inventory`.
 from modules.inventory.contracts import reserve_stock
 
 reservation = reserve_stock(lines=stock_lines, expires_at=expires_at)
-```
 
-❌ **Bad** — import model/service nội bộ của module khác hoặc traversal ORM qua quan hệ của nó:
-
-```python
+# ❌ Import model/service nội bộ của module khác hoặc traversal ORM qua quan hệ của nó.
 from modules.inventory.models import StockItem
 from modules.inventory.services.reservations import create_reservation
 
@@ -522,27 +414,22 @@ stock = StockItem.objects.select_for_update().get(variant_id=variant_id)
 shipment__provider__status = order.shipment.provider.status
 ```
 
-### 11.3. Transaction không chứa I/O bên ngoài
-
-✅ **Good** — ghi DB/outbox trong transaction và enqueue sau commit:
+### 11.2. Transaction không chứa I/O bên ngoài
 
 ```python
+# ✅ Ghi DB/outbox trong transaction và enqueue sau commit.
 def confirm_order(*, order_id: UUID) -> Order:
     """Xác nhận Đơn hàng và lên lịch tạo Vận đơn sau khi transaction commit."""
-
     with transaction.atomic():
         order = Order.objects.select_for_update().get(id=order_id)
         order.status = OrderStatus.CONFIRMED
         order.save(update_fields=["status", "updated_at"])
         publish(OrderConfirmedV1(order_id=order.id))
         enqueue_on_commit("shipping.create_shipment", order_id=str(order.id))
-
     return order
-```
 
-❌ **Bad** — gọi HTTP và đẩy Celery task khi transaction chưa commit:
 
-```python
+# ❌ Gọi HTTP và đẩy Celery task khi transaction chưa commit.
 with transaction.atomic():
     order.status = OrderStatus.CONFIRMED
     order.save()
@@ -550,42 +437,10 @@ with transaction.atomic():
     create_shipment.delay(order.id)  # Worker có thể chạy trước khi DB commit.
 ```
 
-### 11.4. Naming và type hints thể hiện contract
-
-✅ **Good**:
+### 11.3. Model giữ schema; workflow nằm trong service
 
 ```python
-from pydantic import BaseModel
-
-
-def find_order_for_guest(*, order_code: str, email: str) -> Order | None: ...
-
-
-def list_orders_backoffice(*, status: OrderStatus | None = None) -> QuerySet[Order]: ...
-
-
-class ShippingQuoteDTO(BaseModel):
-    amount: int
-    currency: Literal["VND"]
-```
-
-❌ **Bad**:
-
-```python
-def order_get(code, email): ...  # Sai convention, thiếu type hints, không rõ có thể trả None không.
-
-
-def process(data: Any) -> Any: ...  # Tên mơ hồ và dùng Any để né contract.
-
-
-class ShippingQuote(BaseModel): ...  # DTO public thiếu hậu tố DTO.
-```
-
-### 11.5. Model giữ schema; workflow nằm trong service
-
-✅ **Good**:
-
-```python
+# ✅
 class Order(BaseModel):
     status = models.CharField(max_length=32, choices=OrderStatus.choices)
 
@@ -593,15 +448,12 @@ class Order(BaseModel):
         db_table = "ordering_order"
         constraints = (
             models.CheckConstraint(
-                condition=models.Q(status__in=OrderStatus.values),
-                name="ordering_order_status_valid",
+                condition=models.Q(status__in=OrderStatus.values), name="ordering_order_status_valid"
             ),
         )
-```
 
-❌ **Bad** — `save()` che giấu workflow và side effect:
 
-```python
+# ❌ `save()` che giấu workflow và side effect.
 class Order(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.status == "confirmed":
@@ -619,11 +471,10 @@ status = models.CharField(max_length=32, db_default=OrderStatus.PENDING)
 status = models.CharField(max_length=32, default=OrderStatus.PENDING)
 ```
 
-### 11.6. Comment và docstring giải thích lý do
-
-✅ **Good**:
+### 11.4. Comment và docstring giải thích lý do
 
 ```python
+# ✅
 def reserve_stock(*, order_id: UUID, lines: list[StockLine]) -> Reservation:
     """Giữ Tồn kho cho Đơn thanh toán online.
 
@@ -633,28 +484,23 @@ def reserve_stock(*, order_id: UUID, lines: list[StockLine]) -> Reservation:
     Raises:
         OutOfStock: Một Biến thể không còn đủ Số lượng bán được.
     """
-```
 
-❌ **Bad**:
 
-```python
+# ❌ Docstring lặp type hints, comment diễn giải code.
 def reserve_stock(order_id, lines):
     """Reserve stock.
 
     Args:
         order_id: The order id.
-        lines: The lines.
     """
     # Loop through every line.
-    for line in lines:
-        ...
+    for line in lines: ...
 ```
 
-### 11.7. Test một hành vi, một nguyên nhân thất bại
-
-✅ **Good**:
+### 11.5. Test một hành vi, một nguyên nhân thất bại
 
 ```python
+# ✅
 @pytest.mark.br("BR-INV-05")
 def test_reserve_stock_rejects_quantity_above_available(stock_item: StockItem) -> None:
     requested_quantity = stock_item.available_quantity + 1
@@ -665,11 +511,9 @@ def test_reserve_stock_rejects_quantity_above_available(stock_item: StockItem) -
     stock_item.refresh_from_db()
     actual = stock_item.reserved_quantity
     assert actual == 0
-```
 
-❌ **Bad** — mock ORM, nhiều lời gọi có thể fail trong `pytest.raises`, assert không rõ đối tượng:
 
-```python
+# ❌ Mock ORM, nhiều lời gọi có thể fail trong `pytest.raises`, assert không rõ đối tượng.
 @patch("modules.inventory.models.StockItem.objects.get")
 def test_stock(mock_get):
     with pytest.raises(Exception):
@@ -678,52 +522,44 @@ def test_stock(mock_get):
     assert stock.reserved_quantity == 0
 ```
 
-### 11.8. Structured logging không chứa PII
-
-✅ **Good**:
+### 11.6. Structured logging không chứa PII
 
 ```python
+# ✅
+logger.info("stock_reserved", variant_id=variant.id, quantity=quantity)
+logger.warning("shipping_fee_fallback", provider="ghn", reason="timeout")
 logger.info(
     "order_confirmed",
     order_id=str(order.id),
     order_code=order.code,
     payment_method=order.payment_method,
 )
-```
 
-❌ **Bad**:
-
-```python
+# ❌
 print(f"Confirmed order for {order.customer_email}")
 logger.info(f"order confirmed: {order.__dict__}")
 logger.info("payment_callback", payload=request.data, access_token=token)
 ```
 
-### 11.9. Suppression phải hẹp và có lý do
-
-✅ **Good**:
+### 11.7. Suppression phải hẹp và có lý do
 
 ```python
+# ✅
 result = subprocess.run(  # noqa: S603 -- executable là binary cố định trong virtualenv.
-    [LINT_IMPORTS, "--config", str(config_path)],
-    check=False,
+    [LINT_IMPORTS, "--config", str(config_path)], check=False
 )
-```
 
-❌ **Bad**:
-
-```python
+# ❌
 # ruff: noqa
 result = subprocess.run(command, shell=True)  # type: ignore
 ```
 
 ## 12. Checklist hoàn tất thay đổi
 
-- Code nằm đúng module và đúng tầng; không bypass contract hoặc ORM traversal sang module khác.
-- Tên, type hints, docstring và logging tuân theo tài liệu này.
-- Migration, API contract, business rule, glossary và tài liệu liên quan được cập nhật nếu thay đổi chạm
-  tới chúng.
+- Code đúng module, đúng tầng; không bypass contract hoặc ORM traversal sang module khác.
+- Tên, type hints, docstring và logging theo tài liệu này.
+- Migration, API contract, business rule, glossary và tài liệu liên quan được cập nhật nếu thay đổi chạm tới.
 - Test bao phủ happy path, domain error và cạnh tranh/transaction khi có liên quan.
 - Không thêm secret, PII, debug output, suppression rộng hoặc TODO không có chủ sở hữu.
-- Với thay đổi code, `make fmt`, `make lint` và test tương xứng với rủi ro đã chạy; full test suite là
-  cổng trước merge/release. Mọi giới hạn kiểm chứng được báo rõ trong kết quả.
+- Với thay đổi code, đã chạy `make fmt`, `make lint` và test tương xứng với rủi ro; full test suite là cổng
+  trước merge/release. Mọi giới hạn kiểm chứng được báo rõ trong kết quả.
