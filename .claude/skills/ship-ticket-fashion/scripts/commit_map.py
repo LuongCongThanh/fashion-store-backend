@@ -13,8 +13,8 @@ import sys
 
 from common import git, load_state, resolve, ticket_ref
 
-PHASE_OF = {"plan": "1 grill", "R": "4 review", "sync": "5 sync", "close": "6 ship", "ci": "6 ship"}
-TASK = re.compile(r"^(plan|S\d+|R[12]|sync|close|ci)$")
+PHASE_OF = {"plan": "1 grill", "R": "4 review", "sync": "5 sync", "retro": "5 sync", "close": "6 ship", "ci": "6 ship"}
+TASK = re.compile(r"^(plan|S\d+|R[12]|sync|retro|close|ci)$")
 REPEATABLE = {"ci"}  # mỗi lần CI đỏ một commit; task khác đúng một commit
 
 
@@ -25,7 +25,7 @@ def phase_of(task: str) -> str:
 
 
 def order_key(task: str) -> tuple[int, int]:
-    rank = ["plan", "S", "R", "sync", "close", "ci"]
+    rank = ["plan", "S", "R", "sync", "retro", "close", "ci"]
     head = task if task in rank else task[:1]
     num = int(task[1:]) if task[1:].isdigit() else 0
     return (rank.index(head) if head in rank else len(rank), num)

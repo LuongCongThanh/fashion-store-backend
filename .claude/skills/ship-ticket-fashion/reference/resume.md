@@ -16,7 +16,6 @@
 | --- | --- |
 | `grill` | G1 đã hỏi nhưng chưa trả lời → trình lại G1 từ `## Quyết định` trong `spec.md` và slice trong state |
 | `review` | `<K>-review.md` có đủ ba trục → bỏ qua bước review, đi tiếp từ bước xác minh; thiếu trục nào chỉ chạy lại trục đó |
-| `sync` | G2 đã hỏi nhưng chưa trả lời → trình lại G2; các phase trước giữ nguyên |
-| `done` | `gh pr view <pr> --json state` (tài khoản ở `phases/6-ship.md`): `MERGED` → bước kiểm đếm sau merge của phase 7; `OPEN` → hỏi merge hay chờ |
-| `retro` | Kiểm `retro_batch.py status`: chưa đủ đợt (kể cả state cũ) → `transition --to closed`, ghi lý do hoãn hoặc đợt đã hoàn tất; đủ đợt → tiếp tục phase 8, tìm PR đợt đang mở trước khi tạo mới |
+| `sync` | G2 đã hỏi nhưng chưa trả lời → trình lại G2; G2 đã duyệt nhưng chưa có commit `Task: retro` → `phases/8-retro.md` bước 4–5 |
+| `done` | `gh pr view <pr> --json state` (tài khoản ở `phases/6-ship.md`): `MERGED` → phase 7 bước 4; `OPEN` → hỏi merge hay chờ |
 | `closed` | Ticket đã xong: chạy `progress.py`, đề xuất ticket tiếp theo |

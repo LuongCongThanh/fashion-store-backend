@@ -70,6 +70,7 @@ Mỗi lần push thêm vào PR đã mở: cập nhật thân PR (`gh pr edit <s�
 ```bash
 python3 S/scripts/close_ticket.py <T> --pr <số>
 python3 S/scripts/progress.py --feature <feature>
+python3 S/scripts/metrics.py <T> --write   # metrics.md: token của ticket tới lúc đóng
 ```
 
 `close_ticket.py` fail-closed khi thiếu state, phase `ship`, G2, PR khớp state, slice hoàn tất hoặc AC trace. Script in các AC vừa tick; đối chiếu với bảng AC → bằng chứng. AC nằm trong `untestable` không được tick và in riêng: đã kiểm tay, hoặc là AC về CI mà mục 3 đã xanh, thì tự tick; chưa thì ghi vào Notes của PR.

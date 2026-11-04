@@ -1,6 +1,6 @@
 ---
 name: ship-ticket-fashion
-description: Làm ticket Fashion Store trong .scratch/ từ chốt spec tới merge, retro mỗi đợt 10 ticket; lập spec và ticket cho module mới; retro PR theo yêu cầu. Dùng khi người dùng yêu cầu làm ticket, làm tiếp module, xem tiến độ ticket hoặc retro PR trong repo này.
+description: Làm ticket Fashion Store trong .scratch/ từ chốt spec tới merge, kèm retro cải tiến skill trong PR của ticket; lập spec và ticket cho module mới; retro PR theo yêu cầu. Dùng khi người dùng yêu cầu làm ticket, làm tiếp module, xem tiến độ ticket hoặc retro PR trong repo này.
 ---
 
 # ship-ticket-fashion cho Codex
@@ -63,12 +63,12 @@ Giữ token trong môi trường tiến trình, không nội suy vào chuỗi l�
 
 ## Retro
 
-Thời điểm retro và cách đếm theo `S/phases/7-done.md`; chỉ đọc `S/phases/8-retro.md` khi đủ đợt hoặc người dùng yêu cầu `retro #<PR>`. Ghi chú mỗi ticket theo template báo cáo, checkpoint dùng chung giữa Claude và Codex.
+Retro chạy ở phase 5 của mỗi ticket theo `S/phases/8-retro.md`; `retro #<PR>` dùng mục cuối của file đó. Ghi chú mỗi ticket theo template báo cáo.
 
-`S/scripts/user_prompts.py` chỉ đọc transcript Claude. Trong Codex, bỏ lệnh này ở cả retro ticket và retro PR; không lấy lịch sử Claude làm bằng chứng cho phiên Codex và không quét thư mục phiên người dùng khác.
+`S/scripts/user_prompts.py` và `S/scripts/metrics.py` chỉ đọc transcript Claude. Trong Codex, bỏ hai lệnh này (kể cả `metrics.py --write` ở phase 6); không lấy lịch sử Claude làm bằng chứng cho phiên Codex và không quét thư mục phiên người dùng khác.
 
-Dùng `report.md` và mục *Ghi chú cho retro* của từng ticket trong đợt, spec, plan, commit → task và review/CI của PR. Hội thoại, state/handoff và log kiểm tra còn giữ được là bằng chứng bổ sung. Sau khi đổi phiên, nếu không có nguyên văn lời nhắc thì chỉ kết luận từ bằng chứng còn lưu và nêu phần không xác minh được. Không suy diễn câu người dùng đã nói.
+Dùng `report.md` và mục *Ghi chú cho retro* của ticket, spec, plan, commit → task và review/CI của PR. Hội thoại, state/handoff và log kiểm tra còn giữ được là bằng chứng bổ sung. Sau khi đổi phiên, nếu không có nguyên văn lời nhắc thì chỉ kết luận từ bằng chứng còn lưu và nêu phần không xác minh được. Không suy diễn câu người dùng đã nói.
 
-Cải tiến quy trình chung ghi ở `S`; điều chỉnh chỉ dành cho Codex ghi ở file này. Thay đổi trong `.agents/skills/` cũng là thay đổi skill khi áp dụng phase 8; chỉ thay hook hoặc cấu hình backend mới kéo theo check backend tương ứng. Sửa script thì chạy suite unittest dùng chung. Luôn `git diff --check`; giữ bước người dùng chọn đề xuất trước khi sửa và quy trình PR retro của phase 8.
+Cải tiến quy trình chung ghi ở `S`; điều chỉnh chỉ dành cho Codex ghi ở file này. Thay đổi trong `.agents/skills/` cũng là thay đổi skill khi áp dụng retro; chỉ thay hook hoặc cấu hình backend mới kéo theo check backend tương ứng. Sửa script thì chạy suite unittest dùng chung. Luôn `git diff --check`; giữ bước người dùng chọn đề xuất trước khi sửa và quy trình PR của `retro #<PR>`.
 
 Chỉ ghi memory khi người dùng yêu cầu trực tiếp, theo quyền và cơ chế memory của phiên Codex.

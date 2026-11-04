@@ -17,6 +17,7 @@ Task: <task>
 | `S<n>` | 2 | `feat` / `fix` / `refactor` / `test` theo việc slice làm |
 | `R1`, `R2` | 4 | `fix(<scope>): address review findings on <chủ đề>`, thân liệt kê mã finding |
 | `sync` | 5 | `docs: sync docs and report for <chủ đề> ticket` |
+| `retro` | 5 | `chore: refine ship-ticket-fashion after <chủ đề> ticket` |
 | `close` | 6 | `docs: close <chủ đề> ticket` |
 | `ci` | 6 | `fix(<scope>): …` theo lỗi CI; lặp lại được |
 

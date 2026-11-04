@@ -1,7 +1,7 @@
 ---
 name: ship-ticket-fashion
 description: Làm ticket `.scratch/` của Fashion Store khi người dùng nói "làm ticket NN", "làm tiếp", "làm module X", "retro PR #N", hoặc hỏi tiến độ / ticket tiếp theo: grilling tới merge, lập spec + ticket cho module mới.
-argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done|retro] | retro #<PR>"
+argument-hint: "[<feature>/<NN> | <NN> | <module>] [grill|code|report|review|sync|ship|done] | retro #<PR>"
 ---
 
 # ship-ticket-fashion
@@ -28,12 +28,12 @@ Windows: đọc `gotchas/windows-shell.md`, dùng `python` thay `python3`.
 
 ```
 0 plan (frontier rỗng)
-1 grill → ⛔G1 → 2 code → 3 report → 4 review → 5 sync → ⛔G2 → 6 ship → 7 done → closed
+1 grill → ⛔G1 → 2 code → 3 report → 4 review → 5 sync + retro → ⛔G2 → 6 ship → 7 done → closed
                     ↑                         │          │
                     └── review / sync đổi hành vi ───────┘
 ```
 
-Phase `n` ở `phases/<n>-<tên>.md`. Phase 7 vào **8 retro** chỉ khi `retro_batch.py status` báo đủ 10 ticket mới đã merge. Skill viết `/mattpocock-skills:<tên>` chỉ người dùng gọi được: đề xuất người dùng gõ; skill không có `/` thì gọi bằng Skill tool.
+Phase `n` ở `phases/<n>-<tên>.md`. Retro (`phases/8-retro.md`) chạy trong phase 5 của mỗi ticket; cải tiến skill đi cùng PR của ticket, token của ticket ghi ở `metrics.md`. Skill viết `/mattpocock-skills:<tên>` chỉ người dùng gọi được: đề xuất người dùng gõ; skill không có `/` thì gọi bằng Skill tool.
 
 ## Mode
 

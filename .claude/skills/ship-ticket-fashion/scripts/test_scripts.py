@@ -239,7 +239,7 @@ class StateMachine(unittest.TestCase):
         self.assertIn("--gate g1", check_transition(make_state(phase="sync"), "ship", "g1"))
         self.assertIsNone(check_transition(make_state(phase="sync"), "ship", "g2"))
 
-    def test_done_can_close_between_retros_without_skipping_delivery_phases(self):
+    def test_done_closes_only_with_pr_and_without_skipping_phases(self):
         self.assertIsNone(check_transition(make_state(phase="done", pr=54), "closed", None))
         self.assertIsNotNone(check_transition(make_state(phase="done"), "closed", None))
         self.assertIsNotNone(check_transition(make_state(phase="ship", pr=54), "closed", None))

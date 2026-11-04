@@ -23,7 +23,7 @@ from common import git, load_state, repo_root, resolve, save_state, state_dir, t
 from progress import PLAN, SPEC, find_section, frontier, load_features
 
 SKILL = ".claude/skills/ship-ticket-fashion"
-PHASES = ["grill", "code", "report", "review", "sync", "ship", "done", "retro", "closed"]
+PHASES = ["grill", "code", "report", "review", "sync", "ship", "done", "closed"]
 BACK_EDGES = {("review", "code"), ("sync", "code"), ("sync", "review")}
 GATE_EDGES = {"g1": ("grill", "code"), "g2": ("sync", "ship")}
 TRANSITION_ONLY = ("phase", "gates", "transitions")  # set/push không được ghi
@@ -39,7 +39,6 @@ PHASE_FILES = {
     "sync": "5-sync",
     "ship": "6-ship",
     "done": "7-done",
-    "retro": "8-retro",
 }
 
 
@@ -222,11 +221,7 @@ def check_transition(state: dict, to: str, gate: str | None) -> str | None:
     current = state["phase"]
     if to not in PHASES:
         return f"phase lạ: {to}"
-    step_ok = (
-        PHASES.index(to) == PHASES.index(current) + 1
-        or (current, to) in BACK_EDGES
-        or (current, to) == ("done", "closed")
-    )
+    step_ok = PHASES.index(to) == PHASES.index(current) + 1 or (current, to) in BACK_EDGES
     if not step_ok:
         return f"không đi được {current} → {to}"
     if gate and GATE_EDGES[gate] != (current, to):
@@ -481,7 +476,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     for flag in flags:
         print(f"FLAG {flag}")
     print(f"READ {SKILL}/reference/rules.md")
-    if flags or state["phase"] in ("done", "retro", "closed"):
+    if flags or state["phase"] in ("done", "closed"):
         print(f"READ {SKILL}/reference/resume.md")
     if state["phase"] in PHASE_FILES:
         print(f"READ {SKILL}/phases/{PHASE_FILES[state['phase']]}.md")

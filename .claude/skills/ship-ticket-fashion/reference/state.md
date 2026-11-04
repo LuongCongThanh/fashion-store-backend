@@ -48,10 +48,10 @@
 - `status` của slice: `todo` → `code` → `done`. Slice phụ thuộc nhau tạo thành DAG; `state.py check` từ chối id trùng, `dependsOn` không tồn tại và vòng lặp.
 - `handoff`: tối đa 5 dòng mỗi slice, chỉ những gì slice sau dùng lại (tên export, quyết định). Không ghi nhật ký làm việc.
 - `next`: đúng một việc cụ thể tiếp theo, viết lại sau mỗi bước.
-- `phase`: `grill | code | report | review | sync | ship | done | retro | closed`.
+- `phase`: `grill | code | report | review | sync | ship | done | closed`.
 - `pr`: số PR, ghi ở phase 6.
 - `phase`, `transitions`, `gates`: chỉ `state.py transition` ghi; `set` / `push` từ chối các field này. `--gate g1` chỉ dùng ở `grill → code`, `--gate g2` chỉ ở `sync → ship`.
-- Sau merge, `done → closed` khi chưa đủ đợt retro; đủ đợt thì `done → retro → closed`. Chờ merge giữ `done`. Bộ đếm dùng lịch sử `origin/dev` và `reference/retro-batch.json`, độc lập state từng ticket.
+- Sau merge `done → closed`; chờ merge giữ `done`.
 
 Lệnh:
 
