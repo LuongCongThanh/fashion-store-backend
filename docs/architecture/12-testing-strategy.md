@@ -82,6 +82,8 @@ Selector tìm Sản phẩm cần test trên PostgreSQL thật theo BR-CAT-13: `a
 
 Test dùng `@pytest.mark.django_db(transaction=True)` và `@pytest.mark.concurrency`. Mỗi test chạy N thread, mỗi thread mở kết nối DB riêng, các thread xuất phát cùng lúc nhờ `threading.Barrier`, rồi kiểm tra bất biến sau khi tất cả kết thúc. Test chạy trong **mọi PR**, vì mỗi worker của `pytest-xdist` đã có DB riêng.
 
+Test cần Redis thật (failure ledger đăng nhập) dùng fixture `ledger_redis` của identity: lấy `REDIS_URL` nhưng chuyển sang DB 15, key ngẫu nhiên theo test nên chạy xdist không đụng nhau và không flush DB. Thiếu Redis thì test fail rõ, không skip; CI có service Redis. Chạy pytest trên máy thì `REDIS_URL` phải trỏ Redis của Compose (`redis://localhost:6380/0`, 08 mục 2.3).
+
 Bắt buộc có các test:
 
 | Kịch bản | Bất biến |
@@ -94,6 +96,7 @@ Bắt buộc có các test:
 | Checkout song song với đổi Giá bán hoặc thêm/sửa/xoá SalePrice | Writer và checkout đều khoá Variant; đơn dùng snapshot đã xác thực hoặc rollback PRICE_CHANGED, không lọt giá đọc trước khi writer commit |
 | Hai checkout chứa nhiều Biến thể, availability chỉ đổi ở các Biến thể khác nhau | Khoá toàn bộ StockItem rồi toàn bộ Variant theo id trước khi đổi availability; không có thứ tự khoá một phần Variant trước phần còn lại |
 | T3 tới muộn của đơn có Giữ hàng vừa quá hạn và checkout của người khác cùng tranh phần hàng đó | Đúng một bên được hàng, Tồn kho không âm; bên thua nhận `OUT_OF_STOCK` hoặc đi nhánh Hoàn tiền |
+| N request đăng nhập sai đồng thời cho cùng một email (N > 5) | Failure ledger không cấp quá 5 suất; phần còn lại nhận `429` (05 mục 5). Test chạy Lua trên Redis thật |
 | Người mua tự huỷ (T5) đúng lúc IPN thành công (T3) trên cùng một đơn | Chỉ một transition chạy trên trạng thái `PENDING_PAYMENT` (khoá dòng Đơn hàng); nếu T5 thắng thì tiền về được xử lý theo BR-PAY-05 |
 
 ### 2.3. Handler và outbox
@@ -442,7 +445,7 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
 
 - Dữ liệu test tạo bằng `factory-boy`, không dùng fixture JSON.
 - Test kiểm nội dung log (không lộ IP, email, secret) đọc output của chuỗi processor thật qua fixture `json_logging`; `structlog.testing.capture_logs` thay cả chuỗi nên bỏ qua `merge_contextvars` và không thấy key do middleware gắn. Gọi `logging.config.dictConfig(json_logging)` trong thân test, không ở pha setup của fixture khác, để handler ghi vào stderr mà `capsys` bắt ở pha call.
-- Fixture không cần nghiệp vụ (ví dụ `api_client`) ở `shared/testing/fixtures.py`. Fixture phải tạo Tài khoản (`customer_client`, `staff_client`, `admin_client`) ở `backend/conftest.py`, vì `shared` không được import `modules.identity`. Tới khi có JWT ở M1, `staff_client`/`admin_client` gọi `force_authenticate(user=…, token={"aud": "backoffice"})` để qua `IsStaff`/`IsAdmin`; `customer_client` thêm ở M6.
+- Fixture không cần nghiệp vụ (ví dụ `api_client`) ở `shared/testing/fixtures.py`. Fixture phải tạo Tài khoản (`customer_client`, `staff_client`, `admin_client`) ở `backend/conftest.py`, vì `shared` không được import `modules.identity`. `staff_client`/`admin_client` dùng fixture `jwt_keyring` (keyring Ed25519 tạm) và gắn `Authorization: Bearer` bằng access token back-office thật, nên đi qua `JWTAuthentication` như request thật; không dùng `force_authenticate` để chứng minh JWT. `customer_client` thêm ở M6.
 - Mỗi module để factory ở `modules/<module>/tests/factories.py`.
 - Test trong một module chỉ dùng factory của chính module đó và của các module lớp dưới, theo đúng chiều phụ thuộc trong [02-backend-structure.md](./02-backend-structure.md) mục 4. Ví dụ test của `ordering` dùng được factory của `catalog` và `inventory`; test của `inventory` không dùng được factory của `ordering`.
 - `backend/tests/flows/` được dùng factory của mọi module.

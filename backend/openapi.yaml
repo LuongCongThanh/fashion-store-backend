@@ -12,13 +12,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BackofficeLoginInput'
+              $ref: '#/components/schemas/LoginInput'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/BackofficeLoginInput'
+              $ref: '#/components/schemas/LoginInput'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/BackofficeLoginInput'
+              $ref: '#/components/schemas/LoginInput'
         required: true
       security:
       - {}
@@ -27,7 +27,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPairOutput'
+                $ref: '#/components/schemas/TokenPairDTO'
           description: ''
         '400':
           content:
@@ -65,7 +65,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountOutput'
+                $ref: '#/components/schemas/AccountDTO'
           description: ''
         '400':
           content:
@@ -186,7 +186,7 @@ paths:
           description: Lỗi hệ thống (`INTERNAL_ERROR`).
 components:
   schemas:
-    AccountOutput:
+    AccountDTO:
       type: object
       description: '`AccountDTO` (04 mục 5.4): không có mật khẩu, `token_version`
         hay token.'
@@ -226,18 +226,6 @@ components:
       - language
       - phone
       - updated_at
-    BackofficeLoginInput:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          writeOnly: true
-      required:
-      - email
-      - password
     ErrorDTO:
       type: object
       properties:
@@ -295,7 +283,19 @@ components:
       description: |-
         * `vi` - Vi
         * `en` - En
-    TokenPairOutput:
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    TokenPairDTO:
       type: object
       properties:
         access_token:

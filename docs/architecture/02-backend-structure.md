@@ -154,7 +154,7 @@ backend/
 ├── Makefile                        # lệnh tắt: make up, make test, make lint, make migrate…
 ├── openapi.yaml                    # schema OpenAPI đã commit; CI so với bản sinh lại ([12](./12-testing-strategy.md) mục 5)
 ├── CHANGELOG.md                    # sinh bằng commitizen ([11](./11-git-workflow.md) mục 7)
-├── conftest.py                     # pytest_plugins = ["shared.testing.fixtures"]; fixture cần Tài khoản (customer_client, staff_client, admin_client, dùng factory của identity) thêm ở đây; tới khi có JWT ở M1, staff_client/admin_client gọi force_authenticate với claims `aud = backoffice`
+├── conftest.py                     # pytest_plugins = ["shared.testing.fixtures"]; fixture cần Tài khoản (customer_client, staff_client, admin_client, dùng factory của identity) thêm ở đây; fixture jwt_keyring tạo keyring Ed25519 tạm, staff_client/admin_client gắn header `Authorization: Bearer` bằng access token back-office thật (không force_authenticate)
 ├── scripts/
 │   ├── _modules.py                 # list_modules(root): danh sách module nghiệp vụ dùng chung cho hai script dưới
 │   ├── check_module_coverage.py    # branch coverage ≥ 80% cho từng module và nhóm shared (12 mục 8)
@@ -212,7 +212,7 @@ backend/
 │   ├── health/
 │   │   └── views.py                # /healthz (sống), /readyz (kết nối được PostgreSQL)
 │   ├── logging.py                  # configure_logging(json=...) cấu hình structlog, processor redact_pii che PII
-│   ├── checks.py                   # system check shared.E001 (--deploy): mỗi secret của PII_HMAC_KEYS dài ít nhất 32 byte
+│   ├── checks.py                   # system check (--deploy): shared.E001 mỗi secret của PII_HMAC_KEYS dài ít nhất 32 byte; shared.E002 JWT_SIGNING_KEYS không rỗng
 │   ├── management/commands/
 │   │   ├── run_outbox_relay.py     # tiến trình relay chạy liên tục
 │   │   ├── retry_failed_events.py  # mở lại các delivery failed
@@ -388,10 +388,12 @@ Các module con đều theo khuôn ở mục 6. Bảng dưới chỉ liệt kê 
 | Token tra cứu đơn | `identity.contracts.issue_order_lookup_token(order_code) -> str` và `verify_order_lookup_token(token) -> OrderLookupDTO` là public API cho `ordering`. Dùng cùng hạ tầng JWT Ed25519, bắt buộc `iss`, `aud = order_lookup`, `token_use = lookup`, `sub`, `iat`, `exp` (30 phút), chỉ chấp nhận thuật toán EdDSA và `kid` đã cấu hình. DTO chỉ trả Mã đơn và hạn token; `ordering` kiểm tra Mã đơn khớp URL. Không truy vấn model Đơn hàng từ identity, không import `identity.auth` từ ordering; validator access/refresh/lookup loại trừ nhau theo 05 |
 | `models/auth.py` | `RefreshToken`: `jti`, `family_id`, `token_hash`, `expires_at`, `used_at`, `successor_jti`, `revoked_at`; `RefreshReplay` response mã hoá có hạn 10 giây, không audit; `AccountToken` (đặt lại mật khẩu và xác thực email, phân biệt bằng `purpose`; chỉ lưu hash) |
 | `models/privacy.py` | `Consent` (phiên bản chính sách, kênh, thời điểm), `ErasureRequest`, `CustomerDataAccessLog` |
-| `auth/tokens.py` | Phát hành và kiểm tra access/refresh JWT bằng PyJWT (Ed25519, `kid`) |
-| `auth/authentication.py` | `JWTAuthentication`, class xác thực của DRF |
+| `auth/tokens.py` | Phát hành và kiểm tra access/refresh JWT bằng PyJWT (Ed25519, `kid`); hàm thuần nhận `now` từ caller |
+| `auth/authentication.py` | `JWTAuthentication`, class xác thực của DRF cho back-office: xác minh access token `aud = backoffice` rồi đọc `Account` từ PostgreSQL mỗi request. Khai theo từng view bằng `authentication_classes`; `DEFAULT_AUTHENTICATION_CLASSES` để rỗng (05 mục 4) |
+| `auth/login_attempts.py` | Failure ledger đăng nhập (05 mục 5): `LoginAttemptLedger.reserve`, `complete_failure`, `complete_success`, `release`; Lua atomic trên Redis, fail-open khi Redis lỗi; `get_login_ledger()` dùng client Redis cache có timeout |
+| `api/backoffice/` | `POST auth/login` (`AllowAny`, `authentication_classes = ()`), `GET auth/me` (`JWTAuthentication` + `IsStaff`); serializer `LoginInput`, `TokenPairOutput` (`TokenPairDTO`), `AccountOutput` (`AccountDTO`) |
 | `auth/google.py` | Xác minh `id_token` Google bằng `google-auth`. Khớp Tài khoản có `email_verified = false` thì đánh dấu đã xác thực, `set_unusable_password`, tăng `token_version`, thu hồi mọi refresh token. Tạo Tài khoản mới hoặc đánh dấu đã xác thực thì phát `EmailVerifiedV1` |
-| `services/` | `create_staff_account` (`services/accounts.py`: tạo Staff/Admin cho lệnh `create_staff` và back-office US-1001; kiểm email, độ mạnh mật khẩu, email trùng → `InvalidEmail`, `WeakPassword`, `EmailAlreadyUsed`), `register`, `verify_email`, `login`, `refresh`, `logout`, `request_password_reset`, `reset_password`, `login_with_google`, `update_profile` (họ tên, số điện thoại, ngôn ngữ; không đổi email), `record_consent`, `erase_customer`, `apply_erasure_request`, `finalize_erasure_request` |
+| `services/` | `create_staff_account` (`services/accounts.py`: tạo Staff/Admin cho lệnh `create_staff` và back-office US-1001; kiểm email, độ mạnh mật khẩu, email trùng → `InvalidEmail`, `WeakPassword`, `EmailAlreadyUsed`), `register`, `verify_email`, `login` (back-office: `login_backoffice` ở `services/auth.py`), `refresh`, `logout`, `request_password_reset`, `reset_password`, `login_with_google`, `update_profile` (họ tên, số điện thoại, ngôn ngữ; không đổi email), `record_consent`, `erase_customer`, `apply_erasure_request`, `finalize_erasure_request` |
 | `events.py` | `CustomerRegisteredV1`, `VerificationEmailRequestedV1` (gửi lại email xác thực, hoặc đăng ký lại bằng email chưa xác thực), `RegistrationAttemptedV1` (đăng ký bằng email đã có Tài khoản, US-501 AC2), `EmailVerifiedV1`, `CustomerErasedV1`, `PasswordResetRequestedV1`. Payload chỉ mang `account_id` hoặc `erasure_request_id`, không mang token hay PII. `EmailVerifiedV1` phát mỗi khi email chuyển sang đã xác thực, từ `verify_email` hoặc `login_with_google` |
 | `contracts.py` | `get_customer(id)`, `CustomerDTO`, `record_consent(...)`, `issue_email_verification_link(account_id) -> str`, `issue_password_reset_link(account_id) -> str` (sinh token lúc gửi email), `get_erasure_subject(erasure_request_id) -> ErasureSubjectDTO`, `apply_erasure_request(erasure_request_id)` (chỉ ordering gọi sau khi kiểm tra CMP-05; ghi processing và sự kiện, chưa ghi completed_at), `find_verified_customer_id(email) -> UUID \| None`, `log_customer_data_access(staff_id, customer_id, subject_phone, order_code, action)` (CMP-07) |
 

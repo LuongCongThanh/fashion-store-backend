@@ -1,23 +1,26 @@
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from modules.identity.constants import AccountKind, Language
 
 
-class BackofficeLoginInputSerializer(serializers.Serializer[Any]):
+class LoginInput(serializers.Serializer[Any]):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, trim_whitespace=False)
 
 
-class TokenPairOutputSerializer(serializers.Serializer[Any]):
+@extend_schema_serializer(component_name="TokenPairDTO")
+class TokenPairOutput(serializers.Serializer[Any]):
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
     token_type = serializers.CharField()
     expires_in = serializers.IntegerField(min_value=1)
 
 
-class AccountOutputSerializer(serializers.Serializer[Any]):
+@extend_schema_serializer(component_name="AccountDTO")
+class AccountOutput(serializers.Serializer[Any]):
     """`AccountDTO` (04 mục 5.4): không có mật khẩu, `token_version` hay token."""
 
     id = serializers.UUIDField()

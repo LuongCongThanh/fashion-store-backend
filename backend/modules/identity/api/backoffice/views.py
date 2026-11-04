@@ -6,9 +6,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from modules.identity.api.backoffice.serializers import (
-    AccountOutputSerializer,
-    BackofficeLoginInputSerializer,
-    TokenPairOutputSerializer,
+    AccountOutput,
+    LoginInput,
+    TokenPairOutput,
 )
 from modules.identity.auth.authentication import JWTAuthentication
 from modules.identity.auth.login_attempts import (
@@ -27,9 +27,9 @@ class BackofficeLoginView(APIView):
     permission_classes = (AllowAny,)
 
     @extend_schema(
-        request=BackofficeLoginInputSerializer,
+        request=LoginInput,
         responses={
-            200: TokenPairOutputSerializer,
+            200: TokenPairOutput,
             401: OpenApiResponse(
                 ErrorOutput,
                 description="Thông tin đăng nhập không hợp lệ (`INVALID_CREDENTIALS`).",
@@ -37,7 +37,7 @@ class BackofficeLoginView(APIView):
         },
     )
     def post(self, request: Request) -> Response:
-        serializer = BackofficeLoginInputSerializer(data=request.data)
+        serializer = LoginInput(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
             pair = login_backoffice(
@@ -48,7 +48,7 @@ class BackofficeLoginView(APIView):
             )
         except LoginRateLimited as exc:
             raise exceptions.Throttled(wait=exc.retry_after) from exc
-        output = TokenPairOutputSerializer(pair)
+        output = TokenPairOutput(pair)
         return Response(output.data, status=status.HTTP_200_OK)
 
 
@@ -58,8 +58,8 @@ class BackofficeMeView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsStaff,)
 
-    @extend_schema(responses={200: AccountOutputSerializer})
+    @extend_schema(responses={200: AccountOutput})
     def get(self, request: Request) -> Response:
         # `request.user` là Account vừa đọc từ PostgreSQL trong JWTAuthentication
-        output = AccountOutputSerializer(request.user)
+        output = AccountOutput(request.user)
         return Response(output.data, status=status.HTTP_200_OK)

@@ -106,7 +106,7 @@ EMAIL_HOST = env.EMAIL_HOST
 EMAIL_PORT = env.EMAIL_PORT
 
 REST_FRAMEWORK: dict[str, object] = {
-    # Chưa có xác thực ở M0; JWT thêm ở M1
+    # Rỗng có chủ đích: view back-office tự khai JWTAuthentication (05 mục 4)
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     # Mặc định từ chối; view công khai tự khai báo AllowAny (05 mục 4)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
