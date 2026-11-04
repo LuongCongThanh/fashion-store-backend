@@ -1,6 +1,6 @@
 # Spec: Mỗi module một Django app
 
-Status: ready-for-agent
+Status: resolved
 
 ## Mục tiêu
 Đưa code về cấu trúc đích của [ADR 0018](../../docs/adr/0018-one-django-app-per-module.md) và [02-backend-structure.md](../../docs/architecture/02-backend-structure.md) **trước khi** M1 viết module mới. Lúc này mới có `identity` và `shared` có code, chưa có môi trường chạy thật nên đổi rẻ.

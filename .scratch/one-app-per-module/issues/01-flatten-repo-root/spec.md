@@ -1,6 +1,6 @@
 # 01 – Đưa Django project từ `backend/` lên gốc repo
 
-Status: ready-for-agent · Ưu tiên: 2 · Blocked by: — · **PR:**
+Status: resolved · Ưu tiên: 2 · Blocked by: — · **PR:** #75
 
 Spec: [spec.md](../../spec.md)
 
@@ -33,7 +33,7 @@ Mọi lệnh (`make`, `uv`, `docker compose`, `pre-commit`) chạy từ gốc re
 - [x] Không còn thư mục `backend/`; `git grep -n "backend/"` chỉ còn trong `.scratch/` và ADR lịch sử.
 - [x] Số test thu thập (`pytest --collect-only -q`) trước và sau bằng nhau.
 - [x] Từ gốc: `make fmt`, `make lint`, `make test` xanh; `docker compose up` chạy được worker, beat, relay; `pre-commit run --all-files` xanh.
-- [ ] CI xanh trên PR; Dependabot trỏ đúng thư mục gốc.
+- [x] CI xanh trên PR; Dependabot trỏ đúng thư mục gốc.
 - [x] Test skill `ship-ticket-fashion` xanh.
 
 ## Ghi chú

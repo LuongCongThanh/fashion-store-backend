@@ -1,6 +1,6 @@
 # 03 – Đặt lại vị trí và tên file test theo quy tắc soi gương
 
-Status: ready-for-agent · Ưu tiên: 4 · Blocked by: [02](../02-django-apps/spec.md) · **PR:**
+Status: resolved · Ưu tiên: 4 · Blocked by: [02](../02-django-apps/spec.md) · **PR:** #77
 
 Spec: [spec.md](../../spec.md)
 
