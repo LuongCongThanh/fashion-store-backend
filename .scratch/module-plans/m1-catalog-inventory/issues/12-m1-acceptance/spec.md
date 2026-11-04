@@ -2,7 +2,7 @@
 
 **What to build:** Chứng minh toàn M1 hoạt động liền mạch bằng API thật: Admin tạo Catalog, Staff Nhập kho và Người mua tìm/xem đúng Sản phẩm; đóng mọi gate migration, OpenAPI, import boundary, query và coverage.
 
-Blocked by: 01–11 — mọi vertical slice M1.
+Blocked by: 01–11, 13 — mọi vertical slice M1 và quy ước OpenAPI.
 
 Status: ready-for-agent
 
