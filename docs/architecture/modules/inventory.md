@@ -4,13 +4,12 @@
 
 ## 1. Sở hữu
 
-Kho, Tồn kho, Giữ hàng, Hàng chờ xuất, Nhập kho, Kiểm kê và lịch sử thay đổi Tồn kho.
-
-`inventory` ở lớp 4: gọi `catalog` để cập nhật bản sao còn/hết hàng, có FK tới `Account` (người thực hiện). Chỉ `ordering` gọi vào nó.
+- Kho, Tồn kho, Giữ hàng, Hàng chờ xuất, Nhập kho, Kiểm kê, lịch sử thay đổi Tồn kho.
+- Lớp 4: gọi `catalog` (bản sao còn/hết hàng), FK tới `Account` (người thực hiện). Chỉ `ordering` gọi vào.
 
 ## 2. Cây thư mục
 
-Mọi model xoay quanh một khái niệm Tồn kho nên `models`, `services`, `selectors` đều là file.
+Mọi model xoay quanh Tồn kho nên `models`, `services`, `selectors` đều là file.
 
 ```
 apps/inventory/
@@ -35,20 +34,20 @@ graph LR
     inventory -->|"FK StockMovement.actor → Account"| identity
 ```
 
-`inventory` chưa phát sự kiện: `ordering` là bên gọi nên tự biết kết quả.
+Chưa phát sự kiện: `ordering` là bên gọi nên tự biết kết quả.
 
 ## 4. Public API
 
 ### 4.1. `contracts.py`
 
-Hàm ghi gọi được trong transaction của bên gọi và trở thành một phần của transaction đó.
+Hàm ghi chạy trong transaction của bên gọi, thành một phần của transaction đó.
 
 | Hàm | Khi nào | Ghi chú |
 |---|---|---|
 | `lock_stock_items(items)` | Checkout, trước khi kiểm giá | Chỉ khoá mọi StockItem theo `variant_id`, không cập nhật `catalog` |
 | `reserve_stock(reference, items, expires_at)` | Checkout online | Giữ hàng; `expires_at` lấy từ Đơn hàng. Ném `OutOfStock` |
 | `decrement_stock(...)` | Checkout COD | Trừ Tồn kho, tạo Hàng chờ xuất theo `reference`. Ném `OutOfStock` |
-| `commit_reservation(reference)` | T3 | Giữ hàng còn hạn thì chuyển thẳng sang Hàng chờ xuất; đã quá hạn hoặc bị giải phóng thì kiểm lại Số lượng bán được trong cùng khoá dòng, đủ thì giữ lại và chuyển, không đủ thì ném `ReservationExpired` |
+| `commit_reservation(reference)` | T3 | Còn hạn: chuyển thẳng sang Hàng chờ xuất. Quá hạn hoặc đã giải phóng: kiểm lại Số lượng bán được trong cùng khoá dòng; đủ thì giữ lại và chuyển, không đủ thì ném `ReservationExpired` |
 | `release_reservation(reference)` | Huỷ đơn chưa thanh toán | Idempotent |
 | `dispatch_stock(reference)` | T10 | Xoá Hàng chờ xuất khi Bàn giao |
 | `release_allocation(reference)` | Huỷ trước Bàn giao | Trả Hàng chờ xuất về Tồn kho |
@@ -67,13 +66,13 @@ Hàm ghi gọi được trong transaction của bên gọi và trở thành mộ
 
 - **Service:** `receive_stock` (Nhập kho, bắt buộc số phiếu nhập), `reserve_stock`, `commit_reservation`, `release_reservation`, `decrement_stock`, `dispatch_stock`, `release_allocation`, `restock`, `adjust_stock`, `count_stock` (Kiểm kê).
 - **Lịch sử:** mỗi service đổi `on_hand` ghi một `StockMovement` theo bảng ánh xạ ở [03 mục 4.5](../03-data-model.md#45-inventory_stock_movement-lịch-sử-thay-đổi-tồn-kho-br-inv-09).
-- **Trừ kho khi bán:** `decrement_stock` và `commit_reservation` tạo Hàng chờ xuất theo `reference`; hàng chỉ rời Kho khi Bàn giao ([ADR 0010](../../adr/0010-stock-decremented-at-order-awaiting-dispatch.md)).
-- **Giữ hàng hết hạn:** `reserve_stock` và `decrement_stock`, sau khi khoá dòng `StockItem`, tự giải phóng các Giữ hàng đã quá `expires_at` của dòng đó trước khi kiểm tra. Job huỷ đơn gọi lại `release_reservation` vẫn an toàn.
-- **Khoá:** khoá toàn bộ StockItem của thao tác bằng `select_for_update` theo `variant_id` trước khi chạm `catalog`. Checkout đã khoá đủ Variant để kiểm giá; luồng khác gom mọi Variant cần đổi availability, khoá theo id tăng dần rồi mới cập nhật.
-- **Bản sao còn/hết hàng:** khi Số lượng bán được chuyển giữa 0 và lớn hơn 0 thì gọi `catalog.contracts.set_variant_availability`.
+- **Trừ kho khi bán:** `decrement_stock`, `commit_reservation` tạo Hàng chờ xuất theo `reference`; hàng chỉ rời Kho khi Bàn giao ([ADR 0010](../../adr/0010-stock-decremented-at-order-awaiting-dispatch.md)).
+- **Giữ hàng hết hạn:** `reserve_stock`, `decrement_stock` khoá dòng `StockItem` rồi tự giải phóng Giữ hàng quá `expires_at` của dòng đó trước khi kiểm. Job huỷ đơn gọi lại `release_reservation` vẫn an toàn.
+- **Khoá:** khoá mọi StockItem của thao tác bằng `select_for_update` theo `variant_id` trước khi chạm `catalog`. Checkout đã khoá đủ Variant để kiểm giá; luồng khác gom mọi Variant cần đổi availability, khoá theo id tăng dần rồi mới cập nhật.
+- **Bản sao còn/hết hàng:** Số lượng bán được chuyển giữa 0 và > 0 thì gọi `catalog.contracts.set_variant_availability`.
 
 ## 6. Tài liệu liên quan
 
 - Schema: [03 mục 4](../03-data-model.md#4-inventory)
-- Quyết định: [ADR 0010](../../adr/0010-stock-decremented-at-order-awaiting-dispatch.md) (trừ kho khi bán), [ADR 0003](../../adr/0003-postgres-redis-celery.md) (Giữ hàng quá hạn bị coi là không hợp lệ dù job chưa kịp giải phóng)
+- Quyết định: [ADR 0010](../../adr/0010-stock-decremented-at-order-awaiting-dispatch.md) (trừ kho khi bán), [ADR 0003](../../adr/0003-postgres-redis-celery.md) (Giữ hàng quá hạn coi là không hợp lệ dù job chưa kịp giải phóng)
 - Thứ tự khoá: [13 mục 4](../13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài)

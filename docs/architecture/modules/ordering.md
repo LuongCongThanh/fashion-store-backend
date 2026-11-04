@@ -4,9 +4,8 @@
 
 ## 1. Sở hữu
 
-Giỏ hàng, checkout, Đơn hàng và máy trạng thái của nó, Đổi trả, Cờ cần xử lý, cấu hình Ngưỡng miễn phí ship và Hạn mức COD.
-
-`ordering` ở lớp 5: được gọi `contracts` của mọi module lớp dưới. Chỉ `notifications` (lớp 6) phụ thuộc vào nó.
+- Giỏ hàng, checkout, Đơn hàng và máy trạng thái, Đổi trả, Cờ cần xử lý, cấu hình Ngưỡng miễn phí ship và Hạn mức COD.
+- Lớp 5: được gọi `contracts` của mọi module lớp dưới. Chỉ `notifications` (lớp 6) phụ thuộc vào nó.
 
 ## 2. Cây thư mục
 
@@ -88,7 +87,7 @@ Nét liền: gọi `contracts`. Nét đứt: sự kiện, chiều mũi tên là 
 
 ### 4.1. `contracts.py`
 
-Chỉ phục vụ `notifications`: đọc dữ liệu Đơn hàng để dựng email. Checkout và các transition **không** nằm ở đây, vì chỉ API của chính `ordering` gọi chúng.
+Chỉ phục vụ `notifications` (đọc Đơn hàng để dựng email). Checkout và transition **không** ở đây: chỉ API của `ordering` gọi chúng.
 
 ### 4.2. `events.py`
 
@@ -116,7 +115,7 @@ Lỗi của module khác mà `ordering` bắt, không khai báo lại: `OutOfSto
 
 ### 5.1. Luồng checkout
 
-Mục này là **nơi sở hữu** luồng checkout. Thứ tự khoá và quy tắc writer của catalog ở [13 mục 4](../13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài); vòng đời `quote_token` ở [04 mục 5.3](../04-api-contract.md#53-vòng-đời-quote_token).
+Mục này **sở hữu** luồng checkout. Thứ tự khoá và quy tắc writer của catalog ở [13 mục 4](../13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài); vòng đời `quote_token` ở [04 mục 5.3](../04-api-contract.md#53-vòng-đời-quote_token).
 
 `POST /api/v1/store/checkout`:
 
@@ -148,13 +147,15 @@ views.CheckoutView
   → serializers.OrderOutput(order).data                  # Khách vãng lai nhận lookup_token; Khách hàng nhận null
 ```
 
-- Sau commit, đơn COD được relay đẩy `ordering.order-placed` và `notifications` gửi email "Đặt đơn thành công". Đơn online: Người mua gọi tiếp `POST /store/orders/{code}/payments`; `order-placed` chỉ phát khi Thanh toán thành công (T3).
-- Giá chốt trong transaction, dưới khoá Variant, và so với báo giá Người mua đã xác nhận trong `quote_token`. Khác phiên bản, đơn giá, snapshot hoặc điều kiện bán thì rollback, dựng quote mới ngoài transaction và trả `409 PRICE_CHANGED`, kể cả khi tổng tình cờ không đổi ([ADR 0012](../../adr/0012-checkout-price-snapshot.md)).
-- Không gọi GHN khi đang giữ khoá. Người mua xác nhận quote mới bằng token và Idempotency-Key mới. Không có bảng Quote.
+- COD: sau commit, relay đẩy `ordering.order-placed`, `notifications` gửi "Đặt đơn thành công".
+- Online: Người mua gọi tiếp `POST /store/orders/{code}/payments`; `order-placed` chỉ phát khi Thanh toán thành công (T3).
+- Giá chốt trong transaction, dưới khoá Variant, so với báo giá đã xác nhận trong `quote_token`. Khác phiên bản, đơn giá, snapshot hoặc điều kiện bán → rollback, dựng quote mới ngoài transaction, trả `409 PRICE_CHANGED`, kể cả khi tổng tình cờ không đổi ([ADR 0012](../../adr/0012-checkout-price-snapshot.md)).
+- Không gọi GHN khi đang giữ khoá.
+- Người mua xác nhận quote mới bằng token và Idempotency-Key mới. Không có bảng Quote.
 
 ### 5.2. Máy trạng thái và transition
 
-`Order.status` dùng `django-fsm-2`, bao phủ T1–T14 trong [05-order-lifecycle.md](../../business/05-order-lifecycle.md). Checkout tạo đơn ở T1/T2; mọi chuyển trạng thái của đơn đã tồn tại chỉ được gọi từ `services/transitions.py`:
+`Order.status` dùng `django-fsm-2`, bao phủ T1–T14 trong [05-order-lifecycle.md](../../business/05-order-lifecycle.md). Checkout tạo đơn ở T1/T2; mọi chuyển trạng thái của đơn đã tồn tại chỉ gọi từ `services/transitions.py`:
 
 | Nguồn | Transition |
 |---|---|
@@ -162,8 +163,8 @@ views.CheckoutView
 | Sự kiện (mục 5.6) | `mark_paid` (T3), `mark_shipped` (T10), `mark_delivered` (T11), `mark_returned` (T12) |
 | Job | `complete` |
 
-- **Khoá:** mọi transition khoá dòng Đơn hàng bằng `select_for_update` trước khi đọc trạng thái. Hai transition cùng lúc trên một đơn (ví dụ T5 và T3) chạy lần lượt; transition sau thấy trạng thái mới.
-- **Transition do sự kiện** tự đối chiếu trạng thái hiện tại với sơ đồ ở 05-order-lifecycle mục 2, nên handler không tự kiểm thứ tự:
+- **Khoá:** mọi transition `select_for_update` dòng Đơn hàng trước khi đọc trạng thái; hai transition đồng thời (ví dụ T5 và T3) chạy lần lượt, cái sau thấy trạng thái mới.
+- **Transition do sự kiện** tự đối chiếu với sơ đồ ở 05-order-lifecycle mục 2; handler không tự kiểm thứ tự:
   - Đơn **đã ở hoặc đã qua** trạng thái đích: không làm gì (sự kiện trùng hoặc tới muộn).
   - Đơn **chưa tới** trạng thái nguồn nhưng còn đi tới được: ném `TransitionNotYetValid`.
   - Còn lại, ví dụ GHN báo đã giao khi đơn đã `RETURNED_TO_SENDER`: ném `InvalidTransition`.
@@ -172,25 +173,35 @@ views.CheckoutView
 ### 5.3. Mã đơn, hạn thanh toán, cấu hình
 
 - **Mã đơn:** `FS<YYMM>-` + 6 ký tự Crockford Base32 ngẫu nhiên, `UNIQUE`, trùng thì sinh lại. Không dùng sequence.
-- **Hạn thanh toán:** `Order.expires_at` = lúc đặt + `RESERVATION_TTL` (15 phút), là nguồn duy nhất, truyền xuống `reserve_stock`. Link thanh toán của mọi lần thử hết hạn ở lúc đặt + `PAYMENT_LINK_TTL` (phút thứ 10). Từ lúc đặt + `PAYMENT_START_CUTOFF` (phút thứ 7) không bắt đầu Thanh toán mới được.
-- **`payment_id`:** Order lưu id của khoản dùng để thanh toán đơn: COD từ T2, online tại T3 dưới khoá Order. Huỷ, Hoàn hàng, Đổi trả truyền id này vào `request_refund`; khoản trả thêm hoặc sai số tiền truyền `payment_id` từ sự kiện. Mỗi yêu cầu hoàn truyền `request_key` ổn định theo thao tác nguồn ([03 mục 6](../03-data-model.md#6-payments)).
+- **Hạn thanh toán:**
+  - `Order.expires_at` = lúc đặt + `RESERVATION_TTL` (15 phút), nguồn duy nhất, truyền xuống `reserve_stock`.
+  - Link thanh toán mọi lần thử hết hạn ở lúc đặt + `PAYMENT_LINK_TTL` (phút thứ 10).
+  - Từ lúc đặt + `PAYMENT_START_CUTOFF` (phút thứ 7) không bắt đầu Thanh toán mới.
+- **`payment_id`:** id khoản thanh toán đơn; COD lưu từ T2, online tại T3 dưới khoá Order.
+  - Huỷ, Hoàn hàng, Đổi trả truyền id này vào `request_refund`; khoản trả thêm hoặc sai số tiền truyền `payment_id` từ sự kiện.
+  - Mỗi yêu cầu hoàn truyền `request_key` ổn định theo thao tác nguồn ([03 mục 6](../03-data-model.md#6-payments)).
 - **Cấu hình:** `OrderingSettings` giữ Ngưỡng miễn phí ship và Hạn mức COD.
 
 ### 5.4. Cờ cần xử lý, Đổi trả, Hoàn hàng
 
 - **Cờ cần xử lý:** `OrderFlag` bật từ handler hoặc service (`raise_flag`), Staff gỡ qua back-office (`resolve_flag`, có lịch sử). `raise_flag` gặp cờ cùng `kind` đang mở thì nối thêm vào `note`, không báo lỗi.
-- **Đổi trả:** `accept` nhận `accepted_quantity` và `restock` cho từng dòng (BR-RET-08), khoá Order để tính số hoàn lũy kế (BR-RET-07), gọi `inventory.contracts.restock` cho phần nhập lại. Tổng hoàn > 0 thì gọi `payments.contracts.request_refund`, lưu `refund_id` và chuyển `accepted`; tổng = 0 thì chuyển thẳng `refunded`, không tạo Refund. Mọi thay đổi commit cùng transaction.
-- **Hoàn hàng:** T12 đặt `warehouse_return_required = true`. T14 chỉ đặt cờ này khi Staff xác nhận hàng chưa rời Kho; không tự cộng tồn khi huỷ. `receive_returned_shipment` khoá Order, chỉ nhận đơn có cờ và ở `RETURNED_TO_SENDER` hoặc `CANCELLED`; chưa có `returned_to_warehouse_at` thì gọi `inventory.contracts.restock` và ghi mốc cùng transaction. Gọi lại trả kết quả cũ, không nhập kho lần nữa, không đổi trạng thái đơn (BR-INV-08, US-607).
+- **Đổi trả** (`accept`), mọi thay đổi commit cùng transaction:
+  - Nhận `accepted_quantity` và `restock` từng dòng (BR-RET-08); khoá Order để tính số hoàn lũy kế (BR-RET-07); gọi `inventory.contracts.restock` cho phần nhập lại.
+  - Tổng hoàn > 0: gọi `payments.contracts.request_refund`, lưu `refund_id`, chuyển `accepted`. Tổng = 0: chuyển thẳng `refunded`, không tạo Refund.
+- **Hoàn hàng:**
+  - T12 đặt `warehouse_return_required = true`; T14 chỉ đặt khi Staff xác nhận hàng chưa rời Kho. Không tự cộng tồn khi huỷ.
+  - `receive_returned_shipment` khoá Order, chỉ nhận đơn có cờ và ở `RETURNED_TO_SENDER` hoặc `CANCELLED`; chưa có `returned_to_warehouse_at` thì gọi `inventory.contracts.restock` và ghi mốc cùng transaction.
+  - Gọi lại trả kết quả cũ, không nhập kho lần nữa, không đổi trạng thái đơn (BR-INV-08, US-607).
 
 ### 5.5. Dữ liệu cá nhân
 
-- **Xoá dữ liệu:** `complete_erasure_request` kiểm tra điều kiện CMP-05 (đơn ở trạng thái cuối, `payments.contracts.has_pending_refunds`) rồi gọi `identity.contracts.apply_erasure_request`. Endpoint trả 202 khi chưa xong; job của `identity` ghi `completed_at` ([03 mục 10](../03-data-model.md)). Endpoint back-office `erasure-requests` nằm ở `ordering`.
+- **Xoá dữ liệu:** `complete_erasure_request` kiểm CMP-05 (đơn ở trạng thái cuối, `payments.contracts.has_pending_refunds`) rồi gọi `identity.contracts.apply_erasure_request`. Endpoint back-office `erasure-requests` (ở `ordering`) trả 202 khi chưa xong; job của `identity` ghi `completed_at` ([03 mục 10](../03-data-model.md)).
 - **Log truy cập:** chi tiết đơn và tìm đơn theo số điện thoại ở back-office gọi `identity.contracts.log_customer_data_access` (CMP-07).
 - **`IsOrderOwner`:** JWT của Khách hàng chủ đơn, hoặc `X-Lookup-Token` xác minh qua `identity.contracts.verify_order_lookup_token`, kiểm `sub` khớp Mã đơn trên URL ([05 mục 2](../05-auth-security.md)).
 
 ### 5.6. Handler
 
-Mỗi handler gọi **một** service; việc gọi `contracts` của module khác nằm trong service.
+Mỗi handler gọi **một** service; gọi `contracts` module khác nằm trong service.
 
 | Sự kiện | Service | Hành vi |
 |---|---|---|

@@ -1,16 +1,15 @@
 # Module `identity`
 
-> Trạng thái: **Đã chốt cho MVP**, đã có code một phần (Tài khoản Staff/Admin, đăng nhập back-office). Mục đánh dấu _(kế hoạch)_ chưa có code. Khuôn chung: [02 mục 4](../02-backend-structure.md#4-khuôn-mẫu-một-module).
+> Trạng thái: **Đã chốt cho MVP**, đã có code một phần (Tài khoản Staff/Admin, đăng nhập back-office). Mục _(kế hoạch)_ chưa có code. Khuôn chung: [02 mục 4](../02-backend-structure.md#4-khuôn-mẫu-một-module).
 
 ## 1. Sở hữu
 
-Tài khoản (Khách hàng, Staff, Admin), xác thực bằng JWT, xác thực email, sổ địa chỉ, đồng ý xử lý dữ liệu và Yêu cầu xoá dữ liệu.
-
-`identity` ở lớp 3. Chỉ phụ thuộc `geo` (FK địa chỉ) và `infrastructure.google`. `inventory`, `promotions`, `ordering`, `notifications` phụ thuộc vào nó.
+- Tài khoản (Khách hàng, Staff, Admin), xác thực JWT, xác thực email, sổ địa chỉ, đồng ý xử lý dữ liệu, Yêu cầu xoá dữ liệu.
+- Lớp 3, chỉ phụ thuộc `geo` (FK địa chỉ) và `infrastructure.google`. `inventory`, `promotions`, `ordering`, `notifications` phụ thuộc vào nó.
 
 ## 2. Cây thư mục
 
-`models` và `services` là package vì có nhiều khái niệm độc lập (Tài khoản, phiên đăng nhập, dữ liệu cá nhân).
+`models`, `services` là package (Tài khoản, phiên đăng nhập, dữ liệu cá nhân độc lập nhau).
 
 ```
 apps/identity/
@@ -73,7 +72,7 @@ graph LR
 | `issue_email_verification_link(account_id) -> str`, `issue_password_reset_link(account_id) -> str` | notifications | Sinh token lúc gửi email, không lúc phát sự kiện |
 | `record_consent(...)` | | |
 | `get_erasure_subject(erasure_request_id) -> ErasureSubjectDTO` | handler của module khác | Lấy đối tượng cần ẩn danh |
-| `apply_erasure_request(erasure_request_id)` | chỉ ordering | Sau khi ordering kiểm điều kiện CMP-05; ghi `processing` và phát sự kiện, chưa ghi `completed_at` |
+| `apply_erasure_request(erasure_request_id)` | chỉ ordering | Sau khi ordering kiểm CMP-05; ghi `processing` và phát sự kiện, chưa ghi `completed_at` |
 | `log_customer_data_access(staff_id, customer_id, subject_phone, order_code, action)` | ordering | CMP-07 |
 
 ### 4.2. `events.py` _(kế hoạch)_
@@ -91,32 +90,38 @@ Payload chỉ mang `account_id` hoặc `erasure_request_id`, không mang token h
 
 ### 4.3. `exceptions.py`
 
-`EmailAlreadyUsed`, `InvalidEmail`, `WeakPassword`, `InvalidCredentials`; thêm lỗi khi làm các luồng _(kế hoạch)_.
+`EmailAlreadyUsed`, `InvalidEmail`, `WeakPassword`, `InvalidCredentials`; thêm lỗi khi làm luồng _(kế hoạch)_.
 
 ## 5. Quy tắc riêng
 
 ### 5.1. Tài khoản
 
-- `Account` là custom user: email duy nhất cho mọi `kind` (một email là một Tài khoản), `kind` (`customer` / `staff` / `admin`), `language`, `token_version`, `is_active`, `email_verified`, `anonymized_at`. Model này phải nằm trong migration đầu tiên của `identity`.
-- `create_staff_account` (lệnh `create_staff` và back-office US-1001) kiểm email, độ mạnh mật khẩu, email trùng.
+- `Account` là custom user, phải nằm trong migration đầu tiên của `identity`. Field: email duy nhất cho mọi `kind` (một email là một Tài khoản), `kind` (`customer` / `staff` / `admin`), `language`, `token_version`, `is_active`, `email_verified`, `anonymized_at`.
+- `create_staff_account` (lệnh `create_staff`, back-office US-1001) kiểm email, độ mạnh mật khẩu, email trùng.
 - `update_profile` đổi họ tên, số điện thoại, ngôn ngữ; không đổi email.
 
 ### 5.2. Token và đăng nhập
 
 - `auth/tokens.py` là hàm thuần, nhận `now` từ caller. Access/refresh/lookup token có validator loại trừ nhau ([05](../05-auth-security.md)).
-- **Lookup token** cho tra cứu đơn: JWT Ed25519, bắt buộc `iss`, `aud = order_lookup`, `token_use = lookup`, `sub` (Mã đơn), `iat`, `exp` (30 phút), chỉ chấp nhận EdDSA và `kid` đã cấu hình. DTO chỉ trả Mã đơn và hạn token; `ordering` tự kiểm Mã đơn khớp URL. `identity` không truy vấn model Đơn hàng, `ordering` không import `identity.auth`.
-- `JWTAuthentication` xác minh access token `aud = backoffice` rồi đọc `Account` từ PostgreSQL mỗi request. Khai theo từng view bằng `authentication_classes`; `DEFAULT_AUTHENTICATION_CLASSES` để rỗng ([05](../05-auth-security.md) mục 4).
+- **Lookup token** (tra cứu đơn): JWT Ed25519; bắt buộc `iss`, `aud = order_lookup`, `token_use = lookup`, `sub` (Mã đơn), `iat`, `exp` (30 phút); chỉ chấp nhận EdDSA và `kid` đã cấu hình.
+  - DTO chỉ trả Mã đơn và hạn token; `ordering` tự kiểm Mã đơn khớp URL.
+  - `identity` không truy vấn model Đơn hàng; `ordering` không import `identity.auth`.
+- `JWTAuthentication` xác minh access token `aud = backoffice`, rồi đọc `Account` từ PostgreSQL mỗi request. Khai theo từng view bằng `authentication_classes`; `DEFAULT_AUTHENTICATION_CLASSES` để rỗng ([05](../05-auth-security.md) mục 4).
 - **Login ledger** (05 mục 5): `reserve`, `complete_failure`, `complete_success`, `release`; Lua atomic trên Redis, fail-open khi Redis lỗi.
-- `RefreshToken` lưu `jti`, `family_id`, `token_hash`, `expires_at`, `used_at`, `successor_jti`, `revoked_at`; `RefreshReplay` giữ response mã hoá 10 giây ([ADR 0014](../../adr/0014-refresh-single-successor.md)). `AccountToken` dùng cho đặt lại mật khẩu và xác thực email, phân biệt bằng `purpose`, chỉ lưu hash.
+- `RefreshToken` lưu `jti`, `family_id`, `token_hash`, `expires_at`, `used_at`, `successor_jti`, `revoked_at`; `RefreshReplay` giữ response mã hoá 10 giây ([ADR 0014](../../adr/0014-refresh-single-successor.md)).
+- `AccountToken` (đặt lại mật khẩu, xác thực email) phân biệt bằng `purpose`, chỉ lưu hash.
 
 ### 5.3. Đăng nhập Google _(kế hoạch)_
 
-`infrastructure.google` chỉ xác minh `id_token`. Phần nghiệp vụ nằm trong `services/auth.py`: khớp Tài khoản có `email_verified = false` thì đánh dấu đã xác thực, `set_unusable_password`, tăng `token_version`, thu hồi mọi refresh token. Tạo Tài khoản mới hoặc đánh dấu đã xác thực thì phát `EmailVerifiedV1`.
+- `infrastructure.google` chỉ xác minh `id_token`; nghiệp vụ nằm trong `services/auth.py`.
+- Khớp Tài khoản có `email_verified = false`: đánh dấu đã xác thực, `set_unusable_password`, tăng `token_version`, thu hồi mọi refresh token.
+- Tạo Tài khoản mới hoặc đánh dấu đã xác thực thì phát `EmailVerifiedV1`.
 
 ### 5.4. Dữ liệu cá nhân và job _(kế hoạch)_
 
-- Job `reconcile_erasure_requests` (mỗi phút) gọi `finalize_erasure_request`: đối chiếu delivery của các handler bắt buộc qua `common.events`, hoàn tất yêu cầu `processing`. Khi hoàn tất, thay `subject_phone` bằng `subject_phone_hmac` trên ErasureRequest, Consent và CustomerDataAccessLog cùng transaction ([ADR 0016](../../adr/0016-erasure-evidence-phone-hmac.md)). Không truy vấn model của module khác. Hàm HMAC dùng chung là `common.security.privacy.pii_hmac`.
-- Job `purge_refresh_replays` (mỗi phút) và `purge_expired_tokens` (hằng ngày) xoá dữ liệu token hết hạn.
+- `reconcile_erasure_requests` (mỗi phút) gọi `finalize_erasure_request`: đối chiếu delivery của các handler bắt buộc qua `common.events`, hoàn tất yêu cầu `processing`. Không truy vấn model của module khác.
+- Khi hoàn tất, thay `subject_phone` bằng `subject_phone_hmac` trên ErasureRequest, Consent, CustomerDataAccessLog cùng transaction ([ADR 0016](../../adr/0016-erasure-evidence-phone-hmac.md)). HMAC dùng chung: `common.security.privacy.pii_hmac`.
+- `purge_refresh_replays` (mỗi phút) và `purge_expired_tokens` (hằng ngày) xoá dữ liệu token hết hạn.
 
 ## 6. Tài liệu liên quan
 
