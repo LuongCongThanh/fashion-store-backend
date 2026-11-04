@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.helpers import BACKEND, importlinter_section, isolated_env, write_tree
+from tests.tooling.helpers import ROOT, importlinter_section, isolated_env, write_tree
 
-GENERATOR = BACKEND / "scripts/gen_importlinter.py"
+GENERATOR = ROOT / "scripts/gen_importlinter.py"
 LINT_IMPORTS = shutil.which("lint-imports", path=str(Path(sys.executable).parent))
 # Cây tối thiểu: đủ module cho contract `layers`; inventory có phần nội bộ và public API,
 # shared có outbox và chuỗi import gián tiếp tới relay (shared.tasks → operations → relay → tasks)

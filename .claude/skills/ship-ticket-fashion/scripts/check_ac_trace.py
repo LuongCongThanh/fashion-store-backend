@@ -46,7 +46,7 @@ def trace(state: dict, ac_total: int, backend: Path, planned: bool) -> list[str]
             for test_id in s.get("tests", []):
                 if not test_exists(backend, test_id):
                     problems.append(
-                        f"{s['id']}: không thấy test {test_id} (đường dẫn tính từ backend/)"
+                        f"{s['id']}: không thấy test {test_id} (đường dẫn tính từ gốc repo)"
                     )
     return problems
 
@@ -63,7 +63,7 @@ def main() -> int:
     if state is None:
         print("NO STATE: chạy state.py init trước")
         return 1
-    problems = trace(state, ticket.ac_total, repo_root() / "backend", args.planned)
+    problems = trace(state, ticket.ac_total, repo_root(), args.planned)
     for p in problems:
         print(f"FAIL {p}")
     print(f"AC TRACE {'OK' if not problems else 'FAIL'} ({ticket.ac_total} AC)")

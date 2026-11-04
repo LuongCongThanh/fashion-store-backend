@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 DEFAULT_RULES_PATH = (
-    Path(__file__).resolve().parents[2] / "docs" / "business" / "04-business-rules.md"
+    Path(__file__).resolve().parents[1] / "docs" / "business" / "04-business-rules.md"
 )
 
 

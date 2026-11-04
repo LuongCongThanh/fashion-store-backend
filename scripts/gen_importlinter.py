@@ -170,7 +170,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="report drift, do not write")
     args = parser.parse_args()
     try:
-        # Luôn chạy trên thư mục hiện tại (`backend/` ở Make và CI): không nhận đường dẫn từ CLI
+        # Luôn chạy trên thư mục hiện tại (gốc repo ở Make và CI): không nhận đường dẫn từ CLI
         return _run(Path.cwd(), check=args.check)
     except (GeneratorError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

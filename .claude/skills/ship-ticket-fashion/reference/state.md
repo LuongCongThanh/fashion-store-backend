@@ -16,16 +16,16 @@
       "tddTests": ["tests/shared/api/test_pagination.py::test_page_size_capped_at_100"],
       "verificationTests": [],
       "expectedRed": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100": "AssertionError"},
-      "files": ["backend/shared/api/pagination.py"],
-      "governingDocs": {"backend/shared/api/pagination.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]},
+      "files": ["shared/api/pagination.py"],
+      "governingDocs": {"shared/api/pagination.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]},
       "tdd": {"tests/shared/api/test_pagination.py::test_page_size_capped_at_100":
         {"redAt": "2026-10-29T10:10:00+07:00", "redReason": "FAILED …", "greenAt": "2026-10-29T10:20:00+07:00"}},
       "handoff": ["StandardPagination trong shared/api/pagination.py"] },
     { "id": "S2", "acs": [1], "dependsOn": ["S1"], "status": "code", "seam": "service result",
       "tests": ["modules/x/tests/test_services_x.py::test_x"], "tddTests": [],
       "verificationTests": ["modules/x/tests/test_services_x.py::test_x"], "expectedRed": {},
-      "files": ["backend/modules/x/services/x.py"],
-      "governingDocs": {"backend/modules/x/services/x.py": ["docs/architecture/13-python-django-coding-style.md::4"]},
+      "files": ["modules/x/services/x.py"],
+      "governingDocs": {"modules/x/services/x.py": ["docs/architecture/13-python-django-coding-style.md::4"]},
       "tdd": {} }
   ],
   "currentSlice": "S2",
@@ -38,7 +38,7 @@
 ```
 
 - `acs`: 1-based index of the AC in the `## Acceptance criteria` section of `spec.md`.
-- `tests`: deduplicated union of `tddTests` and `verificationTests`; function-level pytest ids (`file.py::test_x`), relative to `backend/`.
+- `tests`: deduplicated union of `tddTests` and `verificationTests`; function-level pytest ids (`file.py::test_x`), relative to the repo root.
 - `tddTests`: new behaviour tests; need `expectedRed`, go red then green. `verificationTests`: existing tests that only need a verified green.
 - `files`: files the slice will change, recorded in phase 1 for `plan.md`; one slice is one commit containing exactly these files.
 - `governingDocs`: each key is a file in `files`, each value a `path.md::section` reference; the script checks file and heading exist, and that the reference appears in `## Quyết định`.

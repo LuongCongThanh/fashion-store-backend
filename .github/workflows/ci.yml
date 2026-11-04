@@ -82,27 +82,21 @@ jobs:
       PII_HMAC_KEYS: ci-pii-1:ci-pii-secret
       STOREFRONT_ORIGIN: http://localhost:3000
       BFF_SHARED_SECRET: ci-bff-secret
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Kiểm tra đã có backend chưa
         id: detect
-        working-directory: .
         run: |
-          if [ -f backend/pyproject.toml ]; then
+          if [ -f pyproject.toml ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Chưa có backend/pyproject.toml, bỏ qua lint, test và pip-audit"
+            echo "::notice::Chưa có pyproject.toml, bỏ qua lint, test và pip-audit"
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         if: steps.detect.outputs.present == 'true'
-        with:
-          working-directory: backend
       - name: Cài dependency
         if: steps.detect.outputs.present == 'true'
         # --locked: lỗi nếu uv.lock lệch pyproject.toml; --no-build: chỉ cài wheel, không chạy setup script

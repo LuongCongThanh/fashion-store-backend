@@ -17,7 +17,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: uv
-    directory: /backend
+    directory: /
     schedule:
       interval: weekly
       day: monday
@@ -31,7 +31,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: docker
-    directory: /backend
+    directory: /
     schedule:
       interval: weekly
       day: monday

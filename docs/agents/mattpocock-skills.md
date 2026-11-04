@@ -22,7 +22,7 @@ Repo đã cấu hình tương đương `setup-matt-pocock-skills`: [`issue-track
 | `tdd` | model | Làm tính năng hoặc sửa bug theo kiểu test trước | Đưa kèm `spec.md` của feature để skill khỏi làm lấn sang ticket khác |
 | `diagnosing-bugs` | model | Bug khó, bug chập chờn, hồi quy hiệu năng | Skill sửa luôn mà không hỏi; muốn duyệt trước khi sửa thì nói rõ lúc gọi |
 | `code-review` | model | Review nhánh hoặc PR từ một mốc (thường là `origin/dev`) | Chỉ xem `<mốc>...HEAD`, nên phải commit trước. Chạy ở phiên mới. Coi phát hiện là giả thuyết |
-| `codebase-design` | model | Bàn interface, seam, deep module | Ở repo, "module" là module nghiệp vụ trong `backend/modules/` (ADR 0006). Khi bàn, gọi cụ thể là hàm, class hay package |
+| `codebase-design` | model | Bàn interface, seam, deep module | Ở repo, "module" là module nghiệp vụ, mỗi module một Django app (ADR 0018). Khi bàn, gọi cụ thể là hàm, class hay package |
 | `domain-modeling` | model | Mài thuật ngữ, sửa `GLOSSARY.md`, ghi ADR | Chỉ ghi ADR khi quyết định khó đảo ngược, gây bất ngờ nếu thiếu ngữ cảnh, và có trade-off thật |
 | `prototype` | model | Kiểm một state model hoặc logic trước khi code thật | Repo là backend, nên dùng nhánh logic (HTML). Commit lên nhánh `prototype/<tên>`, không merge |
 | `research` | model | Cần sự thật từ nguồn ngoài repo (GHN, VNPay, MoMo, thư viện) | Lưu ở `.scratch/<feature>/research/`, rồi trỏ ticket hoặc spec tới file đó |

@@ -1,6 +1,6 @@
 """Payload sự kiện không chứa secret hay PII, xét theo tên field (07 mục 2, mục 5).
 
-Đặt ở `backend/tests/` để thấy sự kiện của mọi module. Test chỉ bắt lỗi theo tên field;
+Đặt ở `tests/tooling/` để thấy sự kiện của mọi module. Test chỉ bắt lỗi theo tên field;
 reviewer vẫn phải đọc payload của mọi sự kiện mới.
 """
 

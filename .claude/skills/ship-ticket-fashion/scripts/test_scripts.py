@@ -87,10 +87,10 @@ def complete_slice(**overrides) -> dict:
         "tddTests": [test_id],
         "verificationTests": [],
         "expectedRed": {test_id: "AssertionError"},
-        "files": ["backend/x.py", "backend/tests/test_x.py"],
+        "files": ["x.py", "tests/test_x.py"],
         "governingDocs": {
-            "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"],
-            "backend/tests/test_x.py": [
+            "x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"],
+            "tests/test_x.py": [
                 "docs/architecture/13-python-django-coding-style.md::9",
                 "docs/architecture/12-testing-strategy.md::2.1",
             ],
@@ -410,8 +410,8 @@ class Checks(unittest.TestCase):
 
     def test_diff_size_skips_generated_files(self):
         numstat = (
-            "10\t2\tbackend/shared/api.py\n"
-            "300\t0\tbackend/modules/x/migrations/0001.py\n"
+            "10\t2\tshared/api.py\n"
+            "300\t0\tmodules/x/migrations/0001.py\n"
             "5\t5\tuv.lock\n"
         )
         self.assertEqual(diff_size(numstat), 12)
@@ -519,9 +519,9 @@ class PlanAndCommits(unittest.TestCase):
                     tests=["t.py::a"],
                     tddTests=["t.py::a"],
                     expectedRed={"t.py::a": "AssertionError"},
-                    files=["backend/x.py"],
+                    files=["x.py"],
                     governingDocs={
-                        "backend/x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]
+                        "x.py": ["docs/architecture/13-python-django-coding-style.md::3.1"]
                     },
                 )
             ],
@@ -531,7 +531,7 @@ class PlanAndCommits(unittest.TestCase):
         self.assertTrue(text.startswith("# Kế hoạch\n\nSinh"))
         self.assertIn(
             "| S1 | 1, 2 | APIClient | TDD `t.py::a` → AssertionError | "
-            "`backend/x.py` → docs/architecture/13-python-django-coding-style.md::3.1 | — |",
+            "`x.py` → docs/architecture/13-python-django-coding-style.md::3.1 | — |",
             text,
         )
         self.assertIn("AC 3 không test tự động: cần Redis thật", text)
@@ -552,11 +552,11 @@ class PlanAndCommits(unittest.TestCase):
     def test_slice_commit_rejects_paths_outside_plan(self):
         state = make_state(slices=[complete_slice()])
         self.assertIsNone(
-            check_slice_paths("S1", ["backend/x.py", "backend/tests/test_x.py"], state)
+            check_slice_paths("S1", ["x.py", "tests/test_x.py"], state)
         )
-        self.assertIn("thiếu file", check_slice_paths("S1", ["backend/x.py"], state))
-        self.assertIn("ngoài plan", check_slice_paths("S1", ["backend/y.py"], state))
-        self.assertIsNone(check_slice_paths("sync", ["backend/y.py"], state))
+        self.assertIn("thiếu file", check_slice_paths("S1", ["x.py"], state))
+        self.assertIn("ngoài plan", check_slice_paths("S1", ["y.py"], state))
+        self.assertIsNone(check_slice_paths("sync", ["y.py"], state))
 
     def test_tdd_red_rejects_collection_errors(self):
         self.assertIsNone(
@@ -599,7 +599,7 @@ class PlanAndCommits(unittest.TestCase):
     def test_dirty_ticket_alone_is_only_a_warning(self):
         report = f"{REF}/report.md"
         self.assertEqual(check_dirty([report, f"{REF}/spec.md"], REF)[0][0], "WARN")
-        self.assertEqual(check_dirty([report, "backend/x.py"], REF)[0][0], "FAIL")
+        self.assertEqual(check_dirty([report, "x.py"], REF)[0][0], "FAIL")
         self.assertEqual(check_dirty([f"{REF}y/spec.md"], REF)[0][0], "FAIL")
         self.assertEqual(check_dirty([], REF)[0][0], "OK")
 
@@ -635,7 +635,7 @@ class PlanAndCommits(unittest.TestCase):
 
     def test_parse_log_counts_files_from_one_git_log(self):
         raw = (
-            f"\x1ea1\x1ffeat: x\x1fS1\x1f{REF}\n\nbackend/a.py\nbackend/b.py\n"
+            f"\x1ea1\x1ffeat: x\x1fS1\x1f{REF}\n\na.py\nb.py\n"
             f"\x1eb2\x1fdocs: y\x1fsync\x1f{REF}\n\n{REF}\n"
         )
         commits = parse_log(raw)

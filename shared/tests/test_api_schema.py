@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 
 from shared.api.exception_handler import error_body
 from shared.api.schema import ERROR_DESCRIPTIONS, ErrorOutput
-from tests.helpers import load_openapi_generator
+from tests.tooling.helpers import load_openapi_generator
 
 ERROR_DTO_REF = {"$ref": "#/components/schemas/ErrorDTO"}
 WARDS_PATH = "/api/v1/store/geo/provinces/{code}/wards"

@@ -55,6 +55,8 @@ package = false
 [tool.ruff]
 target-version = "py314"
 line-length = 100
+# Gốc repo là Django project: bỏ script của skill và hook agent, có test riêng bằng unittest
+extend-exclude = [".claude", ".agents", ".scratch", "docs"]
 
 [tool.ruff.lint]
 select = [
@@ -77,7 +79,7 @@ ignore = ["N818"]
 
 [tool.ruff.lint.per-file-ignores]
 # Test được dùng assert và mật khẩu giả viết cứng. "**/" để khớp cả modules/<module>/tests/,
-# không chỉ backend/tests/
+# không chỉ tests/ ở gốc
 "**/tests/**" = ["S101", "S105", "S106"]
 "conftest.py" = ["S105", "S106"]
 # Migration theo khuôn Django sinh ra: `dependencies`, `operations` là list ở mức class
@@ -89,6 +91,7 @@ known-first-party = ["config", "shared", "modules"]
 [tool.mypy]
 python_version = "3.14"
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+exclude = ["^\\.claude/", "^\\.agents/", "^\\.scratch/", "^docs/"]
 
 # `strict` chỉ đặt được ở mục chung, không đặt được theo module, nên liệt kê từng flag
 # tương đương --strict cho các phần bắt buộc kiểu chặt (13 mục 2)
@@ -116,6 +119,8 @@ django_settings_module = "config.settings.test"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 addopts = "--strict-markers"
+# Không thu thập test của skill, hook agent và worktree trong .claude/
+norecursedirs = [".*", "docs", "scripts", "node_modules", "__pycache__"]
 markers = [
     "br: Test kiểm tra một hay nhiều business rule (12 mục 3)",
     "concurrency: Test chạy nhiều thread, cần transaction=True (12 mục 3)",

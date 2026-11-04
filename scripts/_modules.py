@@ -1,4 +1,4 @@
-"""Danh sách module nghiệp vụ trong `modules/`, dùng chung cho các script của backend."""
+"""Danh sách module nghiệp vụ trong `modules/`, dùng chung cho các script trong `scripts/`."""
 
 from __future__ import annotations
 

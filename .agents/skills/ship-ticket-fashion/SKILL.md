@@ -50,7 +50,7 @@ Call only skills actually listed in the session; `mattpocock-skills:*` names are
 | `mattpocock-skills:code-review` + Bug-axis sub-agent | Cover all three axes Spec, Standards, Bug per `S/phases/4-review.md`, against `origin/dev`. Spec checks each AC and assertion quality; Standards checks the governing docs; Bug reads the diff and related code for behaviour bugs. Each finding has a code, `file:line`, evidence and a verdict. |
 | `domain-modeling` | Read `docs/agents/domain.md`, update `GLOSSARY.md` for new terms and ADRs for lasting architecture decisions, check names in code. |
 | `improve-codebase-architecture` (user-invoked) | Survey the hotspot and its callers, show problems with concrete code, propose scope and trade-offs. The user chooses before `needs-triage` tickets are created per phase 0. |
-| `research` | Read primary sources (official docs, library source at the version in `backend/uv.lock`), write cited findings to `.scratch/<feature>/research/<topic>.md`. |
+| `research` | Read primary sources (official docs, library source at the version in `uv.lock`), write cited findings to `.scratch/<feature>/research/<topic>.md`. |
 | `diagnosing-bugs` | First build a runnable command that goes red on the bug (test, script), then hypothesise and fix; if it cannot be built, say what was tried. |
 | `pr` | Keep the `.github/pull_request_template.md` frame; *Giải pháp* uses the smallest pseudocode / call tree, *Cách kiểm* gives Before/After, *Reviewer cần chú ý* states Door and Blast Radius. |
 | `triage`, `retro`, `handoff` (user-invoked) | Drop the type-this-command suggestion: triage asks directly per `S/reference/pick-ticket.md` step 3; retro uses the evidence sources under Retro; handoff becomes state + a new-session message. |

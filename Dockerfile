@@ -6,7 +6,7 @@ FROM python:3.14.9-slim
 
 COPY --from=uv /uv /usr/local/bin/uv
 
-# Venv ở /opt/venv, ngoài /app: Compose bind mount backend/ vào /app, nên .venv của máy
+# Venv ở /opt/venv, ngoài /app: Compose bind mount gốc repo vào /app, nên .venv của máy
 # không đè lên venv của container
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

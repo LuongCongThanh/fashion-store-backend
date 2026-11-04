@@ -206,7 +206,6 @@ Commit vẫn đúng Conventional Commits. CI vẫn chạy sau push; CI đỏ th�
 git switch dev
 git pull --ff-only origin dev
 git status --short               # phải sạch
-cd backend
 cz bump --version-files-only     # tính version mới từ commit kể từ tag trước, ghi vào pyproject.toml
 version="v$(cz version --project)"
 cz changelog --incremental --unreleased-version "$version"
@@ -241,7 +240,7 @@ git pull --ff-only origin main
 git status --short
 git switch -c hotfix/vnpay-signature
 # … sửa, commit …
-# cập nhật version và CHANGELOG trong nhánh hotfix: chạy đúng các lệnh từ `cd backend` tới `git commit` ở bước 1 mục 5.3
+# cập nhật version và CHANGELOG trong nhánh hotfix: chạy đúng các lệnh từ `cz bump` tới `git commit` ở bước 1 mục 5.3
 git push -u origin hotfix/vnpay-signature
 # mở PR hotfix/vnpay-signature → main, chờ CI xanh và squash merge trên GitHub
 

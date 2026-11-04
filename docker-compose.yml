@@ -2,7 +2,7 @@
 # và không có service api: API chạy trên máy bằng `make run` (ADR 0017).
 # Service relay chạy outbox relay (07 mục 1.1.1), độc lập với Celery Beat.
 
-# Tên project cố định: mặc định là tên thư mục (backend), dễ trùng container của project khác
+# Tên project cố định: mặc định là tên thư mục (fashion-store-backend), dễ trùng container của project khác
 name: fashion
 
 x-container-env: &container-env

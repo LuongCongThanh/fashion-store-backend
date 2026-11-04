@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from shared.api.schema import ERROR_DESCRIPTIONS
-from tests.helpers import OPENAPI_GENERATOR, isolated_env, load_openapi_generator
+from tests.tooling.helpers import OPENAPI_GENERATOR, isolated_env, load_openapi_generator
 
 GENERATION_FAILED = "drf-spectacular failed to generate a valid schema"
 PREVIOUS_SCHEMA = "openapi: 3.0.3\n"

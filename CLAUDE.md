@@ -10,7 +10,7 @@
 - Không đọc hoặc in `.env*` (trừ `.env.example`), `.secrets/`, `*.pem` hay dữ liệu khách hàng thật.
 - Tài liệu (business, architecture, ADR, spec, ticket) viết tiếng Việt; giữ tiếng Anh cho từ khoá kỹ thuật, tên trong code và tên package.
 - Tên nhánh, commit message và tiêu đề PR viết tiếng Anh theo Conventional Commits. Xem `docs/architecture/11-git-workflow.md`.
-- Không tuyên bố hoàn tất nếu chưa chạy kiểm tra phù hợp. Với thay đổi code, chạy từ `backend/`:
+- Không tuyên bố hoàn tất nếu chưa chạy kiểm tra phù hợp. Với thay đổi code, chạy ở gốc repo:
   `make fmt`, `make lint` và test tương xứng với rủi ro; full test suite là cổng trước merge/release.
   Nếu không chạy được lệnh nào, phải báo rõ lệnh và lý do.
 

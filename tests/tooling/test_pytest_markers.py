@@ -6,14 +6,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tests.helpers import BACKEND, isolated_env, write_tree
+from tests.tooling.helpers import ROOT, isolated_env, write_tree
 
-BR_REPORT_SCRIPT = BACKEND / "scripts/br_report.py"
+BR_REPORT_SCRIPT = ROOT / "scripts/br_report.py"
 
 
 def _run_pytest(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = isolated_env()
-    env["PYTHONPATH"] = str(BACKEND)
+    env["PYTHONPATH"] = str(ROOT)
     return subprocess.run(  # noqa: S603 -- Python và pytest cố định, chạy fixture do test tạo.
         [sys.executable, "-m", "pytest", *args],
         cwd=root,
@@ -27,7 +27,7 @@ def _run_pytest(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 def _run_br_report(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = isolated_env()
-    env["PYTHONPATH"] = str(BACKEND)
+    env["PYTHONPATH"] = str(ROOT)
     return subprocess.run(  # noqa: S603 -- Python và script cố định, chạy fixture do test tạo.
         [sys.executable, str(BR_REPORT_SCRIPT), *args],
         cwd=root,
@@ -43,9 +43,9 @@ def test_strict_markers_rejects_undeclared(tmp_path: Path) -> None:
     """AC1: Test dùng marker chưa khai báo thì pytest báo lỗi do --strict-markers."""
     # Chạy trên project hiện tại với marker không tồn tại
     result = _run_pytest(
-        BACKEND,
+        ROOT,
         "-c",
-        str(BACKEND / "pyproject.toml"),
+        str(ROOT / "pyproject.toml"),
         "-m",
         "non_existent_marker_12345",
         "--collect-only",
@@ -59,7 +59,7 @@ def test_strict_markers_rejects_undeclared(tmp_path: Path) -> None:
     write_tree(
         tmp_path,
         {
-            "pyproject.toml": (BACKEND / "pyproject.toml").read_text(encoding="utf-8"),
+            "pyproject.toml": (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
             "test_sample.py": (
                 "import pytest\n@pytest.mark.undeclared_marker\ndef test_sample():\n    pass\n"
             ),
@@ -89,7 +89,7 @@ def test_marker_filtering_concurrency_and_flow(tmp_path: Path) -> None:
     write_tree(
         tmp_path,
         {
-            "pyproject.toml": (BACKEND / "pyproject.toml").read_text(encoding="utf-8"),
+            "pyproject.toml": (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
             "test_sample.py": (
                 "import pytest\n"
                 "@pytest.mark.concurrency\n"
@@ -117,8 +117,8 @@ def test_marker_filtering_concurrency_and_flow(tmp_path: Path) -> None:
 
 def test_br_report_outputs_untested_codes_and_exits_zero(tmp_path: Path) -> None:
     """AC3: make br-report in đúng danh sách mã BR-xxx chưa có test và luôn thoát với mã 0."""
-    # 1. Chạy trên backend thật: thoát 0 và in ra các mã BR-xxx
-    real_run = _run_br_report(BACKEND)
+    # 1. Chạy trên project thật: thoát 0 và in ra các mã BR-xxx
+    real_run = _run_br_report(ROOT)
     assert real_run.returncode == 0
     lines = [line.strip() for line in real_run.stdout.splitlines() if line.strip()]
     assert len(lines) > 0
@@ -142,7 +142,7 @@ def test_br_report_outputs_untested_codes_and_exits_zero(tmp_path: Path) -> None
     write_tree(
         tmp_path,
         {
-            "pyproject.toml": (BACKEND / "pyproject.toml").read_text(encoding="utf-8"),
+            "pyproject.toml": (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
             "test_sample.py": (
                 "import pytest\n"
                 "@pytest.mark.br('BR-CAT-01', 'BR-CAT-03')\n"

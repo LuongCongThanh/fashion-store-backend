@@ -20,7 +20,7 @@ Repo này là single-context:
 ├── docs/adr/
 │   ├── 0001-nextjs-frontend-django-api.md
 │   └── …
-└── backend/
+├── manage.py, config/, …   # Django project ở gốc repo (ADR 0018)
 ```
 
 ## Dùng đúng thuật ngữ trong glossary

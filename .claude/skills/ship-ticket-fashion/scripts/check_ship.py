@@ -123,7 +123,7 @@ def main() -> int:
         )
         if phase == "ship":
             results.append(("OK" if state.get("gates", {}).get("g2") else "FAIL", "G2 đã duyệt"))
-        ac_problems = trace(state, ticket.ac_total, repo_root() / "backend", planned=False)
+        ac_problems = trace(state, ticket.ac_total, repo_root(), planned=False)
         results.append(
             ("FAIL" if ac_problems else "OK", f"AC trace: {len(ac_problems)} điểm thiếu")
         )

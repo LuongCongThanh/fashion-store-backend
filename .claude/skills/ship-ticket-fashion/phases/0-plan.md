@@ -5,7 +5,7 @@ Use when the current milestone's frontier is empty or nearly so, the user wants 
 ## Spec for a new milestone
 
 1. Take the milestone's row from the **Notes** table of `map.md`: folder, content, user stories, "Xong khi" condition. `progress.py` prints milestones without a folder.
-2. An `Explore` sub-agent reads and summarises: those user stories in `docs/business/03-user-stories.md`, related rules in `04-business-rules.md` and `05-order-lifecycle.md`, architecture docs and ADRs of the modules touched, and existing `backend/shared` code.
+2. An `Explore` sub-agent reads and summarises: those user stories in `docs/business/03-user-stories.md`, related rules in `04-business-rules.md` and `05-order-lifecycle.md`, architecture docs and ADRs of the modules touched, and existing `shared` code.
 3. `mattpocock-skills:grilling` to settle scope and decisions.
 4. Ask the user to type `/mattpocock-skills:to-spec` → `.scratch/<slug>/spec.md`. Check it against the shape of `.scratch/backend-bootstrap/spec.md`: Bối cảnh, Phạm vi, Quyết định, Ticket (ordered list; `progress.py` uses this order for the frontier), Ngoài phạm vi.
 5. Ask the user to type `/mattpocock-skills:to-tickets` → `.scratch/<slug>/issues/NN-<slug>/spec.md`. Check each ticket against the shape below; `plan.md` and `report.md` are created while working the ticket.
