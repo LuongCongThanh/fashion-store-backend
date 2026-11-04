@@ -80,7 +80,10 @@ def evaluate(
     down = [s for s in SERVICES if compose.get(s, ("", 0))[0] != "running"]
     migrate = compose.get("migrate")
     if migrate and migrate[1] != 0:
-        down.append(f"migrate (exit {migrate[1]})")
+        down.append(
+            f"migrate (exit {migrate[1]}; xem `docker compose logs migrate`; container không gọi"
+            " được PostgreSQL trên Linux → 08 mục 2.2 bước 3)"
+        )
     checks.append(
         Check("docker", not down, "chưa chạy: " + ", ".join(down) if down else "", "make up", True)
     )
@@ -229,7 +232,6 @@ def main() -> int:
         print(f"RUN  {command} · exit {proc.returncode}")
         if proc.returncode != 0:
             print("\n".join((proc.stdout + proc.stderr).strip().splitlines()[-15:]))
-            break
         checks = probe(backend, args.api_url)
     return report(checks)
 

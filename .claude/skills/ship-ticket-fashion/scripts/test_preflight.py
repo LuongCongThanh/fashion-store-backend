@@ -43,6 +43,13 @@ class Preflight(unittest.TestCase):
         self.assertEqual(checks["api"].fix, "make run")
         self.assertFalse(checks["api"].auto)  # server chạy nền do agent bật
 
+    def test_failed_migrate_container_points_to_its_log(self):
+        rows = [{"Service": "migrate", "State": "exited", "ExitCode": 1}]
+        compose = compose_states(json.dumps(rows))
+        docker = failed(evaluate(compose, HEALTHY_DJANGO, {}))["docker"]
+        self.assertIn("docker compose logs migrate", docker.detail)
+        self.assertIn("08 mục 2.2", docker.detail)
+
     def test_seed_gaps_after_migrations(self):
         django = {**HEALTHY_DJANGO, "provinces": 0, "admins": 0}
         checks = failed(evaluate({}, django, {}))
