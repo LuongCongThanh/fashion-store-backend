@@ -8,7 +8,7 @@ from structlog.testing import capture_logs
 from common.events import operations
 from common.events.models import DeliveryStatus, EventDelivery, OutboxEvent
 from common.events.tasks import purge_old_outbox_events
-from common.events.tests._helpers import NOW
+from common.tests.events._helpers import NOW
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 from config.celery import app
 

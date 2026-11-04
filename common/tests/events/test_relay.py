@@ -16,9 +16,9 @@ from structlog.testing import capture_logs
 from common.events import handles, publish, relay
 from common.events.models import MAX_INTERRUPTED_RUNS, DeliveryStatus, EventDelivery, OutboxEvent
 from common.events.tasks import dispatch_event
-from common.events.tests._helpers import NOW, ORDER_CODE, Boom, record_effect, run_concurrently
-from common.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from common.management.commands import run_outbox_relay
+from common.tests.conftest import HandlerEffect, SampleHappenedV1
+from common.tests.events._helpers import NOW, ORDER_CODE, Boom, record_effect, run_concurrently
 from common.tests.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db

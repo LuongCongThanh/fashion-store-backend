@@ -1,4 +1,4 @@
-"""Sự kiện mẫu, registry cô lập và model test-only cho test của `common.events`."""
+"""Sự kiện mẫu, registry cô lập và model test-only cho test của `common` (outbox và lệnh của nó)."""
 
 from collections.abc import Iterator
 from typing import ClassVar

@@ -312,7 +312,7 @@ Dùng **Cloudflare Tunnel** để VNPay, MoMo, GHN gọi được vào máy loca
 
 ## 9. Kịch bản kiểm thử
 
-Test adapter bên thứ ba đặt ở `infrastructure/<payment|shipping|google>/tests/test_<tên>.py`; test webhook API ở `apps/<payments|shipping>/tests/test_api_webhooks.py`. Nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md).
+Test adapter bên thứ ba đặt ở `infrastructure/<payment|shipping|google>/tests/test_<tên>.py`; test webhook API ở `apps/<payments|shipping>/tests/api/webhooks/test_views.py`. Nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md).
 
 | Kịch bản | Kỳ vọng |
 |---|---|
