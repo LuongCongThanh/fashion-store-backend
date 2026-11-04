@@ -63,7 +63,7 @@ _ERROR_EXAMPLES: dict[str, tuple[str, str, dict[str, Any]]] = {
     "400": (
         "VALIDATION_ERROR",
         "Invalid input.",
-        {"fields": {"email": ["This field is required."]}},
+        {"fields": {"field_name": ["This field is required."]}},
     ),
     "401": ("NOT_AUTHENTICATED", "Authentication credentials were not provided.", {}),
     "403": ("PERMISSION_DENIED", "You do not have permission to perform this action.", {}),

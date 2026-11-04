@@ -26,7 +26,7 @@ WARDS_PATH = "/api/v1/store/geo/provinces/{code}/wards"
 PROVINCES_PATH = "/api/v1/store/geo/provinces"
 LOGIN_PATH = "/api/v1/backoffice/auth/login"
 ME_PATH = "/api/v1/backoffice/auth/me"
-CUSTOM_NOT_FOUND_DESCRIPTION = "No product with this code."
+CUSTOM_NOT_FOUND_DESCRIPTION = "No variant with this SKU."
 # Mã lỗi của ví dụ `ErrorDTO` chung mà `AutoSchema` gắn cho từng lỗi mặc định
 DEFAULT_ERROR_EXAMPLE_CODES = {
     "400": "VALIDATION_ERROR",

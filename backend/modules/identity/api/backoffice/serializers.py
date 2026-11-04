@@ -10,7 +10,8 @@ from modules.identity.constants import AccountKind, Language
     examples=[
         OpenApiExample(
             "Staff login",
-            value={"email": "staff@example.com", "password": "correct-horse-battery"},
+            # Ví dụ hiển thị trên Swagger, không phải credential thật
+            value={"email": "staff@example.com", "password": "correct-horse-battery"},  # NOSONAR
             request_only=True,
         )
     ]

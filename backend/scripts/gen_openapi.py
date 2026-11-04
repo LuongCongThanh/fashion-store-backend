@@ -179,8 +179,13 @@ def _shown_texts(operation: Mapping[str, Any]) -> list[tuple[str, str]]:
     texts.extend(("request example", str(example)) for example in _examples(request).values())
     for code, response in operation.get("responses", {}).items():
         texts.append((f"{code} response description", response.get("description", "")))
+        # Chỉ ví dụ lỗi (4xx/5xx) được miễn `error.message`; ví dụ 2xx kiểm nguyên văn
+        is_error = code[0] in "45"
         texts.extend(
-            (f"{code} response example", str(_without_error_message(example)))
+            (
+                f"{code} response example",
+                str(_without_error_message(example) if is_error else example),
+            )
             for example in _examples(response).values()
         )
     return texts
@@ -237,9 +242,11 @@ def _report_failure() -> int:
 
 
 def main() -> int:
-    """Sinh lại `openapi.yaml`, hoặc chỉ báo lệch với `--check`."""
+    """Sinh lại `openapi.yaml`, hoặc với `--check` kiểm luật chú thích và báo lệch (không ghi)."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="report drift, do not write")
+    parser.add_argument(
+        "--check", action="store_true", help="check annotation rules and report drift, do not write"
+    )
     args = parser.parse_args()
     try:
         # Luôn dùng `openapi.yaml` của thư mục hiện tại (`backend/` ở Make và CI), như

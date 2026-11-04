@@ -130,7 +130,7 @@ def _json_body(examples: dict[str, Any] | None = None, *, description: str = "")
     return {"content": {"application/json": media}, "description": description}
 
 
-def _error_example(code: str, message: str = "Product code is already taken.") -> dict[str, Any]:
+def _error_example(code: str, message: str = "SKU is already taken.") -> dict[str, Any]:
     return {
         "value": {"error": {"code": code, "message": message, "details": {}, "request_id": "req-1"}}
     }
@@ -147,8 +147,8 @@ def _annotated_schema() -> dict[str, Any]:
             "201": _json_body({"Product": {"value": {"code": "SKU-1", "name": "Linen shirt"}}}),
             "400": _json_body(description=ERROR_DESCRIPTIONS["400"]),
             "409": _json_body(
-                {"ProductCodeTaken": _error_example("PRODUCT_CODE_TAKEN")},
-                description="Product code already exists (`PRODUCT_CODE_TAKEN`).",
+                {"SkuTaken": _error_example("SKU_TAKEN")},
+                description="SKU already exists (`SKU_TAKEN`).",
             ),
         },
     }
@@ -183,7 +183,7 @@ def _mismatch_declared_error_code(openapi: dict[str, Any]) -> None:
 
 def _declare_error_without_error_dto(openapi: dict[str, Any]) -> None:
     # Ví dụ không theo dạng `ErrorDTO` (thiếu key `error`) thì coi như chưa có ví dụ lỗi
-    examples = {"Conflict": {"value": {"detail": "Product code is already taken."}}}
+    examples = {"Conflict": {"value": {"detail": "SKU is already taken."}}}
     _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
 
 
@@ -223,6 +223,12 @@ def _vietnamese_response_description(openapi: dict[str, Any]) -> None:
 
 def _vietnamese_success_example(openapi: dict[str, Any]) -> None:
     examples = {"Product": {"value": {"code": "SKU-1", "name": "Áo sơ mi linen"}}}
+    _operation(openapi)["responses"]["201"]["content"]["application/json"]["examples"] = examples
+
+
+def _vietnamese_message_in_success_example(openapi: dict[str, Any]) -> None:
+    # Miễn `error.message` chỉ áp cho ví dụ lỗi; ví dụ 2xx dạng `{"error": …}` vẫn bị kiểm
+    examples = {"Product": _error_example("SKU_TAKEN", "Mã SKU đã tồn tại.")}
     _operation(openapi)["responses"]["201"]["content"]["application/json"]["examples"] = examples
 
 
@@ -272,6 +278,11 @@ def _vietnamese_success_example(openapi: dict[str, Any]) -> None:
             "Vietnamese text in 201 response example",
             id="7-2xx-example",
         ),
+        pytest.param(
+            _vietnamese_message_in_success_example,
+            "Vietnamese text in 201 response example",
+            id="7-2xx-error-shaped-example",
+        ),
     ],
 )
 def test_quality_rule_reports_violation(
@@ -307,7 +318,7 @@ def _move_outside_api(openapi: dict[str, Any]) -> None:
 
 def _vietnamese_error_message(openapi: dict[str, Any]) -> None:
     # `message` của ErrorDTO dịch theo `Accept-Language`, mặc định `vi`
-    examples = {"ProductCodeTaken": _error_example("PRODUCT_CODE_TAKEN", "Mã sản phẩm đã tồn tại.")}
+    examples = {"SkuTaken": _error_example("SKU_TAKEN", "Mã SKU đã tồn tại.")}
     _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
 
 

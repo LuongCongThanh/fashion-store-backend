@@ -469,7 +469,8 @@ Khi bootstrap, kiểm tra cấu hình import-linter bằng các package mẫu t�
   mục 5.6). Vì vậy mọi thay đổi API phải hiện trong diff của PR. Đổi API thì chạy `make openapi` và commit
   `backend/openapi.yaml` cùng PR.
 - `backend/openapi.yaml` là file sinh: hook `trailing-whitespace` và `end-of-file-fixer` của pre-commit bỏ
-  qua nó, để hook không sửa lệch khỏi output của generator. Không sửa tay.
+  qua nó, để hook không sửa lệch khỏi output của generator; SonarCloud cũng bỏ qua nó
+  (`.sonarcloud.properties`), issue được báo ở code Python sinh ra nó. Không sửa tay.
 - Chưa dùng công cụ phát hiện breaking change (`oasdiff`). Sau khi có schema, reviewer tự đọc diff;
   xoá field hay endpoint phải được nêu rõ và báo cho frontend.
 
