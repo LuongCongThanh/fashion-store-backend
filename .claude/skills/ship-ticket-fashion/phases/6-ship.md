@@ -38,6 +38,7 @@ python3 S/scripts/state.py set <T> pr=<number>
 - `RED` → read `.git/ship-ticket-fashion/logs/ci.log` (cause unclear or red only on CI → `mattpocock-skills:diagnosing-bugs`). Full: send the log path to the implementer (`SKILL.md` → *Sub-agents*). Lite: the main session fixes. Fix within the ticket's scope, commit `--task ci`, push, rerun `ci.py`. Red outside scope → *Needs user*.
 - Each `SONAR` and `COMMENT` line → handle like a phase 4 *fix* finding and record it under *Thay đổi theo yêu cầu* in the report. An issue reflecting a code convention not yet in `CONTRIBUTING.md` section *Quy ước code* → propose adding it in retro.
 - Every later push to the open PR: update the PR body (`gh pr edit <number> -F .git/PR_BODY.md`) and add a comment summarising what was fixed (`gh pr comment <number> -F <file>`).
+- `gh pr edit` fails with `Projects (classic) is being deprecated` → use the REST API: `gh api -X PATCH repos/LuongCongThanh/fashion-store-backend/pulls/<number> -f base=dev` (body: `-F body=@.git/PR_BODY.md`). (one-app-per-module, PR #75)
 
 ## 4. Close the ticket in the PR, once `ci.py` exits 0
 

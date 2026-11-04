@@ -213,7 +213,7 @@ Lần đầu, sau mục 2.2 và 2.3, chạy từ gốc repo. Cột "Có từ" nh
 | Bước | Lệnh | Làm gì | Có từ |
 |---|---|---|---|
 | 1 | `uv sync` | Tạo `.venv` với Python 3.14 và dependency (cả nhóm dev) | M0 (ticket 07) |
-| 2 | `uv run pre-commit install` | Cài hook `pre-commit` và `commit-msg` vào `.git/hooks`, một lần cho mỗi bản clone ([11](./11-git-workflow.md) mục 3.4) | M0 (ticket 07) |
+| 2 | `uv run pre-commit install` | Cài hook `pre-commit` và `commit-msg` vào `.git/hooks`, một lần cho mỗi bản clone ([11](./11-git-workflow.md) mục 3.4). Hook ghi cứng đường dẫn `.venv`: tạo lại hoặc dời `.venv` thì chạy lại lệnh này, nếu không commit báo `` `pre-commit` not found`` | M0 (ticket 07) |
 | 3 | `make up` | `docker compose up -d --build`; service `migrate` chạy migration và `sync_beat_schedule` trước khi worker, beat, relay khởi động (mục 7) | M0 (ticket 15) |
 | 4 | `make load-geo` | Xem mục 3 | M0 (ticket 17) |
 | 5 | `make create-admin` | Hỏi email, nhập mật khẩu hai lần (không có cờ `--password`), tối thiểu 8 ký tự theo [05](./05-auth-security.md) mục 3 | M0 (ticket 12) |
