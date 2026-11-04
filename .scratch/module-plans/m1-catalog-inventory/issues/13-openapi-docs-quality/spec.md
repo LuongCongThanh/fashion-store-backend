@@ -4,9 +4,9 @@
 
 Blocked by: 01 — `AutoSchema` 401/403/503 và hai endpoint auth (PR #65). Làm trước 03–11 dù số lớn hơn: 03, 04 bị chặn bởi ticket này.
 
-Status: ready-for-agent
+Status: resolved
 
-**PR:** —
+**PR:** #67
 
 ## Việc cần làm
 
@@ -39,9 +39,9 @@ Chốt qua grilling ngày 04/11/2026.
 
 ## Acceptance criteria
 
-- [ ] **AC1:** Swagger UI nhóm mọi operation theo tag `<store|backoffice> · <module>`; tag do `AutoSchema` suy ra, không view nào tự khai.
-- [ ] **AC2:** Mọi operation hiện có có `summary`, ví dụ request/response 2xx và ví dụ cho lỗi tự khai, toàn bộ tiếng Anh; docstring không xuất hiện trong `openapi.yaml`.
-- [ ] **AC3:** Endpoint JSON chỉ khai `application/json` cho request body; mọi 429 có header `Retry-After`.
-- [ ] **AC4:** Trang Swagger có phần giới thiệu tiếng Anh (ứng dụng, cách lấy token, `ErrorDTO`, header chung) và các tuỳ chọn Swagger UI đã chốt.
-- [ ] **AC5:** `gen_openapi.py --check` fail với thông báo `<operationId>: <thiếu gì>` cho từng luật 1–7, có test cho mỗi luật (cả trường hợp đạt và vi phạm); `make lint` xanh trên schema mới.
-- [ ] **AC6:** 04 §5.6, 13 và skill phase 2 ghi quy ước; mục backlog `Retry-After`/ví dụ của backend-bootstrap/22 được gỡ.
+- [x] **AC1:** Swagger UI nhóm mọi operation theo tag `<store|backoffice> · <module>`; tag do `AutoSchema` suy ra, không view nào tự khai.
+- [x] **AC2:** Mọi operation hiện có có `summary`, ví dụ request/response 2xx và ví dụ cho lỗi tự khai, toàn bộ tiếng Anh; docstring không xuất hiện trong `openapi.yaml`.
+- [x] **AC3:** Endpoint JSON chỉ khai `application/json` cho request body; mọi 429 có header `Retry-After`.
+- [x] **AC4:** Trang Swagger có phần giới thiệu tiếng Anh (ứng dụng, cách lấy token, `ErrorDTO`, header chung) và các tuỳ chọn Swagger UI đã chốt.
+- [x] **AC5:** `gen_openapi.py --check` fail với thông báo `<operationId>: <thiếu gì>` cho từng luật 1–7, có test cho mỗi luật (cả trường hợp đạt và vi phạm); `make lint` xanh trên schema mới.
+- [x] **AC6:** 04 §5.6, 13 và skill phase 2 ghi quy ước; mục backlog `Retry-After`/ví dụ của backend-bootstrap/22 được gỡ.

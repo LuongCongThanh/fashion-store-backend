@@ -78,12 +78,13 @@ Chưa có spec.
 ### Đã xong
 
 1. [01](../../.scratch/module-plans/m1-catalog-inventory/issues/01-backoffice-login/spec.md) · Staff/Admin đăng nhập back-office, `JWTAuthentication`, failure ledger đăng nhập · PR #65 · 04/11/2026
+2. [13](../../.scratch/module-plans/m1-catalog-inventory/issues/13-openapi-docs-quality/spec.md) · Swagger nhóm theo `<store|backoffice> · <module>`, chú thích và ví dụ tiếng Anh, chỉ JSON, `Retry-After`; `gen_openapi.py --check` chặn operation thiếu chú thích · PR #67 · 04/11/2026
 
 ### Còn mở
 
 - [02](../../.scratch/module-plans/m1-catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01
-- [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01, 13
-- [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01, 13
+- [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01 (13 đã xong)
+- [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01 (13 đã xong)
 - [05](../../.scratch/module-plans/m1-catalog-inventory/issues/05-product-variant-management/spec.md) · quản lý Sản phẩm và Biến thể · `ready-for-agent` · blocked by 03, 04
 - [06](../../.scratch/module-plans/m1-catalog-inventory/issues/06-product-images/spec.md) · ảnh Sản phẩm theo màu · `ready-for-agent` · blocked by 05
 - [07](../../.scratch/module-plans/m1-catalog-inventory/issues/07-pricing/spec.md) · Giá bán và Giá khuyến mãi · `ready-for-agent` · blocked by 05
@@ -91,5 +92,4 @@ Chưa có spec.
 - [09](../../.scratch/module-plans/m1-catalog-inventory/issues/09-stock-adjustment/spec.md) · điều chỉnh Tồn kho · `ready-for-agent` · blocked by 08
 - [10](../../.scratch/module-plans/m1-catalog-inventory/issues/10-stock-count/spec.md) · Kiểm kê · `ready-for-agent` · blocked by 09
 - [11](../../.scratch/module-plans/m1-catalog-inventory/issues/11-storefront-product-discovery/spec.md) · storefront khám phá Sản phẩm · `ready-for-agent` · blocked by 06, 07, 10
-- [12](../../.scratch/module-plans/m1-catalog-inventory/issues/12-m1-acceptance/spec.md) · acceptance và hardening toàn M1 · `ready-for-agent` · blocked by 01–11, 13
-- [13](../../.scratch/module-plans/m1-catalog-inventory/issues/13-openapi-docs-quality/spec.md) · chất lượng OpenAPI và Swagger UI (làm trước 03, 04) · `ready-for-agent` · blocked by 01
+- [12](../../.scratch/module-plans/m1-catalog-inventory/issues/12-m1-acceptance/spec.md) · acceptance và hardening toàn M1 · `ready-for-agent` · blocked by 01–11 (13 đã xong)

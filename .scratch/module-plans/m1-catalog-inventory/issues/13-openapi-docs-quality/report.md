@@ -2,7 +2,7 @@
 
 ### Báo cáo 04/11/2026
 
-**Nhánh:** `feat/openapi-docs-quality` · **PR:** chưa mở · **Mode:** full
+**Nhánh:** `feat/openapi-docs-quality` · **PR:** #67 · **Mode:** full
 
 #### Đã làm
 
