@@ -12,7 +12,7 @@ from config.env import Env, jwt_keyring, load_env
 M0_VARS = {
     "DJANGO_SECRET_KEY": "test-secret",
     "DATABASE_URL": "postgres://fashion:fashion@localhost:5432/fashion",
-    "REDIS_URL": "redis://localhost:6379/0",
+    "REDIS_URL": "redis://localhost:6380/0",
     "EMAIL_HOST": "localhost",
     "EMAIL_PORT": "1025",
     "PII_HMAC_KEYS": "test-pii-1:test-pii-secret",
