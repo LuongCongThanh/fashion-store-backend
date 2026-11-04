@@ -49,7 +49,12 @@ def resolve(arg: str, features: dict[str, Feature] | None = None) -> tuple[Featu
 
 def ticket_ref(ticket: Ticket) -> str:
     """Thư mục ticket tính từ gốc repo, dạng dùng trong state và trailer `Refs:`."""
-    return ticket.path.relative_to(ticket.path.parents[3]).as_posix()
+    # Feature có thể lồng một cấp (`.scratch/<group>/<feature>/issues`), nên tìm `.scratch` thay vì
+    # đếm số cấp thư mục
+    scratch = next((p for p in ticket.path.parents if p.name == ".scratch"), None)
+    if scratch is None:
+        raise SystemExit(f"Ticket {ticket.path} không nằm dưới thư mục .scratch/")
+    return ticket.path.relative_to(scratch.parent).as_posix()
 
 
 def load_state(feature: str, num: int) -> dict | None:

@@ -4,7 +4,7 @@ Full: the *implementer* (`SKILL.md` → *Sub-agents*). Lite: the main session.
 
 ## Before the first slice
 
-Read `.git/ship-ticket-fashion/<K>-map.md`, the *governing docs* sections (the `Tài liệu chi phối` row in `## Quyết định`), `docs/architecture/13-python-django-coding-style.md` (sections matching the file type: view, service, model, test…) and `CONTRIBUTING.md` section *Quy ước code*. Follow the names, structure and conventions there.
+Read `.git/ship-ticket-fashion/<K>-map.md`, the *governing docs* sections (the `Tài liệu chi phối` row in `## Quyết định`), `docs/architecture/13-python-django-coding-style.md` (sections matching the file type: view, service, model, test…) and `CONTRIBUTING.md` section *Quy ước code*. Follow the names, structure and conventions there. A new view under `/api/v1/` needs a `summary` and English examples (`04-api-contract.md` section 5.6); `make lint` blocks it via `gen_openapi.py --check`.
 
 ## Each slice
 

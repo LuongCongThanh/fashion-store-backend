@@ -36,7 +36,7 @@ Phiên bản được kiểm tra trên PyPI ngày **25/10/2026**. Dấu **—** 
 |---|---|---|---|
 | `django` | 5.2.18 | Framework | Bản LTS, cả hệ sinh thái đều đã tương thích |
 | `djangorestframework` | 3.18.3 | REST API | Phổ biến nhất, team đã quen |
-| `drf-spectacular` | 0.30.0 | Sinh OpenAPI 3 và Swagger UI | Chuẩn de facto cho DRF; OpenAPI dùng để sinh TS client cho Frontend |
+| `drf-spectacular` | 0.30.0 | Sinh OpenAPI 3 và Swagger UI | Chuẩn de facto cho DRF; dev đọc schema qua Swagger UI (chưa sinh TS client, 12 mục 5) |
 | `django-filter` | 26.2 | Lọc danh sách (size, màu, giá, trạng thái) | Tích hợp sẵn với DRF |
 | `psycopg[binary,pool]` | 3.3.6 | Driver PostgreSQL | psycopg 3, wheel binary và connection pool; khớp `uv sync --locked --no-build` (không build C extension lúc cài). Dùng connection pool có sẵn của Django 5.2 (`OPTIONS["pool"]`, `CONN_MAX_AGE = 0`) |
 | `redis` | 8.1.0 | Client Redis | Dùng cho cache, throttling, Celery |
@@ -158,6 +158,7 @@ backend/
 ├── scripts/
 │   ├── _modules.py                 # list_modules(root): danh sách module nghiệp vụ dùng chung cho hai script dưới
 │   ├── check_module_coverage.py    # branch coverage ≥ 80% cho từng module và nhóm shared (12 mục 8)
+│   ├── gen_openapi.py              # sinh openapi.yaml; --check so drift và chạy luật chú thích operation (12 mục 5, 04 mục 5.6)
 │   └── gen_importlinter.py         # sinh các contract "forbidden" của import-linter cho từng module (mục 8)
 │
 ├── config/                         # cấu hình project, KHÔNG chứa nghiệp vụ
@@ -206,7 +207,7 @@ backend/
 │   │   ├── client_ip.py            # middleware: lấy IP người dùng từ X-Client-IP khi X-BFF-Secret đúng (ADR 0009); bff_secret_matches là quy tắc tin BFF dùng chung
 │   │   ├── request_id.py           # receiver bind_extra_request_metadata của django-structlog: dùng X-Request-ID làm request_id khi X-BFF-Secret đúng và đúng định dạng (10 mục 4)
 │   │   ├── throttling.py           # các mức throttle dùng chung, theo IP từ client_ip; fail-open khi Redis lỗi
-│   │   ├── schema.py               # AutoSchema (DEFAULT_SCHEMA_CLASS): component ErrorDTO và response lỗi mặc định cho mọi operation (04 mục 5.6)
+│   │   ├── schema.py               # AutoSchema (DEFAULT_SCHEMA_CLASS): component ErrorDTO, response lỗi mặc định kèm ví dụ tiếng Anh, Retry-After cho 429, tag <store|backoffice> · <module>, bỏ docstring khỏi schema (04 mục 5.6)
 │   │   ├── idempotency.py          # lớp HTTP của Idempotency-Key: begin(request) đọc header, dựng scope (method + path + account hoặc hash X-Cart-Token), request_hash(data) của body JSON rồi gọi shared.idempotency.claim; response(outcome) dựng response cho Replay và 202 IdempotencyPendingDTO
 │   │   └── views.py                # handler400/403/404/500 của Django trả ErrorDTO cho lỗi ngoài DRF; chọn ngôn ngữ theo Accept-Language không cần file riêng: LocaleMiddleware bật trong settings (vi mặc định)
 │   ├── health/

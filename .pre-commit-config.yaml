@@ -47,6 +47,16 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
 
+  # Commit message không được nhắc tới Claude (kể cả trailer `Co-Authored-By`), không phân biệt hoa thường
+  - repo: local
+    hooks:
+      - id: no-claude-in-commit-msg
+        name: no "claude" in commit message
+        entry: >-
+          bash -c 'if grep -v "^#" "$1" | grep -qi claude; then echo "Commit message chứa chữ \"claude\": bỏ đi rồi commit lại." >&2; grep -v "^#" "$1" | grep -ni claude >&2; exit 1; fi' --
+        language: system
+        stages: [commit-msg]
+
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.19.3
     hooks:

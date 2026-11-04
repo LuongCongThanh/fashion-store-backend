@@ -4,9 +4,9 @@
 
 Blocked by: 01 — `AutoSchema` 401/403/503 và hai endpoint auth (PR #65). Làm trước 03–11 dù số lớn hơn: 03, 04 bị chặn bởi ticket này.
 
-Status: ready-for-agent
+Status: resolved
 
-**PR:** —
+**PR:** #67
 
 ## Việc cần làm
 
@@ -30,15 +30,18 @@ Chốt qua grilling ngày 04/11/2026.
 | 429 | Mọi response 429 do `AutoSchema` sinh có header `Retry-After` (integer, giây). Đóng mục backlog 01/11/2026 của backend-bootstrap/22 về `Retry-After` và ví dụ. |
 | Trang giới thiệu | `SPECTACULAR_SETTINGS["DESCRIPTION"]` tiếng Anh: hai ứng dụng `store`/`backoffice` và chỉ BFF Next.js gọi API; lấy token (`POST backoffice/auth/login` → Authorize với access token); định dạng `ErrorDTO` (`message` dịch theo `Accept-Language`, mặc định `vi`); header chung `Accept-Language`, `X-Request-ID`, `Idempotency-Key`. Không khai `SERVERS` để Swagger gọi đúng host đang mở (local, staging). |
 | Swagger UI | `SWAGGER_UI_SETTINGS`: `persistAuthorization`, `displayRequestDuration`, `filter`, `docExpansion: "none"`, `deepLinking`. Token lưu trong localStorage chấp nhận được vì Swagger chỉ bật ở local và staging nội bộ (04 §4.4). |
-| Checker | Luật nằm trong `gen_openapi.py --check` (đã chạy ở pre-commit, `make lint`, CI), không dùng hook Claude. Mỗi vi phạm in `<operationId>: <thiếu gì>`. Luật: (1) có `summary`; (2) có ví dụ request khi có body; (3) có ví dụ cho mọi 2xx có body; (4) có ví dụ cho mã lỗi view tự khai; (5) lỗi mặc định không đòi ví dụ ở view; (6) tag đúng dạng `<store\|backoffice> · <module>`, path ngoài `/api/v1/` được miễn; (7) không có ký tự tiếng Việt có dấu trong `summary`, `description`, ví dụ, trừ field `message` của ví dụ lỗi. |
+| Checker | Luật nằm trong `gen_openapi.py --check` (đã chạy ở `make lint` và CI; pre-commit không chạy script này), không dùng hook Claude. Luật viết thành hàm thuần nhận dict schema đã render, chạy trước bước so drift; test luật nạp script bằng `importlib` và truyền dict mẫu (nhanh, mỗi luật một cặp đạt/vi phạm), thêm một test subprocess chứng minh `--check` in vi phạm từ schema render thật. Mỗi vi phạm in `<operationId>: <thiếu gì>`. Luật: (1) có `summary`; (2) có ví dụ request khi có body; (3) có ví dụ cho mọi 2xx có body; (4) có ví dụ `ErrorDTO` cho mã lỗi view tự khai, `code` của ví dụ ghi trong mô tả response dạng `` `CODE` `` (chốt ở review, S3); ví dụ không phải `ErrorDTO` là vi phạm, không crash; (5) lỗi mặc định (nhận bằng mô tả trùng `ERROR_DESCRIPTIONS`) không đòi ví dụ ở view; (6) tag đúng dạng `<store\|backoffice> · <module>`, path ngoài `/api/v1/` được miễn; (7) không có ký tự tiếng Việt có dấu trong `summary`, `description`, ví dụ, trừ field `message` của ví dụ lỗi. |
 | Ghi ngoại lệ ngôn ngữ | `04-api-contract.md` §5.6 và một dòng ở `13-python-django-coding-style.md` (docstring/serializer). Không sửa `CLAUDE.md` (checker chặn tự động), không cần ADR (đảo ngược được). Skill `ship-ticket-fashion` phase 2 thêm một dòng nhắc "view mới phải có summary + ví dụ tiếng Anh". |
-| Tài liệu chi phối | `docs/architecture/04-api-contract.md::3,4.4,5.1,5.6`; `docs/architecture/12-testing-strategy.md::5`; `docs/architecture/13-python-django-coding-style.md`; `docs/architecture/02-backend-structure.md` (cây `shared/api/`, `scripts/`). |
+| Docstring | `AutoSchema` bỏ docstring của view **và** serializer (hiện `AccountOutput` lộ docstring tiếng Việt thành mô tả component `AccountDTO`). `ERROR_BODY_SCHEMA`, `ERROR_DESCRIPTIONS` và mô tả 401 của login chuyển sang tiếng Anh; test mẫu `CUSTOM_NOT_FOUND_DESCRIPTION` đổi sang tiếng Anh. |
+| Thứ tự slice | S1 `AutoSchema` + settings → S2 chú thích 4 operation → S3 checker. Checker vào sau cùng để `make lint` xanh ở mọi commit. |
+| Tài liệu lệch phát hiện khi lập bản đồ | Sửa trong phase sync: 04 §5.6 còn ghi 401/403/503 "chưa khai mặc định" (đã làm ở ticket 01); 12 §5 ghi "frontend sinh TS client" trái quyết định *Người dùng schema*; 02 cây `scripts/` thiếu `gen_openapi.py`; gỡ cả mục backlog 401/403/503 của backend-bootstrap/22 (đã xong). |
+| Tài liệu chi phối | `docs/architecture/04-api-contract.md::3`; `docs/architecture/04-api-contract.md::4.4`; `docs/architecture/04-api-contract.md::5.1`; `docs/architecture/04-api-contract.md::5.6`; `docs/architecture/12-testing-strategy.md::5`; `docs/architecture/13-python-django-coding-style.md::2`; `docs/architecture/13-python-django-coding-style.md::3.1`; `docs/architecture/13-python-django-coding-style.md::8`; `docs/architecture/02-backend-structure.md::5` (cây `shared/api/`, `scripts/`). |
 
 ## Acceptance criteria
 
-- [ ] **AC1:** Swagger UI nhóm mọi operation theo tag `<store|backoffice> · <module>`; tag do `AutoSchema` suy ra, không view nào tự khai.
-- [ ] **AC2:** Mọi operation hiện có có `summary`, ví dụ request/response 2xx và ví dụ cho lỗi tự khai, toàn bộ tiếng Anh; docstring không xuất hiện trong `openapi.yaml`.
-- [ ] **AC3:** Endpoint JSON chỉ khai `application/json` cho request body; mọi 429 có header `Retry-After`.
-- [ ] **AC4:** Trang Swagger có phần giới thiệu tiếng Anh (ứng dụng, cách lấy token, `ErrorDTO`, header chung) và các tuỳ chọn Swagger UI đã chốt.
-- [ ] **AC5:** `gen_openapi.py --check` fail với thông báo `<operationId>: <thiếu gì>` cho từng luật 1–7, có test cho mỗi luật (cả trường hợp đạt và vi phạm); `make lint` xanh trên schema mới.
-- [ ] **AC6:** 04 §5.6, 13 và skill phase 2 ghi quy ước; mục backlog `Retry-After`/ví dụ của backend-bootstrap/22 được gỡ.
+- [x] **AC1:** Swagger UI nhóm mọi operation theo tag `<store|backoffice> · <module>`; tag do `AutoSchema` suy ra, không view nào tự khai.
+- [x] **AC2:** Mọi operation hiện có có `summary`, ví dụ request/response 2xx và ví dụ cho lỗi tự khai, toàn bộ tiếng Anh; docstring không xuất hiện trong `openapi.yaml`.
+- [x] **AC3:** Endpoint JSON chỉ khai `application/json` cho request body; mọi 429 có header `Retry-After`.
+- [x] **AC4:** Trang Swagger có phần giới thiệu tiếng Anh (ứng dụng, cách lấy token, `ErrorDTO`, header chung) và các tuỳ chọn Swagger UI đã chốt.
+- [x] **AC5:** `gen_openapi.py --check` fail với thông báo `<operationId>: <thiếu gì>` cho từng luật 1–7, có test cho mỗi luật (cả trường hợp đạt và vi phạm); `make lint` xanh trên schema mới.
+- [x] **AC6:** 04 §5.6, 13 và skill phase 2 ghi quy ước; mục backlog `Retry-After`/ví dụ của backend-bootstrap/22 được gỡ.

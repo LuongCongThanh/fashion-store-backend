@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import exceptions, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -18,7 +18,7 @@ from modules.identity.auth.login_attempts import (
 from modules.identity.services.auth import login_backoffice
 from shared.api.client_ip import get_client_ip
 from shared.api.permissions import IsStaff
-from shared.api.schema import ErrorOutput
+from shared.api.schema import EXAMPLE_REQUEST_ID, ErrorOutput
 
 
 class BackofficeLoginView(APIView):
@@ -27,12 +27,26 @@ class BackofficeLoginView(APIView):
     permission_classes = (AllowAny,)
 
     @extend_schema(
+        summary="Log in to the back office",
         request=LoginInput,
         responses={
             200: TokenPairOutput,
             401: OpenApiResponse(
                 ErrorOutput,
-                description="Thông tin đăng nhập không hợp lệ (`INVALID_CREDENTIALS`).",
+                description="Invalid email or password (`INVALID_CREDENTIALS`).",
+                examples=[
+                    OpenApiExample(
+                        "Invalid credentials",
+                        value={
+                            "error": {
+                                "code": "INVALID_CREDENTIALS",
+                                "message": "Invalid email or password.",
+                                "details": {},
+                                "request_id": EXAMPLE_REQUEST_ID,
+                            }
+                        },
+                    )
+                ],
             ),
         },
     )
@@ -58,7 +72,7 @@ class BackofficeMeView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (IsStaff,)
 
-    @extend_schema(responses={200: AccountOutput})
+    @extend_schema(summary="Get the signed-in staff account", responses={200: AccountOutput})
     def get(self, request: Request) -> Response:
         # `request.user` là Account vừa đọc từ PostgreSQL trong JWTAuthentication
         output = AccountOutput(request.user)

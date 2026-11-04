@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 from pathlib import Path
+from types import ModuleType
 
 BACKEND = Path(__file__).resolve().parents[1]
+OPENAPI_GENERATOR = BACKEND / "scripts/gen_openapi.py"
 
 
 def isolated_env() -> dict[str, str]:
@@ -18,6 +21,17 @@ def isolated_env() -> dict[str, str]:
     }
     env["PYTHONUTF8"] = "1"
     return env
+
+
+def load_openapi_generator() -> ModuleType:
+    """Nạp `scripts/gen_openapi.py` như module để gọi thẳng hàm luật, không khởi động Django lần
+    nữa (`scripts/` không phải package)."""
+    spec = importlib.util.spec_from_file_location("gen_openapi", OPENAPI_GENERATOR)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:

@@ -96,7 +96,9 @@ def parse_ticket(path: Path) -> Ticket:
 
 def load_features(root: Path) -> dict[str, Feature]:
     features: dict[str, Feature] = {}
-    for issues in sorted((root / ".scratch").glob("*/issues")):
+    scratch = root / ".scratch"
+    # Feature có thể nằm lồng một cấp, ví dụ `.scratch/module-plans/<feature>/issues`.
+    for issues in sorted([*scratch.glob("*/issues"), *scratch.glob("*/*/issues")]):
         feature = Feature(slug=issues.parent.name)
         for spec_path in sorted(issues.glob(f"[0-9][0-9]-*/{SPEC}")):
             ticket = parse_ticket(spec_path.parent)
