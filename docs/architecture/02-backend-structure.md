@@ -4,7 +4,7 @@
 > Thuật ngữ nghiệp vụ theo [GLOSSARY.md](../../GLOSSARY.md).
 > **Cấu trúc đích.** Code hiện vẫn ở bố cục cũ (`backend/`, `shared/`, `modules/`) cho tới khi ticket chuyển cấu trúc theo ADR 0018 hoàn tất.
 
-File này là **bản đồ** của repo: code đặt ở đâu, file nào được import gì, module nói chuyện với nhau ra sao. Chi tiết nằm ở nơi sở hữu:
+File này là **bản đồ** của repo: code đặt ở đâu, file nào import được gì, module giao tiếp ra sao. Chi tiết ở nơi sở hữu:
 
 | Cần biết | Đọc |
 |---|---|
@@ -16,12 +16,11 @@ File này là **bản đồ** của repo: code đặt ở đâu, file nào đư�
 
 ## 1. Tổng quan
 
-- **Một Django project** nằm ngay ở gốc repo, deploy một lần, chạy thành nhiều tiến trình: API, Celery worker, Celery Beat, Outbox relay.
-- **Ba nhóm code**:
-  - `apps/`: nghiệp vụ. Mỗi **module** (một vùng nghiệp vụ có ranh giới, ví dụ `ordering`) là **đúng một Django app**.
-  - `common/`: hạ tầng nội bộ dùng chung (sự kiện, idempotency, nền DRF…). Không phải module, không chứa nghiệp vụ.
-  - `infrastructure/`: code gọi API bên thứ ba (VNPay, MoMo, GHN, Google). Không phải module.
-- Code theo **HackSoft Django Styleguide**: model giữ dữ liệu và ràng buộc, `services` ghi, `selectors` đọc, view chỉ nhận request rồi gọi service hoặc selector.
+- **Một Django project** ở gốc repo, deploy một lần, chạy nhiều tiến trình: API, Celery worker, Celery Beat, Outbox relay.
+- `apps/`: nghiệp vụ. Mỗi **module** (vùng nghiệp vụ có ranh giới, ví dụ `ordering`) là **đúng một Django app**.
+- `common/`: hạ tầng nội bộ dùng chung (sự kiện, idempotency, nền DRF…). Không phải module, không chứa nghiệp vụ.
+- `infrastructure/`: code gọi API bên thứ ba (VNPay, MoMo, GHN, Google). Không phải module.
+- Theo **HackSoft Django Styleguide**: model giữ dữ liệu và ràng buộc, `services` ghi, `selectors` đọc, view chỉ nhận request rồi gọi service/selector.
 
 | Hạng mục | Lựa chọn |
 |---|---|
@@ -33,13 +32,12 @@ File này là **bản đồ** của repo: code đặt ở đâu, file nào đư�
 
 ## 2. Cây thư mục
 
-Cây chỉ ghi vai trò. Mục đánh dấu _(kế hoạch)_ chưa có trong code. Cây chi tiết của từng module nằm ở file của module đó.
+Cây chỉ ghi vai trò; _(kế hoạch)_ là chưa có trong code. Cây chi tiết của module ở file của module đó. File cấu hình repo nằm ở gốc vì công cụ chỉ đọc chúng ở đó.
 
 ```
 <repo>/
-├── manage.py
+├── manage.py, uv.lock
 ├── pyproject.toml              # dependency; cấu hình ruff, mypy, pytest, coverage, import-linter
-├── uv.lock
 ├── Makefile                    # make fmt, lint, test, migrate, openapi…
 ├── Dockerfile                  # 1 image cho worker, beat, relay, migrate (ADR 0017)
 ├── docker-compose.yml          # worker, beat, relay, redis, mailpit (08 mục 7)
@@ -51,8 +49,7 @@ Cây chỉ ghi vai trò. Mục đánh dấu _(kế hoạch)_ chưa có trong cod
 │   ├── env.py                  # đọc và kiểm biến môi trường (pydantic-settings)
 │   ├── settings/               # base, local, test, production (mục 7)
 │   ├── urls.py                 # /api/v1/{store,backoffice,webhooks}, schema, health
-│   ├── celery.py               # Celery app, queue, lịch job
-│   └── wsgi.py
+│   └── celery.py, wsgi.py      # celery.py: Celery app, queue, lịch job
 │
 ├── apps/                       # mỗi thư mục con là một module = một Django app (mục 3)
 │   ├── geo/  identity/  catalog/  payments/  shipping/
@@ -72,8 +69,7 @@ Cây chỉ ghi vai trò. Mục đánh dấu _(kế hoạch)_ chưa có trong cod
 │   ├── migrations/
 │   └── tests/                  # test của common, soi gương cây ở trên; factories.py
 │
-├── infrastructure/             # (kế hoạch) code gọi API bên thứ ba; không import apps/, không đọc DB;
-│                               # tạo cùng adapter đầu tiên
+├── infrastructure/             # (kế hoạch, tạo cùng adapter đầu tiên) không import apps/, không đọc DB
 │   ├── payment/                # base.py (PaymentGateway), vnpay.py, momo.py, fake.py
 │   ├── shipping/               # base.py (ShippingProvider), ghn.py, fake.py
 │   └── google/                 # oauth.py: xác minh id_token
@@ -92,20 +88,15 @@ Cây chỉ ghi vai trò. Mục đánh dấu _(kế hoạch)_ chưa có trong cod
 ├── .github/                    # CI (ci.yml, codeql.yml), dependabot, mẫu issue và PR (11)
 ├── .scratch/                   # spec và ticket theo feature (docs/agents/issue-tracker.md)
 ├── .claude/, .agents/          # skill và hook cho AI agent
-├── .vscode/, .run/             # cấu hình IDE được commit (08 mục 6, 11)
+├── .vscode/, .run/, pyrightconfig.json  # cấu hình IDE được commit (08 mục 6, 11); Pylance dùng .venv của repo
 ├── .pre-commit-config.yaml     # gitleaks, ruff, mypy, import-linter, commitizen
-├── .editorconfig               # UTF-8, LF, thụt lề 4 cho Python, 2 cho YAML/JSON/TOML
-├── .gitattributes              # ép LF kể cả trên Windows; .bat/.cmd/.ps1 giữ CRLF
+├── .editorconfig, .gitattributes  # UTF-8, LF (ép cả Windows; .bat/.cmd/.ps1 giữ CRLF), thụt 4 Python, 2 YAML/JSON/TOML
 ├── .gitignore, .dockerignore   # .dockerignore loại docs/, .scratch/, .claude/ khỏi image
 ├── .gitleaksignore             # ngoại lệ gitleaks cho dữ liệu mẫu, mỗi dòng có lý do
 ├── .sonarcloud.properties      # loại file sinh tự động (openapi.yaml) khỏi SonarCloud
-├── pyrightconfig.json          # Pylance dùng .venv của repo
 ├── CLAUDE.md, AGENTS.md        # quy tắc cho AI agent; AGENTS.md chỉ trỏ về CLAUDE.md
-├── GLOSSARY.md                 # thuật ngữ nghiệp vụ
-└── README.md, CONTRIBUTING.md, SECURITY.md, LICENSE
+└── GLOSSARY.md, README.md, CONTRIBUTING.md, SECURITY.md, LICENSE
 ```
-
-Các file cấu hình repo (`.pre-commit-config.yaml`, `.sonarcloud.properties`, `.gitleaksignore`, `CLAUDE.md`…) nằm ở gốc vì công cụ chỉ đọc chúng ở đó.
 
 ## 3. Module và thứ tự phụ thuộc
 
@@ -122,33 +113,17 @@ Các file cấu hình repo (`.pre-commit-config.yaml`, `.sonarcloud.properties`,
 | 2 | [`geo`](./modules/geo.md) | Tỉnh/thành, phường/xã (địa giới 2 cấp) |
 | 1 | `infrastructure`, `common` | Không phải module; `infrastructure` được import `common`, không ngược lại |
 
-```mermaid
-graph TB
-    notifications --> ordering
-    notifications --> identity
-    notifications --> payments
-    ordering --> inventory
-    ordering --> promotions
-    ordering --> payments
-    ordering --> shipping
-    ordering --> identity
-    ordering --> catalog
-    inventory --> catalog
-    inventory --> identity
-    promotions --> identity
-    identity --> geo
-    shipping --> geo
-    ordering --> geo
-    payments -.-> infra_pay[infrastructure.payment]
-    shipping -.-> infra_ship[infrastructure.shipping]
-    identity -.-> infra_google[infrastructure.google]
-```
+Phụ thuộc thực tế (`A → B`: A gọi `B/contracts.py`, nghe `B/events.py` hoặc có FK tới model của B; mọi module dùng `common`, không ghi):
 
-`A --> B`: A gọi `B/contracts.py`, nghe sự kiện trong `B/events.py` hoặc có FK tới model của B. Nét đứt: module dùng adapter bên thứ ba của riêng nó. Mọi module đều dùng `common` nên sơ đồ không vẽ. Quy tắc mà CI kiểm là theo lớp:
+- `notifications` → `ordering`, `identity`, `payments`
+- `ordering` → `inventory`, `promotions`, `payments`, `shipping`, `identity`, `catalog`, `geo`
+- `inventory` → `catalog`, `identity`; `promotions` → `identity`; `identity`, `shipping` → `geo`
+- Adapter bên thứ ba riêng: `payments` → `infrastructure.payment`, `shipping` → `infrastructure.shipping`, `identity` → `infrastructure.google`.
 
-- Module được phụ thuộc vào **mọi** module ở lớp thấp hơn.
-- **Không** phụ thuộc module cùng lớp (ví dụ `payments` và `shipping` độc lập) hay lớp cao hơn.
-- **Lớp dưới báo cho lớp trên bằng sự kiện.** Ví dụ `payments` không biết Đơn hàng: nó nhận `reference` (Mã đơn) và phát `payments.payment-succeeded`; `ordering` nghe sự kiện này để chuyển trạng thái đơn.
+Quy tắc CI kiểm theo lớp:
+
+- Module được phụ thuộc **mọi** module lớp thấp hơn; **không** phụ thuộc module cùng lớp (ví dụ `payments` và `shipping` độc lập) hay lớp cao hơn.
+- **Lớp dưới báo lớp trên bằng sự kiện.** Ví dụ `payments` không biết Đơn hàng: nhận `reference` (Mã đơn), phát `payments.payment-succeeded`; `ordering` nghe để chuyển trạng thái đơn.
 
 ## 4. Khuôn mẫu một module
 
@@ -200,19 +175,14 @@ Cột "Cấm" chỉ ghi ranh giới import. Quy tắc hành vi (transaction, HTT
 
 ### 4.2. Một file hay một package
 
-Bắt đầu bằng **một file** (`models.py`, `services.py`, `selectors.py`). Tách thành package khi file chứa **từ hai khái niệm nghiệp vụ độc lập**, tức đọc phần này không cần đọc phần kia (ví dụ Giỏ hàng và Đổi trả). File trong package đặt tên theo khái niệm (`checkout.py`, `transitions.py`), không theo kiểu kỹ thuật.
+- Bắt đầu bằng **một file** (`models.py`, `services.py`, `selectors.py`).
+- Tách package khi file chứa **từ hai khái niệm nghiệp vụ độc lập** (đọc phần này không cần đọc phần kia, ví dụ Giỏ hàng và Đổi trả).
+- File trong package đặt tên theo khái niệm (`checkout.py`, `transitions.py`), không theo kiểu kỹ thuật.
 
-| Module | `models` | `services` | `selectors` | Khác |
-|---|---|---|---|---|
-| `geo` | file | — | file | |
-| `identity` | package | package | file | `auth/` |
-| `catalog` | package | file | file | |
-| `inventory` | file | file | file | |
-| `promotions` | file | file | — | |
-| `payments` | file | file | — | dùng `infrastructure.payment` |
-| `shipping` | file | file | — | dùng `infrastructure.shipping` |
-| `ordering` | package | package | package | |
-| `notifications` | file | file | — | `templates/emails/` |
+Hiện trạng (P = package, F = file, — = không có), theo thứ tự `models`/`services`/`selectors`:
+
+- `geo` F/—/F · `identity` P/P/F + `auth/` · `catalog` P/F/F · `inventory` F/F/F · `ordering` P/P/P
+- `promotions` F/F/— · `payments` F/F/— (dùng `infrastructure.payment`) · `shipping` F/F/— (dùng `infrastructure.shipping`) · `notifications` F/F/— + `templates/emails/`
 
 ### 4.3. Một request đi qua các tầng
 
@@ -230,7 +200,7 @@ Ví dụ đầy đủ nhất là checkout, ở [`ordering` mục 5.1](./modules/
 
 ### 4.4. Test đặt ở đâu, tên là gì
 
-Test nằm trong `tests/` của app sở hữu. **Đường dẫn test soi gương đường dẫn code**, thêm `test_` trước tên file: nhìn tên file test là biết nó kiểm file nào.
+Test nằm trong `tests/` của app sở hữu. **Đường dẫn test soi gương đường dẫn code**, thêm `test_` trước tên file.
 
 | Code | Test |
 |---|---|
@@ -240,9 +210,9 @@ Test nằm trong `tests/` của app sở hữu. **Đường dẫn test soi gươ
 | `common/api/pagination.py` | `common/tests/api/test_pagination.py` |
 | `infrastructure/payment/vnpay.py` | `infrastructure/tests/payment/test_vnpay.py` |
 
-- Test không gắn với một file nguồn (tranh chấp khoá nhiều connection) đặt ở `tests/concurrency/` của app.
-- Factory của module ở `apps/<module>/tests/factories.py`; factory nền ở `common/tests/factories.py`.
-- Test xuyên module ở `tests/flows/` ở gốc; test công cụ (script, env, ranh giới import) ở `tests/tooling/`.
+- Test không gắn một file nguồn (tranh chấp khoá nhiều connection): `tests/concurrency/` của app.
+- Factory: `apps/<module>/tests/factories.py`; factory nền: `common/tests/factories.py`.
+- Test xuyên module: `tests/flows/` ở gốc; test công cụ (script, env, ranh giới import): `tests/tooling/`.
 
 ## 5. Giao tiếp giữa module
 
@@ -250,8 +220,8 @@ Module khác chỉ được dùng ba file: `contracts.py` (gọi đồng bộ), 
 
 **FK sang module lớp dưới** được phép ([ADR 0018](../adr/0018-one-django-app-per-module.md)), nhưng **chỉ để database giữ toàn vẹn dữ liệu**, không để truy vấn xuyên module:
 
-- Khai FK bằng class được import (`models.ForeignKey(Variant, …)`), kể cả FK tới `Account`. Không dùng chuỗi (`"catalog.Variant"`, `settings.AUTH_USER_MODEL`): có import thật thì contract `layers` mới kiểm được chiều FK.
-- Trong `services` và `selectors`, không dùng lookup `__`, `select_related`, `prefetch_related` đi vào model của module khác. ORM đi qua FK mà không cần import nên `import-linter` không thấy, và schema của module kia sẽ ngầm thành interface: đổi tên field có thể làm hỏng module khác trong khi CI vẫn xanh. Quy tắc này chỉ kiểm được khi review.
+- Khai FK bằng class được import (`models.ForeignKey(Variant, …)`), kể cả FK tới `Account`; không dùng chuỗi (`"catalog.Variant"`, `settings.AUTH_USER_MODEL`), để contract `layers` kiểm được chiều FK.
+- `services` và `selectors` không dùng lookup `__`, `select_related`, `prefetch_related` vào model module khác: `import-linter` không thấy, schema module kia ngầm thành interface, đổi tên field làm hỏng module khác mà CI vẫn xanh. Chỉ kiểm được khi review.
 - Đọc cột FK của chính bảng mình (`stock_item.variant_id`) thì được.
 - Cần dữ liệu module khác thì gọi `contracts` với **danh sách id**, một lần cho cả trang, để không sinh N+1.
 
@@ -267,7 +237,7 @@ Module khác chỉ được dùng ba file: `contracts.py` (gọi đồng bộ), 
 | Code ngoài `tests` không import factory của module khác | `forbidden`, sinh tự động |
 | Module chỉ phát sự kiện qua `common.events.publish`, không import relay | `forbidden`, sinh tự động |
 
-Vùng sinh tự động nằm giữa `# BEGIN gen_importlinter` và `# END gen_importlinter`, **không sửa tay**. Thêm module hoặc file nội bộ mới thì chạy `uv run python scripts/gen_importlinter.py`. Cơ chế sinh ghi ở docstring của script.
+- Vùng giữa `# BEGIN gen_importlinter` và `# END gen_importlinter` **không sửa tay**; thêm module hoặc file nội bộ thì chạy `uv run python scripts/gen_importlinter.py` (cơ chế ở docstring script).
 
 ## 7. Settings theo môi trường
 
@@ -280,11 +250,12 @@ Mỗi file môi trường `from config.settings.base import *` rồi ghi đè.
 | `test.py` | Tắt connection pool, cache `LocMemCache`, Celery eager, email `locmem`, hasher MD5 | `pytest` (`pyproject.toml`), `gen_openapi.py` |
 | `production.py` | HTTPS redirect (trừ `/healthz`, `/readyz`), HSTS, header bảo mật, tắt API docs; S3, SES, Sentry khi dựng AWS ([09](./09-deployment-aws-target.md)) | Biến môi trường của task ECS |
 
-Biến môi trường chỉ đọc ở `config/env.py`: thiếu hoặc sai kiểu thì dừng ngay khi khởi động. `wsgi.py` và `celery.py` **không** đặt mặc định `DJANGO_SETTINGS_MODULE`, để process deploy thiếu biến không âm thầm chạy bằng settings local.
+- Biến môi trường chỉ đọc ở `config/env.py`; thiếu hoặc sai kiểu thì dừng ngay khi khởi động.
+- `wsgi.py`, `celery.py` **không** đặt mặc định `DJANGO_SETTINGS_MODULE`, để process deploy thiếu biến không âm thầm chạy settings local.
 
 ## 8. Khác với cấu trúc Django phổ biến
 
-Cấu trúc `config/` + `apps/` + `common/` + `infrastructure/` theo cách phổ biến của cộng đồng Django. Những chỗ dự án cố ý làm khác:
+`config/` + `apps/` + `common/` + `infrastructure/` theo cách phổ biến của cộng đồng Django. Chỗ cố ý làm khác:
 
 | Thường thấy | Dự án | Vì sao |
 |---|---|---|
