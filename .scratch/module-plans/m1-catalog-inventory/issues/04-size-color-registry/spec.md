@@ -2,7 +2,7 @@
 
 **What to build:** Admin quản lý danh sách size và bảng màu chuẩn dùng cho Biến thể/filter, gồm tạo, đọc, sửa và ẩn; giá trị đã được dùng không bị xóa.
 
-Blocked by: 01 — cần Admin JWT cho API quản trị; 13 — quy ước OpenAPI cho endpoint mới.
+Blocked by: 01 — cần Admin JWT cho API quản trị; 13 — quy ước OpenAPI cho endpoint mới; one-app-per-module/03 — chuyển code sang cấu trúc ADR 0018 trước khi viết module mới.
 
 Status: ready-for-agent
 

@@ -36,6 +36,7 @@
 #### Tài liệu đã cập nhật
 
 - `docs/architecture/02-backend-structure.md`: <gì> / Không
+- `docs/architecture/modules/<module>.md`: <gì> / Không
 
 #### Ghi chú cho retro
 

@@ -59,7 +59,7 @@ không hiển nhiên hoặc là workaround cho type stub/tooling.
   cục bộ, không trở thành service layer ẩn.
 - Module khác gọi đồng bộ qua `contracts.py`, dùng schema sự kiện công khai trong `events.py` và bắt
   domain exception thuộc contract từ `exceptions.py`; ngoại lệ FK được chốt trong
-  [02](./02-backend-structure.md#63-fk-sang-module-khác).
+  [02](./02-backend-structure.md#5-giao-tiếp-giữa-module).
 - Không import trực tiếp `models`, `services`, `selectors` hoặc test factory nội bộ của module khác.
 - `shared` chỉ chứa hạ tầng dùng chung, không chứa nghiệp vụ riêng của một module.
 - Không tạo abstraction dùng chung khi mới có một use case. Ưu tiên code rõ ràng trong đúng module; chỉ
@@ -147,10 +147,40 @@ return Response(OrderSerializer(orders, many=True).data)
 JOIN cho quan hệ đơn; `prefetch_related()` tải collection bằng query riêng thay vì query lại cho mỗi
 Đơn hàng.
 
+### 3.3. Quy tắc theo file của module
+
+Vị trí file và ranh giới import ở [02 mục 4.1](./02-backend-structure.md#41-vai-trò-từng-file). Mục này ghi
+quy tắc hành vi của từng file.
+
+- **`contracts.py`**: chỉ đưa vào những gì module khác thực sự cần; trả DTO pydantic, không trả model.
+  Docstring của hàm ghi dữ liệu nêu rõ: gọi trong transaction của bên gọi được không, khoá dòng nào, ném
+  lỗi gì.
+- **`exceptions.py`**: mỗi lớp lỗi khai `code` tiếng Anh (ví dụ `OUT_OF_STOCK`), `http_status` (409 hoặc 422
+  theo [04](./04-api-contract.md) mục 3, mặc định 422) và `message` mặc định bọc `gettext_lazy`; khi ném có
+  thể truyền `message`, `details` riêng. Lỗi báo consumer thử lại sau (ví dụ `TransitionNotYetValid`) kế
+  thừa `common.exceptions.RetryLater`. Lỗi thuộc module ném ra nó: module khác import để bắt, không khai
+  báo lại.
+- **`services`**: mỗi nghiệp vụ ghi là một hàm có tham số keyword; phần ghi chạy trong
+  `transaction.atomic`, phát sự kiện qua `common.events.publish`. Hàm điều phối tích hợp chia thành các
+  transaction ngắn, không bọc toàn hàm khi có HTTP. Không nhận `request`. Không import `tasks.py`: đẩy task
+  theo tên qua `enqueue_on_commit`, để không có vòng import `services` ↔ `tasks`.
+- **`handlers.py`**: khai `@handles("payments.payment-succeeded", version=1,
+  name="ordering.handle_payment_succeeded")`; `name` cố định như tên Celery task, đổi tên hàm không đổi
+  `name`. Mỗi handler gọi **một** service của chính module. Không tự chống xử lý trùng: consumer khoá
+  delivery và chuyển `completed` cùng transaction với handler. Sự kiện tới sớm hoặc không áp dụng được thì
+  báo bằng exception ([07](./07-async-events-jobs.md) mục 1.3). Handler chạy trong transaction của consumer,
+  nên không gọi HTTP hay đẩy Celery task trực tiếp.
+- **`tasks.py`**: task mỏng, chỉ gọi service. Mỗi task khai `name="<module>.<task>"` cố định.
+- **`api/*/views.py`**: dùng `APIView` hoặc `GenericAPIView`; không dùng `ModelViewSet` để tự sinh CRUD.
+- **`api/*/serializers.py`**: không gọi `.save()` lên model.
+- **`api/permissions.py`**: không ghi dữ liệu, không gọi contract ghi, không import phần auth hay model nội
+  bộ của module khác.
+
 ## 4. Service, transaction và tác vụ bên ngoài
 
-- Chỉ mở `transaction.atomic()` tại service hoặc các điểm hạ tầng đã được [02](./02-backend-structure.md)
-  cho phép. Không mở transaction trong view, serializer hay selector.
+- Chỉ mở `transaction.atomic()` tại service của module hoặc các điểm hạ tầng sau: outbox
+  (`common.events`: publisher, relay, consumer, operations), `common.idempotency`, và management command
+  hạ tầng (`load_geo`, `sync_beat_schedule`). Không mở transaction trong view, serializer hay selector.
 - Sự kiện outbox phải được ghi cùng transaction với thay đổi nghiệp vụ.
 - Không gọi HTTP, gửi email hoặc gọi provider trong transaction. Read/quote idempotent có thể thực hiện
   trước transaction khi kết quả được kiểm tra lại theo contract. Side effect bên ngoài phải được kích
@@ -164,9 +194,9 @@ JOIN cho quan hệ đơn; `prefetch_related()` tải collection bằng query ri�
   tăng dần và tăng `checkout_version`.
 - Không xoá cứng dữ liệu đã tham gia Đơn hàng; dùng trạng thái hoặc `archived` theo thiết kế dữ liệu.
 
-Các rule transaction, lock order và checkout ở trên là bản tóm tắt; nguồn sở hữu nằm tại
-[02](./02-backend-structure.md), [03](./03-data-model.md), [10](./10-nfr.md) và
-[ADR-0012](../adr/0012-checkout-price-snapshot.md).
+Mục này là nguồn sở hữu thứ tự khoá và quy tắc writer của catalog. Luồng checkout ở
+[`ordering` mục 5.1](./modules/ordering.md#51-luồng-checkout); ràng buộc dữ liệu ở [03](./03-data-model.md),
+[10](./10-nfr.md) và [ADR-0012](../adr/0012-checkout-price-snapshot.md).
 
 ## 5. Đặt tên và cấu trúc Python
 
@@ -324,7 +354,7 @@ class ShippingUtils:
 - `mypy` với Django/DRF plugin là type checker chuẩn. Các service, selector và contract phải đạt mức strict
   được cấu hình trong `backend/pyproject.toml`.
 - File không phải Python tuân theo `.editorconfig` và pre-commit hooks. Project không dùng Prettier.
-- Không sửa tay vùng `# BEGIN gen_importlinter` trong `backend/pyproject.toml`; chạy generator được ghi ở [02](./02-backend-structure.md#8-kiểm-tra-ranh-giới-module-import-linter).
+- Không sửa tay vùng `# BEGIN gen_importlinter` trong `backend/pyproject.toml`; chạy generator được ghi ở [02](./02-backend-structure.md#6-kiểm-tra-ranh-giới-bằng-import-linter).
 
 `make fmt` là lệnh sửa format tự động. `make lint` là cổng kiểm tra và phải giữ cùng thứ tự với CI.
 

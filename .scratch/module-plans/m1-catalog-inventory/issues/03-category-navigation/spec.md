@@ -2,7 +2,7 @@
 
 **What to build:** Admin tạo, sắp xếp, di chuyển và xóa Danh mục hợp lệ; Người mua xem cây Danh mục công khai theo đúng thứ tự để điều hướng.
 
-Blocked by: 01 — cần Admin JWT cho API quản trị; 13 — quy ước OpenAPI cho endpoint mới.
+Blocked by: 01 — cần Admin JWT cho API quản trị; 13 — quy ước OpenAPI cho endpoint mới; one-app-per-module/03 — chuyển code sang cấu trúc ADR 0018 trước khi viết module mới.
 
 Status: ready-for-agent
 

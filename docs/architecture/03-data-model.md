@@ -259,7 +259,7 @@ class StockReservation(BaseModel):
     reference = models.CharField(max_length=16)
 ```
 
-**Vì sao:** FK được phép theo chiều dependency của [02 mục 6.3](./02-backend-structure.md#63-fk-sang-module-khác)
+**Vì sao:** FK được phép theo chiều dependency của [02 mục 5](./02-backend-structure.md#5-giao-tiếp-giữa-module)
 để database chặn bản ghi mồ côi. `reference` không có FK vì `inventory` không được phụ thuộc ngược vào
 `ordering`; service kiểm tra Mã đơn qua public contract và giữ idempotency bằng natural key/constraint.
 Có FK không đồng nghĩa được phép `select_related()` hoặc lookup xuyên vào field nội bộ của module kia.
@@ -818,7 +818,7 @@ Ràng buộc và index: `UNIQUE(product_color_id, size_id)` (BR-CAT-02); index t
 Ghi chú:
 
 - `checkout_version` có mặt trong `VariantForSaleDTO`. Tăng phiên bản khi Giá bán, SKU, dữ liệu snapshot, cân nặng hoặc điều kiện bán thay đổi; thay đổi liên quan ở Product/Size/Color cũng phải tăng phiên bản các Biến thể bị ảnh hưởng. `is_available` là bản sao tồn kho, không làm đổi phiên bản; `inventory` vẫn quyết định đủ hàng hay không.
-- `checkout_version` và hash snapshot được đưa vào `quote_token` ([04 mục 5.3](./04-api-contract.md#53-vòng-đời-quote_token)) và được kiểm tra lại dưới khoá Variant khi checkout ([02 mục 6.2](./02-backend-structure.md#62-ví-dụ-luồng-một-request)). Writer của catalog khoá Variant theo [13 mục 4](./13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài); không gọi inventory khi đang giữ khoá Variant.
+- `checkout_version` và hash snapshot được đưa vào `quote_token` ([04 mục 5.3](./04-api-contract.md#53-vòng-đời-quote_token)) và được kiểm tra lại dưới khoá Variant khi checkout ([`ordering` mục 5.1](./modules/ordering.md#51-luồng-checkout)). Writer của catalog khoá Variant theo [13 mục 4](./13-python-django-coding-style.md#4-service-transaction-và-tác-vụ-bên-ngoài); không gọi inventory khi đang giữ khoá Variant.
 - Đổi `price` bị từ chối khi có `catalog_sale_price` đang hoặc sắp hiệu lực với `price` ≥ giá mới (BR-PRC-05), kiểm tra ở service.
 
 ### 3.8. `catalog_sale_price`: Giá khuyến mãi
@@ -891,7 +891,7 @@ Ghi chú:
 
 - Số lượng bán được = `on_hand − reserved` (BR-INV-02). `reserved` là cột tổng được cập nhật cùng transaction với `inventory_stock_reservation`. Đây là ngoại lệ có chủ đích của quy tắc không lặp dữ liệu: nhờ cột này, kiểm tra `CHECK(reserved <= on_hand)` chạy được trong DB, và lúc bán hàng không phải cộng dồn. Những lần đọc không khoá dòng (`get_available`, `catalog_variant.is_available`) có thể vẫn trừ Giữ hàng đã quá hạn cho tới khi T4 chạy hoặc có thao tác khoá dòng đó; lúc bán hàng luôn khoá dòng nên con số luôn đúng.
 - `awaiting_dispatch` là Hàng chờ xuất (BR-INV-10, [ADR 0010](../adr/0010-stock-decremented-at-order-awaiting-dispatch.md)), cập nhật cùng transaction với `inventory_stock_allocation`. Hàng trên kệ = `on_hand + awaiting_dispatch`.
-- Giữ hàng đã quá `expires_at` bị coi là không hợp lệ ngay cả khi job chưa kịp giải phóng ([ADR 0003](../adr/0003-postgres-redis-celery.md)). `reserve_stock` và `decrement_stock`, sau khi khoá dòng, tự chuyển các Giữ hàng đã hết hạn của dòng đó sang `released` và giảm `reserved` trước khi kiểm tra. Job huỷ đơn (T4) vẫn gọi `release_reservation` sau đó; thao tác này idempotent. Ngoại lệ là T3 tới muộn: `commit_reservation` gặp Giữ hàng đã quá hạn hoặc đã bị giải phóng thì kiểm tra lại Số lượng bán được trong cùng khoá dòng, đủ thì giữ lại hàng ([02](./02-backend-structure.md) mục 7.3).
+- Giữ hàng đã quá `expires_at` bị coi là không hợp lệ ngay cả khi job chưa kịp giải phóng ([ADR 0003](../adr/0003-postgres-redis-celery.md)). `reserve_stock` và `decrement_stock`, sau khi khoá dòng, tự chuyển các Giữ hàng đã hết hạn của dòng đó sang `released` và giảm `reserved` trước khi kiểm tra. Job huỷ đơn (T4) vẫn gọi `release_reservation` sau đó; thao tác này idempotent. Ngoại lệ là T3 tới muộn: `commit_reservation` gặp Giữ hàng đã quá hạn hoặc đã bị giải phóng thì kiểm tra lại Số lượng bán được trong cùng khoá dòng, đủ thì giữ lại hàng ([`inventory`](./modules/inventory.md) mục 4.1).
 
 ### 4.3. `inventory_stock_reservation`: Giữ hàng
 

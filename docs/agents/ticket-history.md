@@ -4,6 +4,16 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 
 Đóng ticket thì thêm một dòng vào cuối phần **Đã xong** của feature và bỏ ticket khỏi phần **Còn mở**, trong cùng PR.
 
+## `one-app-per-module`
+
+[Spec](../../.scratch/one-app-per-module/spec.md) · [ADR 0018](../adr/0018-one-django-app-per-module.md)
+
+### Còn mở
+
+- [01](../../.scratch/one-app-per-module/issues/01-flatten-repo-root/spec.md) · đưa Django project từ `backend/` lên gốc repo · `ready-for-agent`
+- [02](../../.scratch/one-app-per-module/issues/02-django-apps/spec.md) · `shared` thành `common` + `apps/geo`, `modules` thành `apps/identity`, sinh lại migration · `ready-for-agent` · blocked by 01
+- [03](../../.scratch/one-app-per-module/issues/03-mirror-test-layout/spec.md) · đặt lại vị trí và tên file test theo quy tắc soi gương · `ready-for-agent` · blocked by 02
+
 ## `dev-security-baseline`
 
 [Spec](../../.scratch/dev-security-baseline/spec.md)
@@ -82,9 +92,9 @@ Chưa có spec.
 
 ### Còn mở
 
-- [02](../../.scratch/module-plans/m1-catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01
-- [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01 (13 đã xong)
-- [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01 (13 đã xong)
+- [02](../../.scratch/module-plans/m1-catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01, one-app-per-module/03
+- [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01 (13 đã xong), one-app-per-module/03
+- [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01 (13 đã xong), one-app-per-module/03
 - [05](../../.scratch/module-plans/m1-catalog-inventory/issues/05-product-variant-management/spec.md) · quản lý Sản phẩm và Biến thể · `ready-for-agent` · blocked by 03, 04
 - [06](../../.scratch/module-plans/m1-catalog-inventory/issues/06-product-images/spec.md) · ảnh Sản phẩm theo màu · `ready-for-agent` · blocked by 05
 - [07](../../.scratch/module-plans/m1-catalog-inventory/issues/07-pricing/spec.md) · Giá bán và Giá khuyến mãi · `ready-for-agent` · blocked by 05

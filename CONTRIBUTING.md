@@ -4,7 +4,7 @@
 
 1. [GLOSSARY.md](./GLOSSARY.md): thuật ngữ dùng chung trong code và tài liệu.
 2. [Môi trường phát triển local](./docs/architecture/08-local-development.md): cài đặt trên macOS hoặc Windows.
-3. [Cấu trúc Backend](./docs/architecture/02-backend-structure.md): module, quy tắc từng file, ranh giới giữa các module.
+3. [Cấu trúc Backend](./docs/architecture/02-backend-structure.md): cây thư mục, khuôn một module, ranh giới giữa các module; chi tiết từng module ở [`modules/`](./docs/architecture/modules/README.md).
 4. [Coding style Python/Django](./docs/architecture/13-python-django-coding-style.md): quy ước bắt buộc khi viết và review code.
 5. [Quy ước Git](./docs/architecture/11-git-workflow.md): nhánh, commit, PR, release.
 

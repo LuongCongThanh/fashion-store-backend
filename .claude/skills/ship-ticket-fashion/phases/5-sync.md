@@ -4,7 +4,8 @@ Goal: after this PR, `docs/` and `.scratch/` describe the code on the branch.
 
 1. **Change list.** From `git diff origin/dev...HEAD --stat` and the code diff: new or renamed public names (functions, classes, settings), `make` commands, env vars, new files / folders, endpoints, models, behaviour changed during review.
 2. **Find stale spots.** For each item, `grep -rn "<name>" docs GLOSSARY.md .scratch CONTRIBUTING.md README.md` and fix places describing old behaviour. Docs that often drift:
-   - `docs/architecture/02-backend-structure.md`: folder tree, modules, `shared` API.
+   - `docs/architecture/02-backend-structure.md`: folder tree, module template, layers.
+   - `docs/architecture/modules/<module>.md`: the touched module's tree, public API, events, jobs.
    - `03-data-model.md`: fields, constraints, migrations.
    - `04-api-contract.md`: endpoints, error format, pagination.
    - `08-local-development.md`: `make` commands (table in section 3), env vars (section 2.3), `.env.example`.

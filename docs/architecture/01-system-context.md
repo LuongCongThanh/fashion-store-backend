@@ -109,7 +109,7 @@ Chi tiết xem [02-backend-structure.md](./02-backend-structure.md).
 
 Cách đọc sơ đồ:
 
-- Mũi tên liền `A --> B`: A phụ thuộc trực tiếp vào B, tức là gọi `B/contracts.py`, nghe sự kiện trong `B/events.py` hoặc có FK tới model của B. Sơ đồ chỉ vẽ các phụ thuộc đang có. Phụ thuộc nào hợp lệ do luật theo lớp quyết định, xem [02-backend-structure.md](./02-backend-structure.md) mục 4.
+- Mũi tên liền `A --> B`: A phụ thuộc trực tiếp vào B, tức là gọi `B/contracts.py`, nghe sự kiện trong `B/events.py` hoặc có FK tới model của B. Sơ đồ chỉ vẽ các phụ thuộc đang có. Phụ thuộc nào hợp lệ do luật theo lớp quyết định, xem [02-backend-structure.md](./02-backend-structure.md) mục 3.
 - Mũi tên đứt: chỉ minh hoạ hướng đi của sự kiện, từ module phát ở lớp dưới tới module nghe ở lớp trên. Đây không phải một loại phụ thuộc riêng: bên nghe đã có mũi tên liền tới bên phát. Tên sự kiện ghi tắt, bỏ tiền tố module. Sơ đồ chỉ nêu ví dụ, danh sách đầy đủ ở [07-async-events-jobs.md](./07-async-events-jobs.md) mục 2.
 - `shared` là app hạ tầng dùng chung, không phải module nghiệp vụ ([ADR 0006](../adr/0006-modular-monolith.md)).
 
@@ -156,7 +156,7 @@ sequenceDiagram
     B->>N: Đặt hàng
     N->>API: POST /store/checkout {payment_method: online, expected_total, quote_token} + Idempotency-Key
     Note over API: Ngoài transaction: tính lại tổng tiền, so với expected_total
-    API->>DB: Một transaction: kiểm lại báo giá dưới khoá (02 mục 6.2); Giữ hàng, lượt Voucher, Order PENDING_PAYMENT và xoá dòng giỏ đã mua
+    API->>DB: Một transaction: kiểm lại báo giá dưới khoá (ordering mục 5.1); Giữ hàng, lượt Voucher, Order PENDING_PAYMENT và xoá dòng giỏ đã mua
     Note over API,DB: Dữ liệu khác báo giá thì rollback, trả PRICE_CHANGED; tổng không dương thì ORDER_TOTAL_NOT_POSITIVE. Chưa phát sự kiện.
     API-->>N: 201 {order_code, lookup_token}
     N->>API: POST /store/orders/{code}/payments {gateway: vnpay} + Idempotency-Key + X-Lookup-Token
