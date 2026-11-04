@@ -190,6 +190,17 @@ ss -ltn | grep 5432
 
 Kết quả đúng của 3.5 là **hai** dòng: `127.0.0.1:5432` và `172.17.0.1:5432`. Chỉ có một dòng thì xem lỗi bằng `sudo tail -20 /var/log/postgresql/postgresql-$PGMAJOR-main.log`. Lệnh 3.3 chạy hai lần chỉ thêm một dòng trùng, vô hại.
 
+**Bước 4. Cho PostgreSQL khởi động sau Docker.** `docker0` chỉ có sau khi Docker khởi động. Khi bật máy, nếu PostgreSQL khởi động trước Docker thì không bind được `172.17.0.1`, log ghi `could not bind IPv4 address "172.17.0.1": Cannot assign requested address`, và PostgreSQL chỉ nghe ở `127.0.0.1`. Không có thông báo lỗi nào khác; `make up` dừng ở service `migrate` dù bước 3 đã làm đúng. Thêm drop-in systemd để PostgreSQL luôn chờ Docker:
+
+```bash
+sudo mkdir -p /etc/systemd/system/postgresql@$PGMAJOR-main.service.d
+printf '[Unit]\nAfter=docker.service\nWants=docker.service\n' | sudo tee /etc/systemd/system/postgresql@$PGMAJOR-main.service.d/after-docker.conf
+sudo systemctl daemon-reload
+sudo systemctl restart postgresql
+```
+
+Kiểm tra lại bằng lệnh 3.5. Lần bật máy sau vẫn phải thấy hai dòng.
+
 Máy bật tường lửa `ufw` (`sudo ufw status` in `Status: active`) thì mở thêm cổng cho mạng Docker:
 
 ```bash
@@ -204,6 +215,7 @@ Tiếp theo: tạo `.env` (mục 2.3), rồi chạy app (mục 2.4).
 |---|---|---|
 | `service "migrate" didn't complete successfully: exit 1` | `docker compose logs migrate \| tail -5` | Đọc dòng lỗi cuối, so với các dòng dưới |
 | `couldn't get a connection after 3.00 sec` | `ss -ltn \| grep 5432` | PostgreSQL chưa nghe ở `172.17.0.1`: làm lại bước 3; đã nghe rồi thì kiểm `ufw` |
+| `couldn't get a connection after 3.00 sec` ngay sau khi bật máy, dù bước 3 đã làm và `listen_addresses` đúng | `sudo grep 172.17.0.1 /var/log/postgresql/postgresql-<major>-main.log` | Log có `could not bind IPv4 address "172.17.0.1"`: PostgreSQL khởi động trước Docker. Sửa ngay bằng `sudo systemctl restart postgresql`; làm bước 4 để không lặp lại |
 | `no pg_hba.conf entry for host "172.…"` | `sudo grep fashion /etc/postgresql/<major>/main/pg_hba.conf` | Thiếu dòng ở bước 3.3 |
 | `password authentication failed for user "fashion"` | — | Mật khẩu trong `DATABASE_URL` của `.env` khác mật khẩu role; đặt lại bằng `sudo -u postgres psql -c "ALTER ROLE fashion PASSWORD 'fashion'"` |
 | `port is already allocated` (6380, 1025, 8025) | `ss -ltn \| grep <cổng>` | Cổng đang bị chương trình khác giữ; tắt chương trình đó hoặc đổi `REDIS_PORT` trong `.env` |
