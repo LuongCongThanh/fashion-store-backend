@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 import copy
-import importlib.util
 import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 import pytest
 
 from shared.api.schema import ERROR_DESCRIPTIONS
-from tests.helpers import BACKEND, isolated_env
+from tests.helpers import OPENAPI_GENERATOR, isolated_env, load_openapi_generator
 
-GENERATOR = BACKEND / "scripts/gen_openapi.py"
 GENERATION_FAILED = "drf-spectacular failed to generate a valid schema"
 PREVIOUS_SCHEMA = "openapi: 3.0.3\n"
 OPERATION_ID = "v1_store_catalog_products_create"
@@ -31,7 +28,7 @@ def _generate(
     if pythonpath:
         env["PYTHONPATH"] = pythonpath
     return subprocess.run(  # noqa: S603 -- Python và đường dẫn script cố định, không qua shell.
-        [sys.executable, str(GENERATOR), *options],
+        [sys.executable, str(OPENAPI_GENERATOR), *options],
         cwd=root,
         env=env,
         capture_output=True,
@@ -126,16 +123,6 @@ def test_check_rejects_non_utf8_schema(tmp_path: Path) -> None:
     assert "ERROR" in result.stderr
 
 
-def _load_generator() -> ModuleType:
-    """Nạp script như module để gọi thẳng hàm luật, không khởi động Django lần nữa."""
-    spec = importlib.util.spec_from_file_location("gen_openapi", GENERATOR)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def _json_body(examples: dict[str, Any] | None = None, *, description: str = "") -> dict[str, Any]:
     media: dict[str, Any] = {"schema": {"type": "object"}}
     if examples is not None:
@@ -194,6 +181,12 @@ def _mismatch_declared_error_code(openapi: dict[str, Any]) -> None:
     _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
 
 
+def _declare_error_without_error_dto(openapi: dict[str, Any]) -> None:
+    # Ví dụ không theo dạng `ErrorDTO` (thiếu key `error`) thì coi như chưa có ví dụ lỗi
+    examples = {"Conflict": {"value": {"detail": "Product code is already taken."}}}
+    _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
+
+
 def _redeclare_default_error(openapi: dict[str, Any]) -> None:
     # View khai lại 400 với mô tả riêng thì không còn là lỗi mặc định của `AutoSchema`
     _operation(openapi)["responses"]["400"]["description"] = "Size is not available (`BAD_SIZE`)."
@@ -201,6 +194,10 @@ def _redeclare_default_error(openapi: dict[str, Any]) -> None:
 
 def _untag_module(openapi: dict[str, Any]) -> None:
     _operation(openapi)["tags"] = ["catalog"]
+
+
+def _drop_tags(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["tags"]
 
 
 def _tag_other_app(openapi: dict[str, Any]) -> None:
@@ -214,6 +211,19 @@ def _vietnamese_summary(openapi: dict[str, Any]) -> None:
 def _vietnamese_example(openapi: dict[str, Any]) -> None:
     examples = {"LinenShirt": {"value": {"name": "Áo sơ mi linen"}}}
     _operation(openapi)["requestBody"]["content"]["application/json"]["examples"] = examples
+
+
+def _vietnamese_description(openapi: dict[str, Any]) -> None:
+    _operation(openapi)["description"] = "Tạo sản phẩm mới trong danh mục."
+
+
+def _vietnamese_response_description(openapi: dict[str, Any]) -> None:
+    _operation(openapi)["responses"]["201"]["description"] = "Sản phẩm vừa tạo"
+
+
+def _vietnamese_success_example(openapi: dict[str, Any]) -> None:
+    examples = {"Product": {"value": {"code": "SKU-1", "name": "Áo sơ mi linen"}}}
+    _operation(openapi)["responses"]["201"]["content"]["application/json"]["examples"] = examples
 
 
 @pytest.mark.parametrize(
@@ -233,6 +243,11 @@ def _vietnamese_example(openapi: dict[str, Any]) -> None:
             id="4-declared-error-code",
         ),
         pytest.param(
+            _declare_error_without_error_dto,
+            "missing ErrorDTO example for 409 response",
+            id="4-declared-error-not-error-dto",
+        ),
+        pytest.param(
             _redeclare_default_error,
             "missing ErrorDTO example for 400 response",
             id="5-redeclared-default-error",
@@ -243,8 +258,20 @@ def _vietnamese_example(openapi: dict[str, Any]) -> None:
             "tag 'backoffice · catalog' is not 'store · <module>'",
             id="6-tag-app",
         ),
+        pytest.param(_drop_tags, "tag '' is not 'store · <module>'", id="6-no-tag"),
         pytest.param(_vietnamese_summary, "Vietnamese text in summary", id="7-summary"),
         pytest.param(_vietnamese_example, "Vietnamese text in request example", id="7-example"),
+        pytest.param(_vietnamese_description, "Vietnamese text in description", id="7-description"),
+        pytest.param(
+            _vietnamese_response_description,
+            "Vietnamese text in 201 response description",
+            id="7-response-description",
+        ),
+        pytest.param(
+            _vietnamese_success_example,
+            "Vietnamese text in 201 response example",
+            id="7-2xx-example",
+        ),
     ],
 )
 def test_quality_rule_reports_violation(
@@ -253,7 +280,7 @@ def test_quality_rule_reports_violation(
     openapi = copy.deepcopy(_annotated_schema())
     mutate(openapi)
 
-    violations = _load_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+    violations = load_openapi_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
 
     assert violations == [f"{OPERATION_ID}: {violation}"]
 
@@ -298,7 +325,7 @@ def test_quality_rule_passes_annotated_operation(mutate: Callable[[dict[str, Any
     openapi = copy.deepcopy(_annotated_schema())
     mutate(openapi)
 
-    violations = _load_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+    violations = load_openapi_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
 
     assert violations == []
 

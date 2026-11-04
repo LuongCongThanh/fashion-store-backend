@@ -21,7 +21,7 @@ from check_ship import check_dirty, check_subjects, diff_size, dirty_paths, porc
 from close_ticket import close, close_blockers, fill_pr
 from commit import check_slice_paths, check_task, foreign_commits, message
 from commit_map import parse_log, problems, render
-from common import resolve, state_dir
+from common import resolve, state_dir, ticket_ref
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
 from run_logged import make_recipe
@@ -154,6 +154,22 @@ class TicketParsing(unittest.TestCase):
         for arg in (folder, folder / "spec.md"):
             feature, ticket = resolve(str(arg), features)
             self.assertEqual((feature.slug, ticket.num, ticket.path), ("f", 16, folder))
+
+    def test_load_features_finds_feature_nested_one_level(self):
+        issues = self.dir / ".scratch" / "module-plans" / "m1" / "issues"
+        issues.mkdir(parents=True)
+        self.path.rename(issues / "16-shared-api")
+        features = load_features(self.dir)
+        self.assertEqual(list(features), ["m1"])
+        self.assertEqual(list(features["m1"].tickets), [16])
+        ticket = features["m1"].tickets[16]
+        self.assertEqual(ticket_ref(ticket), ".scratch/module-plans/m1/issues/16-shared-api")
+
+    def test_ticket_ref_reports_ticket_outside_scratch(self):
+        ticket = parse_ticket(self.path)
+        with self.assertRaises(SystemExit) as raised:
+            ticket_ref(ticket)
+        self.assertIn(".scratch/", str(raised.exception))
 
     def test_close_keeps_existing_pr_line(self):
         text, _, _ = close(TICKET.replace("Status: ready-for-agent", "Status: x\n\n**PR:** #7"), 31)

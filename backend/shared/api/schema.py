@@ -80,7 +80,7 @@ RETRY_AFTER_HEADER: dict[str, Any] = {
 }
 
 # Ứng dụng lấy từ path; path ngoài `/api/v1/store|backoffice/` giữ tag mặc định
-_APP_PATH = re.compile(r"^/api/v1/(?P<app>store|backoffice)/")
+API_APP_PATH = re.compile(r"^/api/v1/(?P<app>store|backoffice)/")
 # Package chứa module: `modules.identity…` → identity, `shared.geo…` → geo
 _MODULE_PACKAGES = ("modules", "shared")
 
@@ -122,12 +122,14 @@ class AutoSchema(SpectacularAutoSchema):
         operation["responses"] = dict(sorted(responses.items()))
         return operation
 
+    # `type: ignore[override]`: lớp gốc của DRF khai `get_description(path, method)`, còn
+    # drf-spectacular gọi không tham số; `openapi.py` của upstream cũng ignore đúng chữ ký này
     def get_description(self) -> str:  # type: ignore[override]
         # Bỏ docstring của view; `extend_schema(description=…)` vẫn ghi đè được
         return ""
 
     def get_tags(self) -> list[str]:
-        app_match = _APP_PATH.match(self.path)
+        app_match = API_APP_PATH.match(self.path)
         package = type(self.view).__module__.split(".")
         if app_match is None or len(package) < 2 or package[0] not in _MODULE_PACKAGES:
             tags: list[str] = super().get_tags()

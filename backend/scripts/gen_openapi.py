@@ -23,8 +23,6 @@ import yaml
 BACKEND = Path(__file__).resolve().parents[1]
 SCHEMA_NAME = "openapi.yaml"
 _API_PREFIX = "/api/v1/"
-# Ứng dụng của operation lấy từ path, như `shared.api.schema.AutoSchema.get_tags`
-_API_APP = re.compile(r"^/api/v1/(?P<app>store|backoffice)/")
 # Chữ tiếng Việt có dấu: chữ hiển thị trên Swagger viết tiếng Anh (04 mục 5.6)
 _VIETNAMESE_LETTERS = re.compile(
     "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
@@ -82,6 +80,11 @@ def quality_violations(
 
     `default_error_descriptions` là mô tả lỗi mặc định của `AutoSchema`: response lỗi mang đúng mô
     tả đó đã có ví dụ chung, còn mã view tự khai (mô tả khác) phải có ví dụ `ErrorDTO` riêng.
+    Đánh đổi: lỗi mặc định nhận diện bằng mô tả trùng `ERROR_DESCRIPTIONS`, nên view khai lại một mã
+    lỗi mặc định với đúng mô tả đó mà không có ví dụ riêng thì luật 4 không bắt được.
+
+    Cần Django đã setup (như `_default_error_descriptions`): ứng dụng của path lấy từ
+    `shared.api.schema.API_APP_PATH`.
     """
     violations: list[str] = []
     for path, item in openapi.get("paths", {}).items():
@@ -89,9 +92,9 @@ def quality_violations(
         if not path.startswith(_API_PREFIX):
             continue
         for method, operation in item.items():
-            name = operation.get("operationId") or f"{method.upper()} {path}"
+            operation_label = operation.get("operationId") or f"{method.upper()} {path}"
             violations.extend(
-                f"{name}: {problem}"
+                f"{operation_label}: {problem}"
                 for problem in _operation_problems(path, operation, default_error_descriptions)
             )
     return violations
@@ -115,7 +118,11 @@ def _operation_problems(
             code
         ):
             problems.extend(_declared_error_problems(code, response))
-    app_match = _API_APP.match(path)
+    # Import muộn như `_default_error_descriptions`: `shared.api.schema` cần Django đã setup.
+    # Dùng chung regex với `AutoSchema.get_tags` để luật tag không lệch với tag được sinh
+    from shared.api.schema import API_APP_PATH
+
+    app_match = API_APP_PATH.match(path)
     app = app_match["app"] if app_match else "<store|backoffice>"
     tag_format = re.compile(rf"{re.escape(app)} · [a-z][a-z0-9_]*")
     problems.extend(
@@ -133,11 +140,15 @@ def _operation_problems(
 
 def _declared_error_problems(code: str, response: Mapping[str, Any]) -> list[str]:
     # Tên ví dụ bị drf-spectacular camelize, nên nhận ví dụ `ErrorDTO` theo `error.code` của giá trị
-    values = [example.get("value") for example in _examples(response).values()]
-    errors = [value["error"] for value in values if isinstance(value, Mapping)]
-    error_codes = [
-        error["code"] for error in errors if isinstance(error, Mapping) and "code" in error
+    # Giá trị không có `error` dạng object (không phải `ErrorDTO`) bị bỏ qua như
+    # `_without_error_message`, để thành vi phạm thiếu ví dụ thay vì làm script crash
+    example_values = [example.get("value") for example in _examples(response).values()]
+    errors = [
+        value["error"]
+        for value in example_values
+        if isinstance(value, Mapping) and isinstance(value.get("error"), Mapping)
     ]
+    error_codes = [error["code"] for error in errors if "code" in error]
     if not error_codes:
         return [f"missing ErrorDTO example for {code} response"]
     description = response.get("description", "")

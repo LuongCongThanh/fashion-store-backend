@@ -1,7 +1,6 @@
 """OpenAPI sinh bằng `manage.py spectacular`: component `ErrorDTO`, response lỗi mặc định, tag,
 content type, phần giới thiệu và tuỳ chọn Swagger UI (04 mục 3, 4.4, 5.1, 5.6)."""
 
-import re
 from typing import Any
 
 import pytest
@@ -19,7 +18,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shared.api.exception_handler import error_body
-from shared.api.schema import ErrorOutput
+from shared.api.schema import ERROR_DESCRIPTIONS, ErrorOutput
+from tests.helpers import load_openapi_generator
 
 ERROR_DTO_REF = {"$ref": "#/components/schemas/ErrorDTO"}
 WARDS_PATH = "/api/v1/store/geo/provinces/{code}/wards"
@@ -37,11 +37,6 @@ DEFAULT_ERROR_EXAMPLE_CODES = {
     "500": "INTERNAL_ERROR",
     "503": "AUTH_STATE_UNAVAILABLE",
 }
-# Chữ tiếng Việt có dấu: mọi chữ hiển thị trên Swagger viết tiếng Anh
-VIETNAMESE_LETTERS = re.compile(
-    "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
-    re.IGNORECASE,
-)
 # Mã lỗi view tự khai (ngoài lỗi mặc định của `AutoSchema`) và `code` của ví dụ `ErrorDTO`
 DECLARED_ERROR_EXAMPLE_CODES = {f"POST {LOGIN_PATH}": {"401": "INVALID_CREDENTIALS"}}
 
@@ -124,25 +119,21 @@ def _api_operations(openapi: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]
 
 
 def _json_examples(body: dict[str, Any]) -> dict[str, Any]:
-    examples: dict[str, Any] = (
-        body.get("content", {}).get("application/json", {}).get("examples", {})
-    )
+    examples: dict[str, Any] = body["content"]["application/json"].get("examples", {})
     return examples
 
 
-def _shown_texts(operation: dict[str, Any]) -> list[str]:
-    """Chữ Swagger hiển thị: summary, mô tả và ví dụ; bỏ `message` của ví dụ lỗi (dịch theo
-    `Accept-Language`)."""
-    bodies = [operation.get("requestBody", {}), *operation["responses"].values()]
-    texts = [operation.get("summary", ""), operation.get("description", "")]
-    for body in bodies:
-        texts.append(body.get("description", ""))
-        for example in _json_examples(body).values():
-            value = example["value"]
-            if isinstance(value, dict) and "error" in value:
-                value = {**value, "error": {**value["error"], "message": ""}}
-            texts.extend([example.get("summary", ""), str(value)])
-    return texts
+def _default_errors(openapi: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Response lỗi mặc định của `AutoSchema`: wards có 400/404/429/500, me có 401/403/503."""
+    paths = openapi["paths"]
+    wards = paths[WARDS_PATH]["get"]["responses"]
+    me = paths[ME_PATH]["get"]["responses"]
+    return {
+        code: response
+        for responses in (wards, me)
+        for code, response in responses.items()
+        if code != "200"
+    }
 
 
 def _json_schema_of(response: dict[str, Any]) -> dict[str, Any]:
@@ -259,28 +250,52 @@ def test_throttled_response_declares_retry_after(
         assert retry_after.get("schema") == {"type": "integer"}, name
 
 
-def test_default_errors_have_english_description_and_example(schema: dict[str, Any]) -> None:
-    wards = schema["paths"][WARDS_PATH]["get"]["responses"]
-    me = schema["paths"][ME_PATH]["get"]["responses"]
-    defaults = {
-        code: response
-        for responses in (wards, me)
-        for code, response in responses.items()
-        if code != "200"
+def test_default_errors_have_example_with_matching_code(schema: dict[str, Any]) -> None:
+    # Tên ví dụ và `error.code` của nó, theo từng mã lỗi mặc định
+    example_codes = {
+        code: {
+            name: example["value"]["error"]["code"]
+            for name, example in _json_examples(response).items()
+        }
+        for code, response in _default_errors(schema).items()
     }
-    error_keys = set(error_body("X", "y")["error"])
+    expected = {code: {name: name} for code, name in DEFAULT_ERROR_EXAMPLE_CODES.items()}
 
-    assert sorted(defaults) == sorted(DEFAULT_ERROR_EXAMPLE_CODES)
-    for code, response in defaults.items():
-        error_code = DEFAULT_ERROR_EXAMPLE_CODES[code]
-        examples = response["content"]["application/json"].get("examples", {})
-        assert list(examples) == [error_code], code
-        error = examples[error_code]["value"]["error"]
-        assert error["code"] == error_code, code
-        assert set(error) == error_keys, code
-        assert f"`{error_code}`" in response["description"], code
-        assert not VIETNAMESE_LETTERS.search(response["description"]), code
-        assert not VIETNAMESE_LETTERS.search(str(error)), code
+    assert example_codes == expected
+
+
+def test_default_error_examples_follow_error_dto(schema: dict[str, Any]) -> None:
+    error_keys = set(error_body("X", "y")["error"])
+    example_keys = {
+        code: [set(example["value"]["error"]) for example in _json_examples(response).values()]
+        for code, response in _default_errors(schema).items()
+    }
+    expected = {code: [error_keys] for code in DEFAULT_ERROR_EXAMPLE_CODES}
+
+    assert example_keys == expected
+
+
+def test_default_error_descriptions_name_their_code(schema: dict[str, Any]) -> None:
+    unnamed = [
+        code
+        for code, response in _default_errors(schema).items()
+        if f"`{DEFAULT_ERROR_EXAMPLE_CODES[code]}`" not in response["description"]
+    ]
+
+    assert unnamed == []
+
+
+def test_default_errors_have_english_description_and_example(schema: dict[str, Any]) -> None:
+    # Checker miễn `error.message` (message thật dịch theo `Accept-Language`), nhưng ví dụ chung là
+    # dữ liệu giả tiếng Anh, kể cả message: kiểm thẳng chữ ASCII
+    non_english = [
+        code
+        for code, response in _default_errors(schema).items()
+        for text in [response["description"], *map(str, _json_examples(response).values())]
+        if not text.isascii()
+    ]
+
+    assert non_english == []
 
 
 def test_docstrings_are_not_in_schema(
@@ -314,7 +329,7 @@ def test_info_describes_apps_auth_errors_and_headers(schema: dict[str, Any]) -> 
         "Idempotency-Key",
     ):
         assert term in description, term
-    assert not VIETNAMESE_LETTERS.search(description)
+    assert description.isascii()
     # Không khai `servers`: Swagger gọi đúng host đang mở (local, staging)
     assert "servers" not in schema
 
@@ -332,20 +347,15 @@ def test_swagger_ui_settings_are_configured() -> None:
 
 
 def test_current_operations_have_summary_and_examples(schema: dict[str, Any]) -> None:
-    operations = _api_operations(schema)
+    # Luật chú thích của `gen_openapi.py --check` (04 mục 5.6) trên schema thật: summary, ví dụ
+    # request/2xx/lỗi tự khai, tag và chữ tiếng Anh
+    operation_names = sorted(name for name, _ in _api_operations(schema))
+    violations = load_openapi_generator().quality_violations(schema, ERROR_DESCRIPTIONS)
 
-    assert sorted(name for name, _ in operations) == sorted(
+    assert operation_names == sorted(
         [f"POST {LOGIN_PATH}", f"GET {ME_PATH}", f"GET {PROVINCES_PATH}", f"GET {WARDS_PATH}"]
     )
-    for name, operation in operations:
-        assert operation.get("summary"), name
-        if "requestBody" in operation:
-            assert _json_examples(operation["requestBody"]), f"{name} request"
-        for code, response in operation["responses"].items():
-            if code.startswith("2") and "content" in response:
-                assert _json_examples(response), f"{name} {code}"
-        for text in _shown_texts(operation):
-            assert not VIETNAMESE_LETTERS.search(text), f"{name}: {text}"
+    assert violations == []
 
 
 def test_declared_errors_have_examples_with_matching_code(schema: dict[str, Any]) -> None:
@@ -357,7 +367,7 @@ def test_declared_errors_have_examples_with_matching_code(schema: dict[str, Any]
             response = operations[name]["responses"][code]
             # Tên ví dụ do drf-spectacular camelize nên kiểm theo `error.code` của giá trị
             errors = [example["value"]["error"] for example in _json_examples(response).values()]
-            assert [error["code"] for error in errors] == [error_code], f"{name} {code}"
+            error_codes = [error["code"] for error in errors]
+            assert error_codes == [error_code], f"{name} {code}"
             assert set(errors[0]) == error_keys, f"{name} {code}"
             assert f"`{error_code}`" in response["description"], f"{name} {code}"
-            assert not VIETNAMESE_LETTERS.search(response["description"]), f"{name} {code}"
