@@ -232,6 +232,11 @@ def _vietnamese_message_in_success_example(openapi: dict[str, Any]) -> None:
     _operation(openapi)["responses"]["201"]["content"]["application/json"]["examples"] = examples
 
 
+def _vietnamese_parameter_description(openapi: dict[str, Any]) -> None:
+    parameter = {"in": "query", "name": "size", "schema": {"type": "string"}, "description": "Cỡ"}
+    _operation(openapi)["parameters"] = [parameter]
+
+
 @pytest.mark.parametrize(
     ("mutate", "violation"),
     [
@@ -277,6 +282,11 @@ def _vietnamese_message_in_success_example(openapi: dict[str, Any]) -> None:
             _vietnamese_success_example,
             "Vietnamese text in 201 response example",
             id="7-2xx-example",
+        ),
+        pytest.param(
+            _vietnamese_parameter_description,
+            "Vietnamese text in parameter size description",
+            id="7-parameter-description",
         ),
         pytest.param(
             _vietnamese_message_in_success_example,
@@ -335,6 +345,42 @@ def _vietnamese_error_message(openapi: dict[str, Any]) -> None:
 def test_quality_rule_passes_annotated_operation(mutate: Callable[[dict[str, Any]], None]) -> None:
     openapi = copy.deepcopy(_annotated_schema())
     mutate(openapi)
+
+    violations = load_openapi_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+
+    assert violations == []
+
+
+def _product_component(field_description: str) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "description": "A product in the catalog.",
+        "properties": {
+            "name": {"type": "string", "description": "Display name."},
+            "variants": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"size": {"type": "string", "description": field_description}},
+                },
+            },
+        },
+    }
+
+
+def test_quality_rule_reports_vietnamese_component_description() -> None:
+    # Mô tả field lấy từ `help_text` của serializer, hiện ở mọi operation dùng component
+    openapi = copy.deepcopy(_annotated_schema())
+    openapi["components"] = {"schemas": {"Product": _product_component("Cỡ của biến thể")}}
+
+    violations = load_openapi_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+
+    assert violations == ["Product: Vietnamese text in description of variants.items.size"]
+
+
+def test_quality_rule_passes_english_component_description() -> None:
+    openapi = copy.deepcopy(_annotated_schema())
+    openapi["components"] = {"schemas": {"Product": _product_component("Variant size.")}}
 
     violations = load_openapi_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
 

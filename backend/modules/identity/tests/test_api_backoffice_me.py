@@ -264,5 +264,5 @@ def test_openapi_declares_login_errors(openapi: dict[str, Any]) -> None:
     responses = openapi["paths"][LOGIN_PATH]["post"]["responses"]
     codes = list(responses)
 
-    assert codes == ["200", "400", "401", "429", "500"]
+    assert codes == ["200", "400", "401", "415", "429", "500"]
     assert responses["401"]["content"]["application/json"]["schema"] == ERROR_DTO_REF

@@ -33,6 +33,7 @@ DEFAULT_ERROR_EXAMPLE_CODES = {
     "401": "NOT_AUTHENTICATED",
     "403": "PERMISSION_DENIED",
     "404": "NOT_FOUND",
+    "415": "UNSUPPORTED_MEDIA_TYPE",
     "429": "THROTTLED",
     "500": "INTERNAL_ERROR",
     "503": "AUTH_STATE_UNAVAILABLE",
@@ -124,16 +125,19 @@ def _json_examples(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _default_errors(openapi: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Response lỗi mặc định của `AutoSchema`: wards có 400/404/429/500, me có 401/403/503."""
+    """Response lỗi mặc định của `AutoSchema`: wards có 400/404/429/500, me có 401/403/503, login
+    có 415 (401 của login do view tự khai nên không lấy)."""
     paths = openapi["paths"]
     wards = paths[WARDS_PATH]["get"]["responses"]
     me = paths[ME_PATH]["get"]["responses"]
-    return {
+    login = paths[LOGIN_PATH]["post"]["responses"]
+    defaults = {
         code: response
         for responses in (wards, me)
         for code, response in responses.items()
         if code != "200"
     }
+    return {**defaults, "415": login["415"]}
 
 
 def _json_schema_of(response: dict[str, Any]) -> dict[str, Any]:
@@ -226,6 +230,16 @@ def test_tags_derive_from_app_and_module(
     assert wards_tags == ["store · geo"]
     # Path ngoài `/api/v1/` giữ tag mặc định của drf-spectacular
     assert outside_api_tags == ["paged"]
+
+
+def test_operation_with_request_body_declares_415(schema: dict[str, Any]) -> None:
+    # Parser mặc định chỉ nhận JSON: body form hay multipart trả `415 UNSUPPORTED_MEDIA_TYPE`
+    operations = _operations(schema)
+    declares_415 = {name: "415" in operation["responses"] for name, operation in operations}
+    has_body = {name: "requestBody" in operation for name, operation in operations}
+
+    assert declares_415 == has_body
+    assert declares_415[f"POST {LOGIN_PATH}"]
 
 
 def test_json_operation_accepts_only_json(schema: dict[str, Any]) -> None:

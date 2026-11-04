@@ -96,6 +96,21 @@ paths:
                       request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
                   summary: Invalid credentials
           description: Invalid email or password (`INVALID_CREDENTIALS`).
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+              examples:
+                UNSUPPORTED_MEDIA_TYPE:
+                  value:
+                    error:
+                      code: UNSUPPORTED_MEDIA_TYPE
+                      message: Unsupported media type "application/x-www-form-urlencoded"
+                        in request.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Unsupported request body media type (`UNSUPPORTED_MEDIA_TYPE`).
         '429':
           content:
             application/json:
