@@ -2,21 +2,41 @@ openapi: 3.0.3
 info:
   title: Fashion Store API
   version: 0.1.0
+  description: |
+    API of Fashion Store. Two applications share it:
+
+    - `store` (`/api/v1/store/`): the storefront for customers and guests.
+    - `backoffice` (`/api/v1/backoffice/`): the back-office for Staff and Admin.
+
+    Only the Next.js BFF calls the `store` and `backoffice` APIs; browsers never call Django directly.
+
+    ## Authentication
+
+    1. Call `POST /api/v1/backoffice/auth/login` with a staff email and password.
+    2. Click **Authorize** and paste the `access_token` from the response.
+
+    ## Errors
+
+    Every error response uses `ErrorDTO`:
+    `{"error": {"code", "message", "details", "request_id"}}`.
+    `code` is stable; `message` is translated by `Accept-Language` (default `vi`);
+    `request_id` matches the server logs.
+
+    ## Common headers
+
+    - `Accept-Language`: `vi` (default) or `en`; affects `error.message` only.
+    - `X-Request-ID`: request ID forwarded by the BFF, returned as `error.request_id`.
+    - `Idempotency-Key`: UUID required by operations that must not run twice (checkout, payments,
+      stock changes).
 paths:
   /api/v1/backoffice/auth/login:
     post:
       operationId: v1_backoffice_auth_login_create
       tags:
-      - v1
+      - backoffice · identity
       requestBody:
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/LoginInput'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/LoginInput'
-          multipart/form-data:
             schema:
               $ref: '#/components/schemas/LoginInput'
         required: true
@@ -34,7 +54,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+              examples:
+                VALIDATION_ERROR:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: Invalid input.
+                      details:
+                        fields:
+                          email:
+                          - This field is required.
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Invalid request (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
         '401':
           content:
             application/json:
@@ -46,18 +77,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Vượt giới hạn request (`THROTTLED`).
+              examples:
+                THROTTLED:
+                  value:
+                    error:
+                      code: THROTTLED
+                      message: Request was throttled. Expected available in 30 seconds.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Too many requests (`THROTTLED`); retry after `Retry-After`
+            seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
         '500':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+              examples:
+                INTERNAL_ERROR:
+                  value:
+                    error:
+                      code: INTERNAL_ERROR
+                      message: Internal server error.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Internal error (`INTERNAL_ERROR`).
   /api/v1/backoffice/auth/me:
     get:
       operationId: v1_backoffice_auth_me_retrieve
       tags:
-      - v1
+      - backoffice · identity
       security:
       - BackofficeBearer: []
       responses:
@@ -72,43 +125,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+              examples:
+                VALIDATION_ERROR:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: Invalid input.
+                      details:
+                        fields:
+                          email:
+                          - This field is required.
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Invalid request (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
         '401':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Chưa đăng nhập hoặc token không hợp lệ (`NOT_AUTHENTICATED`,
-            `TOKEN_EXPIRED`).
+              examples:
+                NOT_AUTHENTICATED:
+                  value:
+                    error:
+                      code: NOT_AUTHENTICATED
+                      message: Authentication credentials were not provided.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Not authenticated or invalid token (`NOT_AUTHENTICATED`, `TOKEN_EXPIRED`).
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Không đủ quyền (`PERMISSION_DENIED`).
+              examples:
+                PERMISSION_DENIED:
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: You do not have permission to perform this action.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Insufficient permissions (`PERMISSION_DENIED`).
         '429':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Vượt giới hạn request (`THROTTLED`).
+              examples:
+                THROTTLED:
+                  value:
+                    error:
+                      code: THROTTLED
+                      message: Request was throttled. Expected available in 30 seconds.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Too many requests (`THROTTLED`); retry after `Retry-After`
+            seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
         '500':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+              examples:
+                INTERNAL_ERROR:
+                  value:
+                    error:
+                      code: INTERNAL_ERROR
+                      message: Internal server error.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Internal error (`INTERNAL_ERROR`).
         '503':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Không xác minh được trạng thái auth từ DB (`AUTH_STATE_UNAVAILABLE`).
+              examples:
+                AUTH_STATE_UNAVAILABLE:
+                  value:
+                    error:
+                      code: AUTH_STATE_UNAVAILABLE
+                      message: Authentication state is temporarily unavailable.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Authentication state could not be verified in the database
+            (`AUTH_STATE_UNAVAILABLE`).
   /api/v1/store/geo/provinces:
     get:
       operationId: v1_store_geo_provinces_list
       tags:
-      - v1
+      - store · geo
       security:
       - {}
       responses:
@@ -125,19 +235,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+              examples:
+                VALIDATION_ERROR:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: Invalid input.
+                      details:
+                        fields:
+                          email:
+                          - This field is required.
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Invalid request (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
         '429':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Vượt giới hạn request (`THROTTLED`).
+              examples:
+                THROTTLED:
+                  value:
+                    error:
+                      code: THROTTLED
+                      message: Request was throttled. Expected available in 30 seconds.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Too many requests (`THROTTLED`); retry after `Retry-After`
+            seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
         '500':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+              examples:
+                INTERNAL_ERROR:
+                  value:
+                    error:
+                      code: INTERNAL_ERROR
+                      message: Internal server error.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Internal error (`INTERNAL_ERROR`).
   /api/v1/store/geo/provinces/{code}/wards:
     get:
       operationId: v1_store_geo_provinces_wards_list
@@ -148,7 +291,7 @@ paths:
           type: string
         required: true
       tags:
-      - v1
+      - store · geo
       security:
       - {}
       responses:
@@ -165,31 +308,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Request không hợp lệ (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
+              examples:
+                VALIDATION_ERROR:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: Invalid input.
+                      details:
+                        fields:
+                          email:
+                          - This field is required.
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Invalid request (`VALIDATION_ERROR`, `PARSE_ERROR`, `BAD_REQUEST`).
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Không tìm thấy (`NOT_FOUND`).
+              examples:
+                NOT_FOUND:
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Not found.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Not found (`NOT_FOUND`).
         '429':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Vượt giới hạn request (`THROTTLED`).
+              examples:
+                THROTTLED:
+                  value:
+                    error:
+                      code: THROTTLED
+                      message: Request was throttled. Expected available in 30 seconds.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Too many requests (`THROTTLED`); retry after `Retry-After`
+            seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
         '500':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDTO'
-          description: Lỗi hệ thống (`INTERNAL_ERROR`).
+              examples:
+                INTERNAL_ERROR:
+                  value:
+                    error:
+                      code: INTERNAL_ERROR
+                      message: Internal server error.
+                      details: {}
+                      request_id: 3f2b8c1e-5d4a-4f6b-9c7e-1a2b3c4d5e6f
+          description: Internal error (`INTERNAL_ERROR`).
 components:
   schemas:
     AccountDTO:
       type: object
-      description: '`AccountDTO` (04 mục 5.4): không có mật khẩu, `token_version`
-        hay token.'
       properties:
         id:
           type: string
@@ -234,18 +416,18 @@ components:
           properties:
             code:
               type: string
-              description: Mã lỗi ổn định, frontend dịch theo mã.
+              description: Stable error code; the frontend translates by code.
             message:
               type: string
-              description: Thông báo mặc định theo `Accept-Language`.
+              description: Default message in the language of `Accept-Language`.
             details:
               type: object
               additionalProperties: {}
-              description: 'Chi tiết theo mã. `VALIDATION_ERROR`: `{fields: {field_path:
-                string[]}}`; mã không có chi tiết: `{}`.'
+              description: 'Details by code. `VALIDATION_ERROR`: `{fields: {field_path:
+                string[]}}`; codes without details: `{}`.'
             request_id:
               type: string
-              description: Mã request để tra log.
+              description: Request ID for looking up logs.
           required:
           - code
           - message

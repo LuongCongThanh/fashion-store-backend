@@ -110,6 +110,8 @@ REST_FRAMEWORK: dict[str, object] = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     # Mặc định từ chối; view công khai tự khai báo AllowAny (05 mục 4)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # API chỉ nhận JSON; endpoint upload tự khai MultiPartParser (04 mục 1)
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "UNAUTHENTICATED_USER": None,
     # Thêm ErrorDTO và response lỗi mặc định cho mọi operation (04 mục 5.6)
     "DEFAULT_SCHEMA_CLASS": "shared.api.schema.AutoSchema",
@@ -123,10 +125,49 @@ REST_FRAMEWORK: dict[str, object] = {
     "DEFAULT_THROTTLE_RATES": {"anon": "120/min", "account": "300/min"},
 }
 
+# Chữ hiển thị trên Swagger viết tiếng Anh (04 mục 5.6)
+API_DESCRIPTION = """\
+API of Fashion Store. Two applications share it:
+
+- `store` (`/api/v1/store/`): the storefront for customers and guests.
+- `backoffice` (`/api/v1/backoffice/`): the back-office for Staff and Admin.
+
+Only the Next.js BFF calls the `store` and `backoffice` APIs; browsers never call Django directly.
+
+## Authentication
+
+1. Call `POST /api/v1/backoffice/auth/login` with a staff email and password.
+2. Click **Authorize** and paste the `access_token` from the response.
+
+## Errors
+
+Every error response uses `ErrorDTO`:
+`{"error": {"code", "message", "details", "request_id"}}`.
+`code` is stable; `message` is translated by `Accept-Language` (default `vi`);
+`request_id` matches the server logs.
+
+## Common headers
+
+- `Accept-Language`: `vi` (default) or `en`; affects `error.message` only.
+- `X-Request-ID`: request ID forwarded by the BFF, returned as `error.request_id`.
+- `Idempotency-Key`: UUID required by operations that must not run twice (checkout, payments,
+  stock changes).
+"""
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Fashion Store API",
+    "DESCRIPTION": API_DESCRIPTION,
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Không khai SERVERS: Swagger gọi đúng host đang mở (local, staging). Token lưu ở
+    # localStorage chấp nhận được vì Swagger chỉ bật ở local và staging nội bộ (04 mục 4.4)
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "filter": True,
+        "docExpansion": "none",
+        "deepLinking": True,
+    },
 }
 
 # Log JSON ra stdout, đã che PII; local ghi đè bằng log dễ đọc (13 mục 10)

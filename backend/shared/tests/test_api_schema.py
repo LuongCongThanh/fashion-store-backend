@@ -1,6 +1,7 @@
-"""OpenAPI sinh bằng `manage.py spectacular`: component `ErrorDTO` và response lỗi mặc định
-(04 mục 3, 5.1, 5.6)."""
+"""OpenAPI sinh bằng `manage.py spectacular`: component `ErrorDTO`, response lỗi mặc định, tag,
+content type, phần giới thiệu và tuỳ chọn Swagger UI (04 mục 3, 4.4, 5.1, 5.6)."""
 
+import re
 from typing import Any
 
 import pytest
@@ -8,6 +9,7 @@ import yaml
 from django.core.management import call_command
 from django.urls import path
 from drf_spectacular.generators import SchemaGenerator
+from drf_spectacular.settings import spectacular_settings
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
@@ -22,7 +24,24 @@ from shared.api.schema import ErrorOutput
 ERROR_DTO_REF = {"$ref": "#/components/schemas/ErrorDTO"}
 WARDS_PATH = "/api/v1/store/geo/provinces/{code}/wards"
 PROVINCES_PATH = "/api/v1/store/geo/provinces"
-CUSTOM_NOT_FOUND_DESCRIPTION = "Không có sản phẩm với mã này."
+LOGIN_PATH = "/api/v1/backoffice/auth/login"
+ME_PATH = "/api/v1/backoffice/auth/me"
+CUSTOM_NOT_FOUND_DESCRIPTION = "No product with this code."
+# Mã lỗi của ví dụ `ErrorDTO` chung mà `AutoSchema` gắn cho từng lỗi mặc định
+DEFAULT_ERROR_EXAMPLE_CODES = {
+    "400": "VALIDATION_ERROR",
+    "401": "NOT_AUTHENTICATED",
+    "403": "PERMISSION_DENIED",
+    "404": "NOT_FOUND",
+    "429": "THROTTLED",
+    "500": "INTERNAL_ERROR",
+    "503": "AUTH_STATE_UNAVAILABLE",
+}
+# Chữ tiếng Việt có dấu: mọi chữ hiển thị trên Swagger viết tiếng Anh
+VIETNAMESE_LETTERS = re.compile(
+    "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+    re.IGNORECASE,
+)
 
 
 class ItemOutput(serializers.Serializer[Any]):
@@ -166,3 +185,115 @@ def test_declared_error_response_is_kept(sample_schema: dict[str, Any]) -> None:
     assert codes == ["200", "400", "404", "429", "500"]
     assert responses["404"]["description"] == CUSTOM_NOT_FOUND_DESCRIPTION
     assert _json_schema_of(responses["404"]) == ERROR_DTO_REF
+
+
+def test_tags_derive_from_app_and_module(
+    schema: dict[str, Any], sample_schema: dict[str, Any]
+) -> None:
+    paths = schema["paths"]
+    login_tags = paths[LOGIN_PATH]["post"]["tags"]
+    me_tags = paths[ME_PATH]["get"]["tags"]
+    provinces_tags = paths[PROVINCES_PATH]["get"]["tags"]
+    wards_tags = paths[WARDS_PATH]["get"]["tags"]
+    outside_api_tags = sample_schema["paths"]["/paged"]["get"]["tags"]
+
+    assert login_tags == ["backoffice · identity"]
+    assert me_tags == ["backoffice · identity"]
+    assert provinces_tags == ["store · geo"]
+    assert wards_tags == ["store · geo"]
+    # Path ngoài `/api/v1/` giữ tag mặc định của drf-spectacular
+    assert outside_api_tags == ["paged"]
+
+
+def test_json_operation_accepts_only_json(schema: dict[str, Any]) -> None:
+    media_types = list(schema["paths"][LOGIN_PATH]["post"]["requestBody"]["content"])
+
+    assert media_types == ["application/json"]
+
+
+def test_throttled_response_declares_retry_after(
+    schema: dict[str, Any], sample_schema: dict[str, Any]
+) -> None:
+    throttled = [
+        (name, operation["responses"]["429"])
+        for openapi in (schema, sample_schema)
+        for name, operation in _operations(openapi)
+        if "429" in operation["responses"]
+    ]
+
+    assert throttled
+    for name, response in throttled:
+        retry_after = response.get("headers", {}).get("Retry-After", {})
+        assert retry_after.get("schema") == {"type": "integer"}, name
+
+
+def test_default_errors_have_english_description_and_example(schema: dict[str, Any]) -> None:
+    wards = schema["paths"][WARDS_PATH]["get"]["responses"]
+    me = schema["paths"][ME_PATH]["get"]["responses"]
+    defaults = {
+        code: response
+        for responses in (wards, me)
+        for code, response in responses.items()
+        if code != "200"
+    }
+    error_keys = set(error_body("X", "y")["error"])
+
+    assert sorted(defaults) == sorted(DEFAULT_ERROR_EXAMPLE_CODES)
+    for code, response in defaults.items():
+        error_code = DEFAULT_ERROR_EXAMPLE_CODES[code]
+        examples = response["content"]["application/json"].get("examples", {})
+        assert list(examples) == [error_code], code
+        error = examples[error_code]["value"]["error"]
+        assert error["code"] == error_code, code
+        assert set(error) == error_keys, code
+        assert f"`{error_code}`" in response["description"], code
+        assert not VIETNAMESE_LETTERS.search(response["description"]), code
+        assert not VIETNAMESE_LETTERS.search(str(error)), code
+
+
+def test_docstrings_are_not_in_schema(
+    schema: dict[str, Any], sample_schema: dict[str, Any]
+) -> None:
+    described = [
+        name
+        for openapi in (schema, sample_schema)
+        for name, operation in _operations(openapi)
+        if "description" in operation
+    ]
+    account_dto = schema["components"]["schemas"]["AccountDTO"]
+
+    assert described == []
+    # `AccountOutput` có docstring tiếng Việt; component không lấy docstring làm mô tả
+    assert "description" not in account_dto
+
+
+def test_info_describes_apps_auth_errors_and_headers(schema: dict[str, Any]) -> None:
+    description = schema["info"].get("description", "")
+
+    for term in (
+        "store",
+        "backoffice",
+        "BFF",
+        "POST /api/v1/backoffice/auth/login",
+        "Authorize",
+        "ErrorDTO",
+        "Accept-Language",
+        "X-Request-ID",
+        "Idempotency-Key",
+    ):
+        assert term in description, term
+    assert not VIETNAMESE_LETTERS.search(description)
+    # Không khai `servers`: Swagger gọi đúng host đang mở (local, staging)
+    assert "servers" not in schema
+
+
+def test_swagger_ui_settings_are_configured() -> None:
+    ui_settings = spectacular_settings.SWAGGER_UI_SETTINGS
+
+    assert ui_settings == {
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "filter": True,
+        "docExpansion": "none",
+        "deepLinking": True,
+    }
