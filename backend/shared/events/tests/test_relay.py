@@ -2,7 +2,7 @@ import signal
 import threading
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from unittest import mock
 
@@ -16,24 +16,18 @@ from structlog.testing import capture_logs
 from shared.events import handles, publish, relay
 from shared.events.models import MAX_INTERRUPTED_RUNS, DeliveryStatus, EventDelivery, OutboxEvent
 from shared.events.tasks import dispatch_event
+from shared.events.tests._helpers import NOW, ORDER_CODE, Boom, record_effect, run_concurrently
 from shared.events.tests.conftest import HandlerEffect, SampleHappenedV1
 from shared.management.commands import run_outbox_relay
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
 
-NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
-ORDER_CODE = "FS2610-7K3QZD"
-
-
-class Rollback(Exception):
-    pass
-
 
 def _register_recorder(effects: type[HandlerEffect], name: str) -> None:
     @handles("shared.sample-happened", name=name)
     def record(event: SampleHappenedV1) -> None:
-        effects.objects.create(handler=name, order_code=event.order_code)
+        record_effect(effects, name, event)
 
 
 def test_rolled_back_publish_creates_no_delivery() -> None:
@@ -44,9 +38,9 @@ def test_rolled_back_publish_creates_no_delivery() -> None:
     def place_and_fail() -> None:
         with transaction.atomic():
             publish(SampleHappenedV1(order_code=ORDER_CODE, amount=250000))
-            raise Rollback
+            raise Boom
 
-    with pytest.raises(Rollback):
+    with pytest.raises(Boom):
         place_and_fail()
 
     assert relay.create_deliveries() == 0
@@ -69,7 +63,7 @@ def test_create_deliveries_one_per_handler_with_marker() -> None:
     def v2_only(event: SampleHappenedV1) -> None:
         pass
 
-    event_row = OutboxEventFactory.create()
+    event_row = OutboxEventFactory.create(sample=True)
 
     assert relay.create_deliveries() == 1
 
@@ -89,7 +83,7 @@ def test_create_deliveries_one_per_handler_with_marker() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_event_without_handlers_gets_marker() -> None:
-    event_row = OutboxEventFactory.create()
+    event_row = OutboxEventFactory.create(sample=True)
 
     with capture_logs() as logs:
         assert relay.create_deliveries() == 1
@@ -105,30 +99,19 @@ def test_event_without_handlers_gets_marker() -> None:
     }.items() <= logs[0].items()
 
 
+@pytest.mark.concurrency
 @pytest.mark.django_db(transaction=True)
 def test_two_relays_concurrently_create_no_duplicates() -> None:
     for name in ("shared.first", "shared.second"):
         handles("shared.sample-happened", name=name)(lambda event: None)
-    events = OutboxEventFactory.create_batch(30)
-    barrier = threading.Barrier(2)
-    errors: list[BaseException] = []
+    events = OutboxEventFactory.create_batch(30, sample=True)
 
     def run() -> None:
-        try:
-            barrier.wait()
-            # Batch nhỏ để hai relay cùng quét nhiều vòng trên cùng tập sự kiện
-            while relay.create_deliveries(batch=5):
-                pass
-        except BaseException as exc:
-            errors.append(exc)
-        finally:
-            connection.close()
+        # Batch nhỏ để hai relay cùng quét nhiều vòng trên cùng tập sự kiện
+        while relay.create_deliveries(batch=5):
+            pass
 
-    threads = [threading.Thread(target=run) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    errors = run_concurrently(run)
 
     assert errors == []
     assert not OutboxEvent.objects.filter(deliveries_created_at__isnull=True).exists()
@@ -178,7 +161,9 @@ def test_lost_tasks_do_not_count_as_interrupted_runs(
 ) -> None:
     _register_recorder(handler_effect_table, "shared.record_effect")
     with time_machine.travel(NOW, tick=False) as traveller:
-        delivery = EventDeliveryFactory.create(handler="shared.record_effect", attempts=2)
+        delivery = EventDeliveryFactory.create(
+            event__sample=True, handler="shared.record_effect", attempts=2
+        )
 
         # Redis mất task nhiều lần hơn ngưỡng chạy dở: không task nào tới consumer
         with mock.patch.object(dispatch_event, "apply_async") as lost:
@@ -202,7 +187,10 @@ def test_lost_tasks_do_not_count_as_interrupted_runs(
 
 @time_machine.travel(NOW, tick=False)
 def test_broker_error_keeps_delivery_for_later() -> None:
-    deliveries = [EventDeliveryFactory.create(handler=f"shared.record_{n}") for n in range(3)]
+    deliveries = [
+        EventDeliveryFactory.create(event__sample=True, handler=f"shared.record_{n}")
+        for n in range(3)
+    ]
 
     with (
         mock.patch.object(
@@ -233,7 +221,7 @@ def test_broker_error_keeps_delivery_for_later() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_dispatch_programming_error_not_swallowed() -> None:
-    EventDeliveryFactory.create()
+    EventDeliveryFactory.create(event__sample=True)
 
     with (
         mock.patch.object(dispatch_event, "apply_async", side_effect=TypeError("bad args")),
@@ -250,12 +238,18 @@ def test_dispatch_event_routed_to_events_queue() -> None:
 @time_machine.travel(NOW, tick=False)
 def test_dispatch_skips_retry_not_due() -> None:
     later = NOW + timedelta(seconds=10)
-    due = EventDeliveryFactory.create()
+    due = EventDeliveryFactory.create(event__sample=True)
     skipped = [
-        EventDeliveryFactory.create(attempts=1, next_attempt_at=later, next_dispatch_at=NOW),
-        EventDeliveryFactory.create(next_attempt_at=NOW, next_dispatch_at=later),
-        EventDeliveryFactory.create(status=DeliveryStatus.COMPLETED, completed_at=NOW),
-        EventDeliveryFactory.create(status=DeliveryStatus.FAILED, failed_at=NOW, attempts=6),
+        EventDeliveryFactory.create(
+            event__sample=True, attempts=1, next_attempt_at=later, next_dispatch_at=NOW
+        ),
+        EventDeliveryFactory.create(
+            event__sample=True, next_attempt_at=NOW, next_dispatch_at=later
+        ),
+        EventDeliveryFactory.create(
+            event__sample=True, status=DeliveryStatus.COMPLETED, completed_at=NOW
+        ),
+        EventDeliveryFactory.create(event__sample=True, failed=True, failed_at=NOW, attempts=6),
     ]
 
     with mock.patch.object(dispatch_event, "apply_async") as apply_async:
@@ -347,7 +341,7 @@ def test_run_outbox_relay_survives_iteration_error() -> None:
 
 @pytest.mark.django_db(transaction=True)
 def test_run_outbox_relay_create_error_does_not_block_dispatch() -> None:
-    EventDeliveryFactory.create()
+    EventDeliveryFactory.create(event__sample=True)
 
     with (
         mock.patch.object(relay, "create_deliveries", side_effect=DatabaseError("db down")),
@@ -368,7 +362,7 @@ def test_deadline_committed_before_enqueue_and_redispatched_after_relay_crash() 
         handled.append(event.order_code)
 
     with time_machine.travel(NOW, tick=False) as traveller:
-        delivery = EventDeliveryFactory.create(handler="shared.record_call")
+        delivery = EventDeliveryFactory.create(event__sample=True, handler="shared.record_call")
         seen: list[tuple[bool, datetime, datetime | None]] = []
 
         def crash_before_enqueue(*args: Any, **kwargs: Any) -> None:
@@ -398,11 +392,10 @@ def test_deadline_committed_before_enqueue_and_redispatched_after_relay_crash() 
     assert EventDelivery.objects.get(id=delivery.id).status == DeliveryStatus.COMPLETED
 
 
+@pytest.mark.concurrency
 @pytest.mark.django_db(transaction=True)
 def test_two_relays_concurrently_dispatch_each_delivery_once() -> None:
-    deliveries = EventDeliveryFactory.create_batch(30)
-    barrier = threading.Barrier(2)
-    errors: list[BaseException] = []
+    deliveries = EventDeliveryFactory.create_batch(30, event__sample=True)
     lock = threading.Lock()
     dispatched: Counter[tuple[str, str]] = Counter()
 
@@ -411,22 +404,12 @@ def test_two_relays_concurrently_dispatch_each_delivery_once() -> None:
             dispatched[args] += 1
 
     def run() -> None:
-        try:
-            barrier.wait()
-            # Batch nhỏ để hai relay cùng quét nhiều vòng trên cùng tập delivery
-            while relay.dispatch_due(batch=5):
-                pass
-        except BaseException as exc:
-            errors.append(exc)
-        finally:
-            connection.close()
+        # Batch nhỏ để hai relay cùng quét nhiều vòng trên cùng tập delivery
+        while relay.dispatch_due(batch=5):
+            pass
 
     with mock.patch.object(dispatch_event, "apply_async", side_effect=record):
-        threads = [threading.Thread(target=run) for _ in range(2)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+        errors = run_concurrently(run)
 
     assert errors == []
     assert dispatched == Counter({(str(d.event_id), d.handler): 1 for d in deliveries})

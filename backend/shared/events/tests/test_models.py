@@ -1,6 +1,6 @@
 """Vòng đời Event delivery và vị từ outbox trên model (07 mục 1.1.1, 1.3)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -14,22 +14,13 @@ from shared.events.models import (
     RetryOutcome,
     RunStart,
 )
-from shared.exceptions import DomainError
+from shared.events.tests._helpers import NOW, Boom, Refused
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
 
-NOW = datetime(2026, 11, 3, 8, 0, tzinfo=UTC)
 EARLIER = NOW - timedelta(minutes=5)
 LATER = NOW + timedelta(minutes=5)
-
-
-class _HandlerCrashed(Exception):
-    pass
-
-
-class _Refused(DomainError):
-    code = "REFUSED"
 
 
 def _reloaded(delivery: EventDelivery) -> EventDelivery:
@@ -104,7 +95,7 @@ def test_complete_resets_interrupted_runs() -> None:
 def test_reject_records_error_and_resets_interrupted_runs() -> None:
     delivery = EventDeliveryFactory.create(interrupted_runs=1)
 
-    delivery.reject(_Refused(), now=NOW)
+    delivery.reject(Refused(), now=NOW)
 
     reloaded = _reloaded(delivery)
     actual = (
@@ -113,14 +104,14 @@ def test_reject_records_error_and_resets_interrupted_runs() -> None:
         reloaded.last_error,
         reloaded.interrupted_runs,
     )
-    expected = (DeliveryStatus.REJECTED, NOW, "_Refused(REFUSED)", 0)
+    expected = (DeliveryStatus.REJECTED, NOW, "Refused(REFUSED)", 0)
     assert actual == expected
 
 
 def test_retry_or_fail_schedules_next_retry() -> None:
     delivery = EventDeliveryFactory.create(attempts=1, interrupted_runs=1)
 
-    outcome = delivery.retry_or_fail(_HandlerCrashed(), now=NOW)
+    outcome = delivery.retry_or_fail(Boom(), now=NOW)
 
     reloaded = _reloaded(delivery)
     retry_at = NOW + RETRY_DELAYS[1]
@@ -137,7 +128,7 @@ def test_retry_or_fail_schedules_next_retry() -> None:
         RetryOutcome.SCHEDULED,
         DeliveryStatus.PENDING,
         2,
-        "_HandlerCrashed",
+        "Boom",
         retry_at,
         retry_at,
         0,
@@ -150,7 +141,7 @@ def test_retry_or_fail_fails_after_last_retry() -> None:
         attempts=len(RETRY_DELAYS), interrupted_runs=1, next_attempt_at=EARLIER
     )
 
-    outcome = delivery.retry_or_fail(_HandlerCrashed(), now=NOW)
+    outcome = delivery.retry_or_fail(Boom(), now=NOW)
 
     reloaded = _reloaded(delivery)
     actual = (
@@ -167,7 +158,7 @@ def test_retry_or_fail_fails_after_last_retry() -> None:
         DeliveryStatus.FAILED,
         NOW,
         len(RETRY_DELAYS) + 1,
-        "_HandlerCrashed",
+        "Boom",
         EARLIER,
         0,
     )
@@ -192,16 +183,13 @@ def test_fail_keeps_attempts_and_interrupted_runs() -> None:
 
 def test_reopen_resets_failed_delivery() -> None:
     failed = EventDeliveryFactory.create(
-        status=DeliveryStatus.FAILED,
+        failed=True,
         attempts=len(RETRY_DELAYS) + 1,
         interrupted_runs=MAX_INTERRUPTED_RUNS,
         next_attempt_at=EARLIER,
         failed_at=EARLIER,
-        last_error="_HandlerCrashed",
     )
-    untouched = EventDeliveryFactory.create(
-        status=DeliveryStatus.FAILED, next_attempt_at=EARLIER, failed_at=EARLIER
-    )
+    untouched = EventDeliveryFactory.create(failed=True, next_attempt_at=EARLIER, failed_at=EARLIER)
 
     reopened = EventDelivery.reopen([failed.id], now=NOW)
 
@@ -227,7 +215,7 @@ def test_reopen_resets_failed_delivery() -> None:
         NOW,
         NOW,
         EARLIER,
-        "_HandlerCrashed",
+        "Boom",
         DeliveryStatus.FAILED,
     )
     assert actual == expected
@@ -251,9 +239,7 @@ def test_mark_dispatched_sets_dispatch_deadline() -> None:
 def test_attempt_due_ignores_dispatch_deadline() -> None:
     due = EventDeliveryFactory.create(next_attempt_at=NOW, next_dispatch_at=LATER)
     EventDeliveryFactory.create(next_attempt_at=LATER)
-    EventDeliveryFactory.create(
-        status=DeliveryStatus.FAILED, next_attempt_at=EARLIER, failed_at=EARLIER
-    )
+    EventDeliveryFactory.create(failed=True, next_attempt_at=EARLIER, failed_at=EARLIER)
 
     actual = list(EventDelivery.objects.attempt_due(NOW))
     assert actual == [due]
@@ -264,10 +250,7 @@ def test_dispatch_due_requires_dispatch_deadline() -> None:
     EventDeliveryFactory.create(next_attempt_at=EARLIER, next_dispatch_at=LATER)
     EventDeliveryFactory.create(next_attempt_at=LATER, next_dispatch_at=EARLIER)
     EventDeliveryFactory.create(
-        status=DeliveryStatus.FAILED,
-        failed_at=NOW,
-        next_attempt_at=EARLIER,
-        next_dispatch_at=EARLIER,
+        failed=True, failed_at=NOW, next_attempt_at=EARLIER, next_dispatch_at=EARLIER
     )
 
     actual = list(EventDelivery.objects.dispatch_due(NOW))
@@ -276,7 +259,7 @@ def test_dispatch_due_requires_dispatch_deadline() -> None:
 
 def test_unfinished_excludes_completed_and_rejected() -> None:
     pending = EventDeliveryFactory.create()
-    failed = EventDeliveryFactory.create(status=DeliveryStatus.FAILED, failed_at=NOW)
+    failed = EventDeliveryFactory.create(failed=True, failed_at=NOW)
     for finished in (DeliveryStatus.COMPLETED, DeliveryStatus.REJECTED):
         EventDeliveryFactory.create(status=finished, completed_at=NOW)
 
@@ -286,7 +269,7 @@ def test_unfinished_excludes_completed_and_rejected() -> None:
 
 def test_listed_and_unlisted_split_on_marker() -> None:
     unlisted = OutboxEventFactory.create()
-    listed = OutboxEventFactory.create(deliveries_created_at=NOW)
+    listed = OutboxEventFactory.create(listed=True)
 
     actual = (list(OutboxEvent.objects.unlisted()), list(OutboxEvent.objects.listed()))
     assert actual == ([unlisted], [listed])

@@ -1,6 +1,5 @@
 import sys
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 
@@ -14,19 +13,16 @@ from django.db import transaction
 from shared.events import DomainEvent, handles, publish
 from shared.events.models import EventDelivery, OutboxEvent
 from shared.events.registry import autodiscover, registry
+from shared.events.tests._helpers import NOW, ORDER_CODE, Boom
 from shared.events.tests.conftest import SampleHappenedV1
 
 pytestmark = pytest.mark.django_db
 
 
-class Boom(Exception):
-    pass
-
-
-@time_machine.travel(datetime(2026, 10, 30, 8, 0, tzinfo=UTC), tick=False)
+@time_machine.travel(NOW, tick=False)
 def test_publish_writes_outbox_row_in_current_transaction() -> None:
     with structlog.contextvars.bound_contextvars(request_id="req-1"):
-        event = SampleHappenedV1(order_code="FS2610-7K3QZD", amount=250000)
+        event = SampleHappenedV1(order_code=ORDER_CODE, amount=250000)
 
     with transaction.atomic():
         publish(event)
@@ -36,9 +32,9 @@ def test_publish_writes_outbox_row_in_current_transaction() -> None:
     assert row.id.version == 7
     assert row.event_type == "shared.sample-happened"
     assert row.schema_version == 1
-    assert row.occurred_at == datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
+    assert row.occurred_at == NOW
     assert row.payload == {
-        "order_code": "FS2610-7K3QZD",
+        "order_code": ORDER_CODE,
         "amount": 250000,
         "correlation_id": "req-1",
     }
@@ -47,7 +43,7 @@ def test_publish_writes_outbox_row_in_current_transaction() -> None:
 
 def _publish_then_fail() -> None:
     with transaction.atomic():
-        publish(SampleHappenedV1(order_code="FS2610-7K3QZD", amount=1))
+        publish(SampleHappenedV1(order_code=ORDER_CODE, amount=1))
         raise Boom
 
 
@@ -90,7 +86,7 @@ def test_duplicate_event_class_rejected() -> None:
 @pytest.mark.django_db(transaction=True)
 def test_publish_outside_transaction_rejected() -> None:
     # Ghi outbox ngoài transaction thì sự kiện không commit/rollback cùng dữ liệu nghiệp vụ
-    event = SampleHappenedV1(order_code="FS2610-7K3QZD", amount=1)
+    event = SampleHappenedV1(order_code=ORDER_CODE, amount=1)
 
     with pytest.raises(RuntimeError, match="transaction"):
         publish(event)

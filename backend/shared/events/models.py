@@ -1,7 +1,7 @@
 """Outbox sự kiện và delivery từng handler (03 mục 1.3, 1.4; ADR 0007).
 
 Không kế thừa `BaseModel`: 03 không có `created_at`/`updated_at` cho hai bảng này. Khoá chính
-vẫn là UUID v7 (ADR 0008).
+vẫn là UUID v7 qua `UUIDv7Model` (ADR 0008).
 """
 
 import enum
@@ -14,7 +14,7 @@ from django.db import models
 from django.db.models import Q
 
 from shared.events.registry import HANDLER_NAME_MAX_LENGTH
-from shared.models import uuid7
+from shared.models import UUIDv7Model
 
 # Chờ trước mỗi lần thử lại sau lần đầu; hết lịch thì delivery `failed` (07 mục 1.3)
 RETRY_DELAYS: tuple[timedelta, ...] = (
@@ -51,9 +51,8 @@ class OutboxEventQuerySet(models.QuerySet["OutboxEvent"]):
         return self.filter(deliveries_created_at__isnull=False)
 
 
-class OutboxEvent(models.Model):
-    # Chính là `event_id` trong `DomainEvent`
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+class OutboxEvent(UUIDv7Model):
+    # `id` (UUIDv7Model) chính là `event_id` trong `DomainEvent`
     event_type = models.CharField(max_length=100)
     schema_version = models.SmallIntegerField()
     payload = models.JSONField()
@@ -124,10 +123,9 @@ class EventDeliveryQuerySet(models.QuerySet["EventDelivery"]):
         return self.exclude(status__in=_FINISHED)
 
 
-class EventDelivery(models.Model):
+class EventDelivery(UUIDv7Model):
     """Công việc của một handler với một sự kiện, đồng thời là dấu đã xử lý."""
 
-    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     # UNIQUE(event_id, handler) đã có index bắt đầu bằng event_id, không cần index riêng của FK
     event = models.ForeignKey(
         OutboxEvent,

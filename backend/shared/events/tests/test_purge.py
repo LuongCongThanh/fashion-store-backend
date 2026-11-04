@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import time_machine
@@ -8,20 +8,14 @@ from structlog.testing import capture_logs
 from config.celery import app
 from shared.events import operations
 from shared.events.models import DeliveryStatus, EventDelivery, OutboxEvent
+from shared.events.tests._helpers import NOW
 from shared.tasks import purge_old_outbox_events
 from shared.testing.factories import EventDeliveryFactory, OutboxEventFactory
 
 pytestmark = pytest.mark.django_db
 
-NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
 # Vừa quá hạn giữ 90 ngày
 OLD = NOW - timedelta(days=90, seconds=1)
-
-
-def _listed_event(**kwargs: object) -> OutboxEvent:
-    # Relay đã lập danh sách delivery cho sự kiện này
-    fields = {"occurred_at": OLD, "deliveries_created_at": OLD}
-    return OutboxEventFactory.create(**(fields | kwargs))
 
 
 def _finished(event: OutboxEvent, status: DeliveryStatus) -> EventDelivery:
@@ -34,12 +28,12 @@ def test_purge_deletes_old_finished_events_and_deliveries(
 ) -> None:
     # Mỗi lô một sự kiện để kiểm cả việc đi qua nhiều lô
     monkeypatch.setattr(operations, "PURGE_BATCH", 1)
-    finished = _listed_event()
+    finished = OutboxEventFactory.create(listed=True, occurred_at=OLD)
     _finished(finished, DeliveryStatus.COMPLETED)
     _finished(finished, DeliveryStatus.REJECTED)
     # Có marker mà không có handler nào đăng ký
-    _listed_event()
-    recent = _listed_event(occurred_at=NOW - timedelta(days=1))
+    OutboxEventFactory.create(listed=True, occurred_at=OLD)
+    recent = OutboxEventFactory.create(listed=True, occurred_at=NOW - timedelta(days=1))
     recent_delivery = _finished(recent, DeliveryStatus.COMPLETED)
 
     purge_old_outbox_events()
@@ -50,14 +44,12 @@ def test_purge_deletes_old_finished_events_and_deliveries(
 
 @time_machine.travel(NOW, tick=False)
 def test_purge_keeps_events_with_pending_or_failed() -> None:
-    with_pending = _listed_event()
+    with_pending = OutboxEventFactory.create(listed=True, occurred_at=OLD)
     _finished(with_pending, DeliveryStatus.COMPLETED)
     EventDeliveryFactory.create(event=with_pending, next_attempt_at=OLD)
-    with_failed = _listed_event()
+    with_failed = OutboxEventFactory.create(listed=True, occurred_at=OLD)
     _finished(with_failed, DeliveryStatus.REJECTED)
-    EventDeliveryFactory.create(
-        event=with_failed, status=DeliveryStatus.FAILED, failed_at=OLD, last_error="Boom"
-    )
+    EventDeliveryFactory.create(event=with_failed, failed=True, failed_at=OLD)
     deliveries_before = sorted(EventDelivery.objects.values_list("id", flat=True))
 
     with capture_logs() as logs:
@@ -75,7 +67,7 @@ def test_purge_keeps_events_with_pending_or_failed() -> None:
 @time_machine.travel(NOW, tick=False)
 def test_purge_keeps_old_event_not_yet_listed() -> None:
     # Relay chưa lập danh sách delivery: chưa handler nào nhận sự kiện này
-    unlisted = _listed_event(deliveries_created_at=None)
+    unlisted = OutboxEventFactory.create(occurred_at=OLD)
 
     with capture_logs() as logs:
         purge_old_outbox_events()
@@ -87,10 +79,12 @@ def test_purge_keeps_old_event_not_yet_listed() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_purge_respects_retention_boundary() -> None:
-    at_boundary = _listed_event(occurred_at=NOW - operations.OUTBOX_RETENTION)
+    at_boundary = OutboxEventFactory.create(
+        listed=True, occurred_at=NOW - operations.OUTBOX_RETENTION
+    )
     _finished(at_boundary, DeliveryStatus.COMPLETED)
-    past_boundary = _listed_event(
-        occurred_at=NOW - operations.OUTBOX_RETENTION - timedelta(seconds=1)
+    past_boundary = OutboxEventFactory.create(
+        listed=True, occurred_at=NOW - operations.OUTBOX_RETENTION - timedelta(seconds=1)
     )
     _finished(past_boundary, DeliveryStatus.COMPLETED)
 
@@ -104,11 +98,11 @@ def test_purge_respects_retention_boundary() -> None:
 
 @time_machine.travel(NOW, tick=False)
 def test_purge_twice_same_result() -> None:
-    finished = _listed_event()
+    finished = OutboxEventFactory.create(listed=True, occurred_at=OLD)
     _finished(finished, DeliveryStatus.COMPLETED)
-    kept = _listed_event()
+    kept = OutboxEventFactory.create(listed=True, occurred_at=OLD)
     EventDeliveryFactory.create(event=kept, next_attempt_at=OLD)
-    recent = _listed_event(occurred_at=NOW - timedelta(days=1))
+    recent = OutboxEventFactory.create(listed=True, occurred_at=NOW - timedelta(days=1))
 
     purge_old_outbox_events()
     after_first = (

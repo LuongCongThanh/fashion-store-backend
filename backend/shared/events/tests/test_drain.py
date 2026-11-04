@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import time_machine
@@ -7,18 +7,11 @@ from django.db import transaction
 from shared.events import handles, publish
 from shared.events.models import RETRY_DELAYS, DeliveryStatus, EventDelivery
 from shared.events.tasks import dispatch_event
+from shared.events.tests._helpers import NOW, ORDER_CODE, NotYet, record_effect
 from shared.events.tests.conftest import HandlerEffect, SampleHappenedV1
-from shared.exceptions import RetryLater
 from shared.testing.events import drain_events
 
 pytestmark = pytest.mark.django_db
-
-NOW = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
-ORDER_CODE = "FS2610-7K3QZD"
-
-
-class NotYet(RetryLater):
-    code = "NOT_YET"
 
 
 def test_two_handlers_each_run_once_on_duplicate_dispatch(
@@ -29,7 +22,7 @@ def test_two_handlers_each_run_once_on_duplicate_dispatch(
 
         @handles("shared.sample-happened", name=name)
         def record(event: SampleHappenedV1, _name: str = name) -> None:
-            handler_effect_table.objects.create(handler=_name, order_code=event.order_code)
+            record_effect(handler_effect_table, _name, event)
 
     with transaction.atomic():
         event = SampleHappenedV1(order_code=ORDER_CODE, amount=250000)
@@ -56,7 +49,7 @@ def test_drain_does_not_wait_for_future_retry(
         handler_runs += 1
         if handler_runs == 1:
             raise NotYet
-        handler_effect_table.objects.create(handler="ok", order_code=event.order_code)
+        record_effect(handler_effect_table, "ok", event)
 
     with time_machine.travel(NOW, tick=False) as traveller:
         publish(SampleHappenedV1(order_code=ORDER_CODE, amount=250000))
@@ -65,7 +58,6 @@ def test_drain_does_not_wait_for_future_retry(
         drain_events()
         delivery = EventDelivery.objects.get()
         assert delivery.status == DeliveryStatus.PENDING
-        assert delivery.next_attempt_at == NOW + RETRY_DELAYS[0]
         assert handler_runs == 1
 
         # Tiến tới hạn retry rồi drain tiếp
