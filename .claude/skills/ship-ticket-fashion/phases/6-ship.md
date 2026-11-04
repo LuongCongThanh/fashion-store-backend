@@ -39,7 +39,7 @@ GH_TOKEN="$(gh auth token --user LuongCongThanh)" gh pr checks <số> --watch
 
 In `no checks reported` (chạy ngay sau push, workflow chưa đăng ký check) → chạy lại lệnh trên.
 
-Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi (nguyên nhân chưa rõ hoặc chỉ đỏ trên CI → `mattpocock-skills:diagnosing-bugs`), sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
+Đỏ → `gh run view <id> --log-failed > .git/ship-ticket-fashion/logs/ci.log`, đọc đoạn lỗi (nguyên nhân chưa rõ hoặc chỉ đỏ trên CI → `mattpocock-skills:diagnosing-bugs`). Full: gửi đường dẫn log cho implementer còn sống bằng `SendMessage`; không còn thì phiên chính sửa. Sửa trong phạm vi ticket, commit `--task ci`, push. Đỏ ngoài phạm vi → *Cần người dùng*.
 
 Check SonarCloud xanh cả khi còn issue (Quality Gate vẫn passed), nên đọc thêm comment của bot:
 

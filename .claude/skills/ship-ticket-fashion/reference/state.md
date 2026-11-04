@@ -43,6 +43,7 @@
 - `files`: file slice sẽ đổi, ghi ở phase 1 cho `plan.md`; một slice là một commit gồm đúng các file này.
 - `governingDocs`: mỗi key là file trong `files`, value là reference `path.md::số-mục`; script kiểm file và heading tồn tại, đồng thời reference phải xuất hiện trong `## Quyết định`.
 - `tdd`: chỉ `tdd.py` ghi. `tddTests` cần `redAt` + `greenAt`; `verificationTests` cần `verifiedAt` trước khi slice `done`.
+- `notes`: ghi chú tự do theo khoá. `notes.baselineRed`: list id test đỏ sẵn trên `origin/dev`, ghi ở phase 1 từ log baseline.
 - `untestable`: AC không test tự động được ở đây, kèm lý do và cách kiểm tay; báo cáo liệt kê chúng ở mục *Chưa làm*.
 - `status` của slice: `todo` → `code` → `done`. Slice phụ thuộc nhau tạo thành DAG; `state.py check` từ chối id trùng, `dependsOn` không tồn tại và vòng lặp.
 - `handoff`: tối đa 5 dòng mỗi slice, chỉ những gì slice sau dùng lại (tên export, quyết định). Không ghi nhật ký làm việc.

@@ -1,22 +1,30 @@
 # Quy tắc (mọi phase)
 
-- **Phạm vi = acceptance criteria + điều người dùng yêu cầu.** Chỉ sửa code mà một AC, mục `## Việc cần làm` hoặc mục `## Quyết định` của ticket đòi hỏi. Người dùng yêu cầu thêm thì làm, ghi vào `userRequested` của state và mục *Thay đổi theo yêu cầu* của báo cáo, test như một AC. Việc tốt nhưng ngoài phạm vi → một dòng trong `.scratch/backlog.md`; chỉ thành ticket `needs-triage` (cùng feature, số tiếp theo) khi nó chặn mốc đang làm hoặc mốc kế tiếp, và ticket ghi mốc bị chặn.
-- **`docs/` là nguồn chuẩn** (đã chốt cho MVP): code làm theo tài liệu. *Tài liệu chi phối* của một file code là các mục quy định cách viết nó: `docs/architecture/` (bản đồ ở `docs/architecture/README.md`), quy tắc trong `docs/business/`, ADR trong `docs/adr/`. Phase 1 ghi chúng vào `## Quyết định`; code và review đối chiếu với chúng. Ticket cố ý làm khác tài liệu → ghi lý do trong `## Quyết định`, sửa tài liệu trong cùng PR ở phase 5.
+- **Phạm vi = acceptance criteria + điều người dùng yêu cầu.** Chỉ sửa code mà một AC, mục `## Việc cần làm` hoặc `## Quyết định` của ticket đòi hỏi. Người dùng yêu cầu thêm thì làm, ghi vào `userRequested` của state và mục *Thay đổi theo yêu cầu* của báo cáo, test như một AC. Việc tốt nhưng ngoài phạm vi → một dòng trong `.scratch/backlog.md`; chỉ thành ticket `needs-triage` (cùng feature, số tiếp theo) khi nó chặn mốc đang làm hoặc mốc kế tiếp, và ticket ghi mốc bị chặn.
+- **`docs/` là nguồn chuẩn**: code làm theo tài liệu. *Tài liệu chi phối* của một file là các mục quy định cách viết nó: `docs/architecture/` (bản đồ ở `docs/architecture/README.md`), quy tắc trong `docs/business/`, ADR trong `docs/adr/`. Phase 1 ghi chúng vào `## Quyết định`; code và review đối chiếu với chúng. Ticket cố ý làm khác tài liệu → ghi lý do trong `## Quyết định`, sửa tài liệu ở phase 5 cùng PR.
 - **Mỗi loại kiến thức một chỗ.**
-  - Quyết định của ticket → `## Quyết định` trong `spec.md` của ticket (bảng Chủ đề | Quyết định).
+  - Quyết định của ticket → `## Quyết định` trong `spec.md` (bảng Chủ đề | Quyết định).
   - Quyết định ảnh hưởng ngoài ticket (API của `shared`, tách ticket, đổi phạm vi) → **Decisions-so-far** của `.scratch/mvp-roadmap/map.md`.
-  - Quyết định kiến trúc lâu dài → ADR trong `docs/adr/` qua `mattpocock-skills:domain-modeling`.
-  - Thuật ngữ → `GLOSSARY.md`, tránh các từ ở mục _Avoid_.
-  - Slice, `next`, ánh xạ AC → test → state; bản in cho người đọc là `plan.md` (`plan.py`).
-  - Commit thuộc task nào → trailer `Task:` của commit (`commit.py` ghi, `commit_map.py` đọc).
-  - Kết quả (đã làm, chưa làm, gap) → `report.md` của ticket.
-  - Điều máy kiểm tra được → test, script trong `S/scripts/`, rule lint hoặc hook.
-- **Cần người dùng** là quyết định ngoài gate: thay đổi ngoài phạm vi; sửa `backend/shared/` mà ticket không nhắc; test đỏ ngoài ticket chưa chứng minh được là đỏ sẵn trên `origin/dev`; hook chặn không sửa được trong phạm vi; tài liệu thiếu, mâu thuẫn nhau, hoặc code buộc phải trái ADR (`docs/agents/domain.md`). Phiên chính hỏi ngay bằng `AskUserQuestion`; sub-agent làm theo `reference/sub-agent.md`.
-- **Từ vựng thiết kế**: *module* là module nghiệp vụ trong `modules/` (ADR 0006). Bàn thiết kế code thì dùng *seam*, *interface*, *depth*, *adapter*, *deletion test* của `mattpocock-skills:codebase-design`; thứ skill đó gọi là module thì gọi bằng tên cụ thể (hàm, class, package).
-- **Nói với người dùng**: một mã người dùng không tự viết thì kèm nghĩa bên cạnh: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
-- **Test**: gọi skill này nghĩa là đồng ý chạy test. Lệnh chạy trong `backend/`. Test đỏ ngoài ticket: chứng minh nó đỏ trên `origin/dev` (`git stash`, chạy, `git stash pop`) rồi ghi một dòng vào báo cáo.
-- **Tiết kiệm token**:
-  - Lệnh dài chạy qua `python3 S/scripts/run_logged.py --label <tên> --cwd backend -- <lệnh>`: log ghi vào `.git/ship-ticket-fashion/logs/`, chỉ in dòng tóm tắt; đỏ thì in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên file log. Mọi `make <target>` (`lint`, `test`, `load-geo`…) đi qua `run_logged.py`: máy không có `make` thì script tự chạy recipe trong `Makefile` với output UTF-8.
-  - Ghi nhiều field state trong một lần `state.py set` / `push`.
-  - Giữ nội dung `.env`, secret, token ngoài output.
-- **Windows**: gặp lỗi đường dẫn, quoting hoặc lệnh → đọc lại `gotchas/windows-shell.md` (`SKILL.md` → *Đầu mỗi lần chạy*).
+  - Quyết định kiến trúc lâu dài → ADR qua `mattpocock-skills:domain-modeling`. Thuật ngữ → `GLOSSARY.md`, tránh từ ở mục _Avoid_.
+  - Slice, `next`, AC → test → state; bản in cho người đọc là `plan.md`.
+  - Code ticket chạm tới → `.git/ship-ticket-fashion/<K>-map.md`; finding review → `<K>-review.md`.
+  - Kết quả (đã làm, chưa làm, gap) → `report.md`. Điều máy kiểm được → test, script trong `S/scripts/`, lint hoặc hook.
+- **Cần người dùng** là quyết định ngoài gate: thay đổi ngoài phạm vi; sửa `backend/shared/` mà ticket không nhắc; test đỏ ngoài ticket không nằm trong baseline; hook chặn không sửa được trong phạm vi; tài liệu thiếu, mâu thuẫn, hoặc code buộc phải trái ADR (`docs/agents/domain.md`); lỗi môi trường (DB, Redis, `.env`). Phiên chính hỏi ngay bằng `AskUserQuestion`; sub-agent làm theo `reference/sub-agent.md`.
+- **Từ vựng thiết kế**: *module* là module nghiệp vụ trong `modules/` (ADR 0006). Bàn thiết kế code dùng *seam*, *interface*, *depth*, *adapter*, *deletion test* của `mattpocock-skills:codebase-design`; thứ skill đó gọi là module thì gọi bằng tên cụ thể (hàm, class, package).
+- **Nói với người dùng**: mã người dùng không tự viết thì kèm nghĩa: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
+
+## Check máy
+
+Gọi skill này là đồng ý chạy test. Lệnh chạy trong `backend/`, luôn qua `run_logged.py`: log ghi vào `.git/ship-ticket-fashion/logs/<label>.log`, xanh chỉ in một dòng, đỏ in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên log. Máy không có `make` thì script tự chạy recipe của `Makefile`.
+
+```bash
+python3 S/scripts/run_logged.py --label fmt  --cwd backend -- make fmt
+python3 S/scripts/run_logged.py --label lint --cwd backend --keep-going -- make lint
+python3 S/scripts/run_logged.py --label test --cwd backend -- make test
+```
+
+- **Lint một lượt**: `make fmt` trước, rồi `make lint` với `--keep-going` để in lỗi của mọi công cụ (ruff, format, mypy, import-linter, OpenAPI) trong một lần. Sửa hết lỗi đã in rồi mới chạy lại. mypy chỉ tin kết quả của `make lint`; gọi `mypy` cách khác có thể báo lỗi không có thật.
+- **Full check chạy đúng các mốc**: baseline phase 1; `make lint` cuối mỗi slice; `make lint` + `make test` cuối phase 2, cuối mỗi vòng sửa, check cuối phase 5, và sau rebase ở phase 6 khi rebase kéo về commit mới. Giữa các mốc chỉ chạy test của slice. Mốc không có commit đổi code kể từ lần xanh gần nhất thì dùng lại kết quả đó.
+- **Test đỏ ngoài ticket**: có trong `notes.baselineRed` (đỏ sẵn trên `origin/dev`, ghi ở phase 1) → một dòng trong báo cáo, làm tiếp. Không có → do nhánh này gây ra: sửa; không sửa được trong phạm vi → *Cần người dùng*.
+- Ghi nhiều field state trong một lần `state.py set` / `push`. Giữ nội dung `.env`, secret, token ngoài output.
+- Gặp lỗi đường dẫn, quoting hoặc lệnh trên Windows → đọc lại `gotchas/windows-shell.md`.

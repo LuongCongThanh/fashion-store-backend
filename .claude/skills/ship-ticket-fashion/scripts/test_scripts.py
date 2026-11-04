@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -24,7 +26,7 @@ from commit_map import parse_log, problems, render
 from common import resolve, state_dir
 from plan import render as render_plan
 from progress import Feature, frontier, load_features, parse_blocked, parse_ticket
-from run_logged import make_recipe
+from run_logged import expand, make_recipe, run_steps
 from state import (
     apply,
     check_doc_ref,
@@ -406,6 +408,29 @@ class Checks(unittest.TestCase):
             make_recipe("test:\n\tuv run pytest\n", "up")
         with self.assertRaises(ValueError):
             make_recipe("up:\n\tdocker compose -f $(FILE) up\n", "up")
+
+    def test_keep_going_splits_make_target_even_when_make_exists(self):
+        cwd = Path(tempfile.mkdtemp())
+        (cwd / "Makefile").write_text("lint:\n\tuv run ruff check .\n\tuv run mypy .\n", encoding="utf-8")
+        with mock.patch("run_logged.shutil.which", return_value="/usr/bin/make"):
+            self.assertEqual(expand(["make", "lint"], cwd), [["make", "lint"]])
+            self.assertEqual(
+                expand(["make", "lint"], cwd, keep_going=True),
+                [["uv", "run", "ruff", "check", "."], ["uv", "run", "mypy", "."]],
+            )
+
+    def test_keep_going_runs_every_step_and_reports_each_failure(self):
+        py = sys.executable
+        steps = [
+            [py, "-c", "import sys; print('ruff: E501'); sys.exit(1)"],
+            [py, "-c", "print('format ok')"],
+            [py, "-c", "import sys; print('mypy: attr-defined'); sys.exit(2)"],
+        ]
+        results = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=True)
+        self.assertEqual([code for _, code, _ in results], [1, 0, 2])
+        self.assertIn("mypy: attr-defined", results[2][2])
+        stop_first = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=False)
+        self.assertEqual([code for _, code, _ in stop_first], [1])
 
 
 REF = ".scratch/f/issues/01-x"
