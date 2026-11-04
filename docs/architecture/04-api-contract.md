@@ -85,7 +85,7 @@ HTTP 409
 | 422 | Yêu cầu không thoả quy tắc nghiệp vụ | `VOUCHER_NOT_FOUND`, `VOUCHER_EXPIRED`, `VOUCHER_USAGE_LIMIT_REACHED`, `VOUCHER_BUYER_LIMIT_REACHED`, `VOUCHER_MIN_ORDER_NOT_MET`, `COD_LIMIT_EXCEEDED`, `LIST_PRICE_BELOW_SALE_PRICE`, `ORDER_TOTAL_NOT_POSITIVE`, `DATA_PROCESSING_CONSENT_REQUIRED`, `PAYMENT_CREATION_REJECTED` |
 | 429 | Vượt giới hạn tần suất | `THROTTLED` |
 | 500 | Lỗi hệ thống | `INTERNAL_ERROR` (không lộ chi tiết) |
-| 503 | Không thể xác minh trạng thái auth bắt buộc từ DB | `AUTH_STATE_UNAVAILABLE`; không fallback chấp nhận token từ cache cho thao tác nhạy cảm (05 mục 2.2) |
+| 503 | Không thể xác minh trạng thái auth bắt buộc từ DB; refresh không trả lại được cặp token đã cấp | `AUTH_STATE_UNAVAILABLE`; không fallback chấp nhận token từ cache cho thao tác nhạy cảm (05 mục 2.2). `REFRESH_REPLAY_UNAVAILABLE`: thiếu khoá replay, hoặc retry trong cửa sổ 10 giây mà ciphertext mất/hỏng; không cấp nhánh token khác, client thử lại sau (05 mục 2.1) |
 
 - Mã mới chọn **409** khi kết quả phụ thuộc trạng thái có thể đã đổi từ lúc client xem (Tồn kho, trạng thái đơn, giá, idempotency): client tải lại rồi thử lại. Chọn **422** khi chính yêu cầu sai quy tắc (Voucher không áp được, vượt Hạn mức COD, giá không hợp lệ): gửi lại y nguyên vẫn lỗi.
 - Mã Voucher là lớp con của `VoucherNotApplicable` trong `promotions`, mỗi lý do một mã (US-304 AC2).

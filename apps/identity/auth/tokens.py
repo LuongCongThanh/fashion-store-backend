@@ -16,6 +16,7 @@ PURPOSE_ACCESS = "access"
 PURPOSE_REFRESH = "refresh"
 AUTH_SCHEME = "Bearer"
 ACCESS_CLAIMS = ("iss", "aud", "sub", "token_use", "kind", "tv", "jti", "iat", "exp")
+REFRESH_CLAIMS = (*ACCESS_CLAIMS, "fam")
 
 
 class InvalidToken(ValueError):
@@ -28,6 +29,18 @@ class ExpiredToken(InvalidToken):
 
 @dataclass(frozen=True)
 class TokenPairDTO:
+    """Output `TokenPairDTO` (04 mục 5.5); cũng là plaintext của RefreshReplay."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int
+
+
+@dataclass(frozen=True)
+class IssuedTokenPair:
+    """Cặp token vừa phát kèm dữ liệu caller phải lưu vào RefreshToken."""
+
     access_token: str
     refresh_token: str
     token_type: str
@@ -36,6 +49,15 @@ class TokenPairDTO:
     family_id: uuid.UUID
     refresh_expires_at: datetime
 
+    @property
+    def pair(self) -> TokenPairDTO:
+        return TokenPairDTO(
+            access_token=self.access_token,
+            refresh_token=self.refresh_token,
+            token_type=self.token_type,
+            expires_in=self.expires_in,
+        )
+
 
 @dataclass(frozen=True)
 class AccessClaimsDTO:
@@ -43,6 +65,16 @@ class AccessClaimsDTO:
     kind: str
     token_version: int
     jti: uuid.UUID
+    audience: str
+
+
+@dataclass(frozen=True)
+class RefreshClaimsDTO:
+    subject: uuid.UUID
+    kind: str
+    token_version: int
+    jti: uuid.UUID
+    family_id: uuid.UUID
     audience: str
 
 
@@ -73,10 +105,16 @@ def _base_claims(
     }
 
 
-def issue_token_pair(*, account: Account, audience: str, now: datetime) -> TokenPairDTO:
-    """Phát cặp token; caller chịu trách nhiệm lưu hash refresh token."""
+def issue_token_pair(
+    *, account: Account, audience: str, now: datetime, family_id: uuid.UUID | None = None
+) -> IssuedTokenPair:
+    """Phát cặp token; caller chịu trách nhiệm lưu hash refresh token.
+
+    `family_id` là `None` khi đăng nhập (family mới); refresh truyền family của predecessor.
+    """
     kid, key = _current_key()
-    access_jti, refresh_jti, family_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    access_jti, refresh_jti = uuid.uuid4(), uuid.uuid4()
+    family_id = family_id or uuid.uuid4()
     access_exp = now + timedelta(seconds=settings.JWT_ACCESS_TTL_SECONDS)
     refresh_exp = now + timedelta(seconds=settings.JWT_BACKOFFICE_REFRESH_TTL_SECONDS)
     headers = {"kid": kid}
@@ -103,7 +141,7 @@ def issue_token_pair(*, account: Account, audience: str, now: datetime) -> Token
     )
     refresh_claims["fam"] = str(family_id)
     refresh = jwt.encode(refresh_claims, key["private_key"], algorithm=ALGORITHM, headers=headers)
-    return TokenPairDTO(
+    return IssuedTokenPair(
         access_token=access,
         refresh_token=refresh,
         token_type=AUTH_SCHEME,
@@ -114,25 +152,31 @@ def issue_token_pair(*, account: Account, audience: str, now: datetime) -> Token
     )
 
 
-def decode_access_token(
-    token: str, *, expected_audience: str, now: datetime | None = None
-) -> AccessClaimsDTO:
-    """Xác minh access token bằng allow-list EdDSA và keyring nội bộ."""
+def _decode(
+    token: str,
+    *,
+    expected_audience: str,
+    now: datetime,
+    token_use: str,
+    required_claims: tuple[str, ...],
+    verify_exp: bool,
+) -> dict[str, Any]:
+    """Kiểm header, chữ ký và claim chung của access/refresh token (05 mục 2)."""
     try:
         header = jwt.get_unverified_header(token)
         if header.get("alg") != ALGORITHM or not isinstance(header.get("kid"), str):
             raise InvalidToken("Invalid JWT header")
         key = settings.JWT_SIGNING_KEYS[header["kid"]]["public_key"]
-        payload = jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token,
             key,
             algorithms=[ALGORITHM],
             audience=expected_audience,
             issuer=settings.JWT_ISSUER,
             leeway=settings.JWT_LEEWAY_SECONDS,
-            options={"require": list(ACCESS_CLAIMS)},
+            options={"require": list(required_claims), "verify_exp": verify_exp},
         )
-        if payload["token_use"] != PURPOSE_ACCESS:
+        if payload["token_use"] != token_use:
             raise InvalidToken("Wrong token purpose")
         if payload["kind"] not in AccountKind.values:
             raise InvalidToken("Invalid account kind")
@@ -142,8 +186,28 @@ def decode_access_token(
             raise InvalidToken("Invalid timestamp claims")
         if payload["iat"] > payload["exp"]:
             raise InvalidToken("Token issued after expiry")
-        if now is not None and payload["iat"] > now.timestamp() + settings.JWT_LEEWAY_SECONDS:
+        if payload["iat"] > now.timestamp() + settings.JWT_LEEWAY_SECONDS:
             raise InvalidToken("Token issued in the future")
+        return payload
+    except InvalidToken:
+        raise
+    except jwt.ExpiredSignatureError as exc:
+        raise ExpiredToken("Token expired") from exc
+    except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
+        raise InvalidToken("Invalid token") from exc
+
+
+def decode_access_token(token: str, *, expected_audience: str, now: datetime) -> AccessClaimsDTO:
+    """Xác minh access token bằng allow-list EdDSA và keyring nội bộ."""
+    payload = _decode(
+        token,
+        expected_audience=expected_audience,
+        now=now,
+        token_use=PURPOSE_ACCESS,
+        required_claims=ACCESS_CLAIMS,
+        verify_exp=True,
+    )
+    try:
         return AccessClaimsDTO(
             subject=uuid.UUID(payload["sub"]),
             kind=payload["kind"],
@@ -151,9 +215,33 @@ def decode_access_token(
             jti=uuid.UUID(payload["jti"]),
             audience=payload["aud"],
         )
-    except InvalidToken:
-        raise
-    except jwt.ExpiredSignatureError as exc:
-        raise ExpiredToken("Access token expired") from exc
-    except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
+    except (TypeError, ValueError, AttributeError) as exc:
         raise InvalidToken("Invalid access token") from exc
+
+
+def decode_refresh_token(
+    token: str, *, expected_audience: str, now: datetime, verify_exp: bool = True
+) -> RefreshClaimsDTO:
+    """Xác minh chữ ký/claim của refresh token; trạng thái hash/family do caller kiểm từ DB.
+
+    `verify_exp=False` chỉ dành cho logout: token hết hạn vẫn thu hồi được family của nó.
+    """
+    payload = _decode(
+        token,
+        expected_audience=expected_audience,
+        now=now,
+        token_use=PURPOSE_REFRESH,
+        required_claims=REFRESH_CLAIMS,
+        verify_exp=verify_exp,
+    )
+    try:
+        return RefreshClaimsDTO(
+            subject=uuid.UUID(payload["sub"]),
+            kind=payload["kind"],
+            token_version=payload["tv"],
+            jti=uuid.UUID(payload["jti"]),
+            family_id=uuid.UUID(payload["fam"]),
+            audience=payload["aud"],
+        )
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise InvalidToken("Invalid refresh token") from exc

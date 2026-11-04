@@ -38,3 +38,48 @@ class InvalidCredentials(DomainError):
     code = "INVALID_CREDENTIALS"
     http_status = 401
     message = _("Email hoặc mật khẩu không hợp lệ.")
+
+
+class RefreshRejected(DomainError):
+    """Refresh/logout token sai chữ ký/claim/mục đích hoặc không khớp trạng thái trong DB.
+
+    Gồm cả family đã thu hồi và token dùng lại ngoài cửa sổ replay (05 mục 2.1). Không nêu
+    nguyên nhân để không giúp dò token.
+    """
+
+    code = "NOT_AUTHENTICATED"
+    http_status = 401
+    message = _("Thông tin xác thực không hợp lệ.")
+
+
+class RefreshExpired(DomainError):
+    """Refresh token có chữ ký hợp lệ nhưng đã hết hạn."""
+
+    code = "TOKEN_EXPIRED"
+    http_status = 401
+    message = _("Phiên đăng nhập đã hết hạn.")
+
+
+class RefreshSuperseded(DomainError):
+    """Successor của refresh token đã được dùng; client giữ cặp token mới hơn (ADR 0014)."""
+
+    code = "REFRESH_SUPERSEDED"
+    http_status = 409
+    message = _("Refresh token đã được thay bằng token mới hơn.")
+
+
+class RefreshReplayUnavailable(DomainError):
+    """Không trả lại được response refresh đã cấp (mất/hỏng ciphertext, thiếu khoá) hoặc không
+    lưu được replay cho lần refresh đầu; không cấp nhánh token khác (05 mục 2.1)."""
+
+    code = "REFRESH_REPLAY_UNAVAILABLE"
+    http_status = 503
+    message = _("Chưa làm mới được phiên đăng nhập, vui lòng thử lại.")
+
+
+class SessionStateUnavailable(DomainError):
+    """DB không đọc/ghi được trạng thái phiên: fail-closed (05 mục 2.2)."""
+
+    code = "AUTH_STATE_UNAVAILABLE"
+    http_status = 503
+    message = _("Chưa xác minh được phiên đăng nhập, vui lòng thử lại.")

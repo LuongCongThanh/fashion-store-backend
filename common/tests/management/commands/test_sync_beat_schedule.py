@@ -15,6 +15,8 @@ from structlog.testing import capture_logs
 
 from config.celery import app
 
+# Lịch thật, chụp lúc import trước khi fixture autouse thay bằng lịch giả
+REAL_SCHEDULE: dict[str, dict[str, Any]] = dict(app.conf.beat_schedule)
 CODE_SCHEDULE: dict[str, dict[str, Any]] = {
     "common.every_minute_job": {
         "task": "common.tasks.every_minute_job",
@@ -156,3 +158,14 @@ def test_db_job_on_other_schedule_type_is_switched_to_code_schedule() -> None:
     assert every_minute.interval is not None
     assert every_minute.interval.every == 60
     assert every_minute.interval.period == IntervalSchedule.SECONDS
+
+
+def test_beat_schedule_includes_identity_purge_refresh_replays() -> None:
+    entry = REAL_SCHEDULE.get("identity.purge_refresh_replays", {})
+    # Nạp task như worker: kiểm cả danh sách autodiscover của config/celery.py
+    app.loader.import_default_modules()
+
+    assert entry.get("task") == "identity.purge_refresh_replays"
+    assert entry.get("schedule") == crontab(minute="*")
+    assert "identity.purge_refresh_replays" in app.tasks
+    assert app.tasks["identity.purge_refresh_replays"].queue == "default"  # type: ignore[attr-defined]  # celery-types thiếu Task.queue

@@ -18,15 +18,13 @@ from django.core.management import call_command
 from django.db import OperationalError, connection
 from django.utils import timezone
 from rest_framework.test import APIClient
+from structlog.testing import capture_logs
 
-from apps.identity.auth.tokens import issue_token_pair
+from apps.identity.auth.tokens import IssuedTokenPair, issue_token_pair
 from apps.identity.constants import AccountKind
 from apps.identity.models import Account, RefreshReplay, RefreshToken
 from apps.identity.tests.conftest import random_email
-from apps.identity.tests.factories import DEFAULT_PASSWORD, AccountFactory
-
-pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("jwt_keyring")]
-
+from apps.identity.tests.factories import DEFAULT_PASSWORD, AccountFactory, stored_refresh_session
 
 LOGIN_PATH = "/api/v1/backoffice/auth/login"
 
@@ -151,6 +149,12 @@ def test_login_server_error_does_not_hold_reservation(bff_headers: dict[str, str
 
 
 ME_PATH = "/api/v1/backoffice/auth/me"
+
+
+REFRESH_PATH = "/api/v1/backoffice/auth/refresh"
+
+
+LOGOUT_PATH = "/api/v1/backoffice/auth/logout"
 
 
 ACCOUNT_DTO_KEYS = {
@@ -395,3 +399,125 @@ def test_openapi_declares_login_errors(openapi: dict[str, Any]) -> None:
 
     assert codes == ["200", "400", "401", "415", "429", "500"]
     assert responses["401"]["content"]["application/json"]["schema"] == ERROR_DTO_REF
+
+
+def test_refresh_and_logout_document_declared_errors(openapi: dict[str, Any]) -> None:
+    responses = {
+        path: openapi["paths"].get(path, {}).get("post", {}).get("responses", {})
+        for path in (REFRESH_PATH, LOGOUT_PATH)
+    }
+    codes = {path: list(path_responses) for path, path_responses in responses.items()}
+
+    assert codes == {
+        REFRESH_PATH: ["200", "400", "401", "409", "415", "429", "500", "503"],
+        LOGOUT_PATH: ["204", "400", "401", "415", "429", "500", "503"],
+    }
+    for path, code in [(REFRESH_PATH, "401"), (REFRESH_PATH, "409"), (REFRESH_PATH, "503")]:
+        schema = responses[path][code]["content"]["application/json"]["schema"]
+        assert schema == ERROR_DTO_REF
+    # Như login: không yêu cầu Bearer, chỉ khai lựa chọn ẩn danh
+    assert openapi["paths"][REFRESH_PATH]["post"]["security"] == [{}]
+    assert openapi["paths"][LOGOUT_PATH]["post"]["security"] == [{}]
+
+
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("jwt_keyring", "replay_key")]
+
+
+TOKEN_PAIR_KEYS = {"access_token", "refresh_token", "token_type", "expires_in"}
+
+
+@pytest.fixture
+def replay_key(settings: Any) -> None:
+    settings.REFRESH_REPLAY_KEY_ID = "test-replay-1"
+    settings.REFRESH_REPLAY_KEY = b"k" * 32
+
+
+@pytest.fixture
+def login() -> IssuedTokenPair:
+    return stored_refresh_session(account=AccountFactory.create(), now=timezone.now())
+
+
+def _post_refresh(refresh_token: str) -> Any:
+    return APIClient().post(REFRESH_PATH, {"refresh_token": refresh_token}, format="json")
+
+
+def test_refresh_returns_new_token_pair(login: IssuedTokenPair) -> None:
+    response = _post_refresh(login.refresh_token)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == TOKEN_PAIR_KEYS
+    assert body["token_type"] == "Bearer"
+    assert body["refresh_token"] != login.refresh_token
+
+
+def test_refresh_superseded_returns_409(login: IssuedTokenPair) -> None:
+    second = _post_refresh(login.refresh_token)
+    assert second.status_code == 200
+    _post_refresh(second.json()["refresh_token"])
+
+    response = _post_refresh(login.refresh_token)
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "REFRESH_SUPERSEDED"
+
+
+def test_refresh_rejects_access_token(login: IssuedTokenPair) -> None:
+    response = _post_refresh(login.access_token)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "NOT_AUTHENTICATED"
+
+
+def test_refresh_replay_unavailable_returns_503(settings: Any, login: IssuedTokenPair) -> None:
+    settings.REFRESH_REPLAY_KEY_ID = ""
+    settings.REFRESH_REPLAY_KEY = b""
+
+    response = _post_refresh(login.refresh_token)
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "REFRESH_REPLAY_UNAVAILABLE"
+
+
+def test_refresh_logs_and_errors_hide_tokens(login: IssuedTokenPair) -> None:
+    with capture_logs() as logs:
+        first = _post_refresh(login.refresh_token)
+        assert first.status_code == 200
+        ciphertext = bytes(RefreshReplay.objects.get().response_ciphertext)
+        with time_machine.travel(timezone.now() + timedelta(seconds=11)):
+            reused = _post_refresh(login.refresh_token)
+
+    assert reused.status_code == 401
+    assert reused.json()["error"]["code"] == "NOT_AUTHENTICATED"
+    issued = first.json()
+    texts = [repr(logs), reused.content.decode()]
+    for secret in (login.refresh_token, issued["refresh_token"], issued["access_token"]):
+        assert all(secret not in text for text in texts)
+    assert all(ciphertext.hex() not in text and repr(ciphertext) not in text for text in texts)
+
+
+def _post_logout(refresh_token: str) -> Any:
+    return APIClient().post(LOGOUT_PATH, {"refresh_token": refresh_token}, format="json")
+
+
+def test_logout_returns_204_without_access_token() -> None:
+    login = stored_refresh_session(account=AccountFactory.create(), now=timezone.now())
+
+    response = _post_logout(login.refresh_token)
+    repeated = _post_logout(login.refresh_token)
+
+    assert (response.status_code, repeated.status_code) == (204, 204)
+    assert response.content == b""
+    assert RefreshToken.objects.get(jti=login.refresh_jti).revoked_at is not None
+
+
+def test_logout_rejects_wrong_audience() -> None:
+    account = AccountFactory.create()
+    login = stored_refresh_session(account=account, now=timezone.now())
+    store_token = issue_token_pair(account=account, audience="store", now=timezone.now())
+
+    response = _post_logout(store_token.refresh_token)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "NOT_AUTHENTICATED"
+    assert RefreshToken.objects.get(jti=login.refresh_jti).revoked_at is None

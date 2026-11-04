@@ -26,6 +26,10 @@ app.conf.beat_schedule = {
         "task": "common.purge_idempotency_keys",
         "schedule": crontab(hour=3, minute=45),
     },
+    "identity.purge_refresh_replays": {
+        "task": "identity.purge_refresh_replays",
+        "schedule": crontab(minute="*"),
+    },
 }
 
 # Mặc định Celery tìm <app>.tasks của mọi app trong INSTALLED_APPS; package con có tasks.py

@@ -89,10 +89,10 @@ Chưa có spec.
 
 1. [01](../../.scratch/catalog-inventory/issues/01-backoffice-login/spec.md) · Staff/Admin đăng nhập back-office, `JWTAuthentication`, failure ledger đăng nhập · PR #65 · 04/11/2026
 2. [13](../../.scratch/catalog-inventory/issues/13-openapi-docs-quality/spec.md) · Swagger nhóm theo `<store|backoffice> · <module>`, chú thích và ví dụ tiếng Anh, chỉ JSON, `Retry-After`; `gen_openapi.py --check` chặn operation thiếu chú thích · PR #67 · 04/11/2026
+3. [02](../../.scratch/catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token một successor, replay mã hoá AESGCM 10 giây, đăng xuất, job `identity.purge_refresh_replays` · PR #73 · 05/11/2026
 
 ### Còn mở
 
-- [02](../../.scratch/catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01, one-app-per-module/03
 - [03](../../.scratch/catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01 (13 đã xong), one-app-per-module/03
 - [04](../../.scratch/catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01 (13 đã xong), one-app-per-module/03
 - [05](../../.scratch/catalog-inventory/issues/05-product-variant-management/spec.md) · quản lý Sản phẩm và Biến thể · `ready-for-agent` · blocked by 03, 04

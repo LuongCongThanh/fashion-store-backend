@@ -6,7 +6,7 @@ import pytest
 from django.db import IntegrityError
 from django.utils import timezone
 
-from apps.identity.models import RefreshReplay
+from apps.identity.models import RefreshReplay, RefreshToken
 from apps.identity.tests.factories import RefreshTokenFactory
 
 pytestmark = pytest.mark.django_db
@@ -62,3 +62,27 @@ def test_refresh_replay_is_unique_per_parent() -> None:
 
     with pytest.raises(IntegrityError, match="parent_jti"):
         duplicate.save()
+
+
+def test_revoke_family_revokes_only_that_family() -> None:
+    now = timezone.now()
+    already_revoked_at = now - timedelta(minutes=5)
+    root = RefreshTokenFactory.create()
+    sibling = RefreshTokenFactory.create(account=root.account, family_id=root.family_id)
+    revoked = RefreshTokenFactory.create(
+        account=root.account, family_id=root.family_id, revoked_at=already_revoked_at
+    )
+    other_family = RefreshTokenFactory.create(account=root.account)
+
+    count = RefreshToken.revoke_family(root.family_id, now=now)
+
+    assert count == 2
+    revoked_at = {
+        token.jti: token.revoked_at for token in RefreshToken.objects.filter(account=root.account)
+    }
+    assert revoked_at == {
+        root.jti: now,
+        sibling.jti: now,
+        revoked.jti: already_revoked_at,
+        other_family.jti: None,
+    }
