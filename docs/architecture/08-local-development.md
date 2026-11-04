@@ -4,7 +4,7 @@
 > - **PostgreSQL cài trên máy**: macOS dùng Homebrew qua `scripts/setup/postgres.sh`; Windows dùng bộ cài EDB rồi `scripts/setup/postgres.ps1` ([ADR 0015](../adr/0015-local-postgres-on-host.md), [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)).
 > - Linux (Docker Engine, PostgreSQL cài bằng apt) có hướng dẫn ở mục 2.1, 2.2 nhưng ngoài phạm vi hỗ trợ chính thức.
 > - **Django API chạy trên máy** bằng `uv run`; worker, beat, relay, Redis, Mailpit chạy bằng **Docker Compose**.
-> - Trên máy cần Docker, `uv` ≥ 0.13 (tự tải Python 3.14 theo `backend/.python-version`), `git`, `make`. Windows không dùng WSL2.
+> - Trên máy cần Docker, `uv` ≥ 0.13 (tự tải Python 3.14 theo `.python-version`), `git`, `make`. Windows không dùng WSL2.
 
 ## 1. Tổng quan
 
@@ -12,10 +12,10 @@
 |---|---|---|
 | PostgreSQL (bản major mới nhất) | Cài trên máy: Homebrew (macOS), bộ cài EDB (Windows). Container gọi qua `host.docker.internal` | macOS: 5432, hoặc cổng trống kế tiếp nếu 5432 đang bận; Windows: cổng chọn lúc cài EDB (mặc định 5432). Ghi vào `PG_PORT` |
 | Django API | Trên máy (`make run`), gọi các thành phần khác qua `localhost`; sửa code tự reload | 8000 |
-| Celery worker, Celery Beat, Outbox relay | Docker, bind mount `backend/`, gọi Redis/Mailpit theo tên service; sửa code xong chạy `make restart-worker` | — |
+| Celery worker, Celery Beat, Outbox relay | Docker, bind mount gốc repo, gọi Redis/Mailpit theo tên service; sửa code xong chạy `make restart-worker` | — |
 | Redis (Valkey 8, cùng bản với ElastiCache) | Docker | 6380 trên máy (`REDIS_PORT`), 6379 trong mạng Compose |
 | Mailpit | Docker | 1025 (SMTP), 8025 (giao diện xem mail) |
-| Ảnh Sản phẩm | Ổ đĩa, thư mục `backend/media/` | — |
+| Ảnh Sản phẩm | Ổ đĩa, thư mục `media/` | — |
 | VNPay, MoMo | Fake Gateway trong Django | — |
 | GHN | Fake, hoặc sandbox thật (gọi ra được từ local) | — |
 
@@ -58,7 +58,7 @@ PostgreSQL cài trên máy, không chạy trong Docker. Cài cách nào cũng ph
 
 - Role `fashion` (mật khẩu `fashion`, `LOGIN CREATEDB`) sở hữu database `fashion`. `CREATEDB` để pytest-django tự tạo/xoá database test (`test_fashion`, `test_fashion_gw0`, `test_fashion_gw1`… khi chạy song song).
 - `unaccent`, `pg_trgm`, `btree_gist` **có sẵn để cài** (có trong `pg_available_extensions`). **Migration** tạo extension, giống CI và RDS; cả ba là trusted extension (từ PostgreSQL 13) nên chủ database tự tạo được, không cần superuser.
-- `DATABASE_URL` và `PG_PORT` chép vào `backend/.env` (mục 2.3).
+- `DATABASE_URL` và `PG_PORT` chép vào `.env` (mục 2.3).
 
 #### macOS
 
@@ -148,7 +148,7 @@ Kiểm lại bằng 3.5; lần bật máy sau vẫn phải thấy hai dòng. N�
 
 ### 2.3. Biến môi trường
 
-Từ gốc repo: `cd backend && cp .env.example .env`.
+Từ gốc repo: `cp .env.example .env`.
 
 - Mỗi biến được khai báo trong `config/env.py` ở mốc đầu tiên dùng tới nó ([roadmap](../../.scratch/mvp-roadmap/map.md)); `.env.example` chỉ chứa biến đã khai báo.
 - Thiếu biến bắt buộc thì Django dừng ngay lúc khởi động và báo tên biến.
@@ -169,7 +169,7 @@ STOREFRONT_ORIGIN=http://localhost:3000
 BFF_SHARED_SECRET=local-bff-secret
 
 # Từ M1 (đăng nhập, JWT, refresh)
-JWT_SIGNING_KEYS=                                         # kid|private-key-base64|public-key-base64, nhiều khoá cách nhau bằng dấu phẩy; khoá đầu (phải có private) ký token mới, mọi public key dùng verify; key Ed25519 tạo riêng cho máy, không commit. `check --deploy` từ chối keyring rỗng (shared.E002)
+JWT_SIGNING_KEYS=                                         # kid|private-key-base64|public-key-base64, nhiều khoá cách nhau bằng dấu phẩy; khoá đầu (phải có private) ký token mới, mọi public key dùng verify; key Ed25519 tạo riêng cho máy, không commit. `check --deploy` từ chối keyring rỗng (common.E002)
 JWT_ISSUER=fashion-store
 JWT_AUDIENCE_BACKOFFICE=backoffice
 JWT_ACCESS_TTL_SECONDS=600                                # số dương
@@ -196,7 +196,7 @@ GOOGLE_OAUTH_CLIENT_ID=
 - `BFF_SHARED_SECRET` phải trùng giá trị ở Next.js local. Next.js gửi nó trong `X-BFF-Secret` kèm `X-Client-IP`; Django chỉ tin `X-Client-IP` khi secret đúng và IP là IPv4/IPv6 hợp lệ ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)). Nhận 1 hoặc 2 secret cách nhau dấu phẩy (2 khi đang xoay, [05 mục 5](./05-auth-security.md)); rỗng hoặc hơn 2 thì Django dừng lúc khởi động. Gọi thẳng `localhost:8000` (Swagger UI, `curl`) vẫn chạy, chỉ là throttle tính theo IP máy gọi.
 - `STOREFRONT_ORIGIN` chỉ là origin tin cậy, không kèm path/query/userinfo; payment return path do backend cố định.
 
-Từ M1, sinh khoá JWT và khoá RefreshReplay (độc lập JWT) cho local, chạy từ `backend/`, mọi shell đều được (`cryptography` có từ M1):
+Từ M1, sinh khoá JWT và khoá RefreshReplay (độc lập JWT) cho local, chạy từ gốc repo, mọi shell đều được (`cryptography` có từ M1):
 
 ```bash
 uv run python -c "from pathlib import Path; from cryptography.hazmat.primitives import serialization as s; from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey; Path('.secrets').mkdir(exist_ok=True); Path('.secrets/jwt_ed25519.pem').open('xb').write(Ed25519PrivateKey.generate().private_bytes(s.Encoding.PEM, s.PrivateFormat.PKCS8, s.NoEncryption()))"
@@ -208,11 +208,11 @@ uv run python -c "from pathlib import Path; import secrets; Path('.secrets').mkd
 
 ### 2.4. Chạy
 
-Lần đầu, sau mục 2.2 và 2.3, chạy từ `backend/`. Cột "Có từ" như mục 3: chưa tới mốc thì chưa dùng được.
+Lần đầu, sau mục 2.2 và 2.3, chạy từ gốc repo. Cột "Có từ" như mục 3: chưa tới mốc thì chưa dùng được.
 
 | Bước | Lệnh | Làm gì | Có từ |
 |---|---|---|---|
-| 1 | `uv sync` | Tạo `backend/.venv` với Python 3.14 và dependency (cả nhóm dev) | M0 (ticket 07) |
+| 1 | `uv sync` | Tạo `.venv` với Python 3.14 và dependency (cả nhóm dev) | M0 (ticket 07) |
 | 2 | `uv run pre-commit install` | Cài hook `pre-commit` và `commit-msg` vào `.git/hooks`, một lần cho mỗi bản clone ([11](./11-git-workflow.md) mục 3.4) | M0 (ticket 07) |
 | 3 | `make up` | `docker compose up -d --build`; service `migrate` chạy migration và `sync_beat_schedule` trước khi worker, beat, relay khởi động (mục 7) | M0 (ticket 15) |
 | 4 | `make load-geo` | Xem mục 3 | M0 (ticket 17) |
@@ -250,26 +250,26 @@ Không có Django Admin ([ADR 0004](../adr/0004-custom-nextjs-admin.md)). Xem d�
 | `make shell` | `manage.py shell` chạy trên máy | M0 (ticket 15) |
 | `make makemigrations` / `make migrate` | Tạo / chạy migration; `make migrate` chạy thêm `manage.py sync_beat_schedule` để ghi lịch job vào DB ([07](./07-async-events-jobs.md) mục 3.2) | M0 (ticket 15) |
 | `make db-reset` | Xoá và tạo lại database `fashion` (`manage.py reset_db`, chỉ chạy khi `DEBUG` bật, host là `localhost` và server nghe ở loopback) rồi `make migrate` (mục 2.2) | M0 (ticket 15) |
-| `make test` | `pytest -n auto --cov=modules --cov=shared --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
+| `make test` | `pytest -n auto --cov=apps --cov=common --cov=infrastructure --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
 | `make lint` | `ruff check`, `ruff format --check`, `mypy`, `scripts/gen_importlinter.py --check` (contract `forbidden` trong `pyproject.toml` không lệch với generator), `lint-imports`, `scripts/gen_openapi.py --check` (`openapi.yaml` không lệch với code, operation đủ chú thích theo [04](./04-api-contract.md) mục 5.6); cùng thứ tự với bước Lint của job `backend` trong CI | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04; `gen_openapi.py --check` từ ticket 03) |
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
 | `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`; cách nhập ở mục 2.4) | M0 (ticket 12) |
-| `make openapi` | Sinh lại `backend/openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
+| `make openapi` | Sinh lại `openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
 | `make br-report` | Liệt kê các mã `BR-xxx` trong `docs/business/04-business-rules.md` chưa có test gắn marker `br` ([12](./12-testing-strategy.md) mục 3) | M0 (ticket 02) |
 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu, Voucher mẫu | M1 (Voucher mẫu từ M2) |
 | `make tunnel` | Mở Cloudflare Tunnel để nghiệm thu với sandbox ([06](./06-integrations.md) mục 8) | M7 |
 
 ### 3.1. Lệnh không qua `make`
 
-Chạy từ `backend/`, dùng được từ M0 (ticket 07). `pre-commit install`, `healthz`/`readyz`: mục 2.4; script PostgreSQL: mục 2.2.
+Chạy từ gốc repo, dùng được từ M0 (ticket 07). `pre-commit install`, `healthz`/`readyz`: mục 2.4; script PostgreSQL: mục 2.2.
 
 | Lệnh | Làm gì |
 |---|---|
 | `uv sync` | Cập nhật `.venv` theo `uv.lock`, ví dụ sau khi `git pull` có đổi dependency |
 | `uv sync --locked` | Như CI: báo lỗi nếu `uv.lock` lệch `pyproject.toml` |
 | `uv run pytest <file>` / `uv run pytest <file>::<tên_test>` | Chạy một file hoặc một test; thêm `-x` để dừng ở test lỗi đầu tiên |
-| `uv run python manage.py check` | System check của Django và dự án (`shared/checks.py`); thêm `--deploy --settings=config.settings.production` để kiểm cấu hình bảo mật production (giá trị local sẽ có cảnh báo: secret ngắn, `ALLOWED_HOSTS` rỗng) |
+| `uv run python manage.py check` | System check của Django và dự án (`common/checks.py`); thêm `--deploy --settings=config.settings.production` để kiểm cấu hình bảo mật production (giá trị local sẽ có cảnh báo: secret ngắn, `ALLOWED_HOSTS` rỗng) |
 | `uv run python manage.py <lệnh>` | `showmigrations`, `sqlmigrate`, `dbshell`… |
 | `uv run pip-audit --strict` | Quét lỗ hổng dependency như job `backend` của CI; gọi mạng nên không gộp vào `make lint` |
 | `uv run pre-commit run --all-files` | Chạy mọi hook trên toàn repo, ví dụ sau khi đổi `.pre-commit-config.yaml` |
@@ -286,7 +286,7 @@ Lệnh release (`cz bump`, `cz changelog`) xem [11 mục 5.3](./11-git-workflow.
 - Database `test_fashion` do pytest-django tạo trên PostgreSQL của máy, mỗi worker `pytest-xdist` một database. Không dùng SQLite, để giống production (`select_for_update`, `EXCLUDE`, `unaccent`).
 - Celery chạy đồng bộ; API bên ngoài dùng Fake hoặc `respx`; cố định thời gian bằng `time-machine`.
 - Chạy trên máy bằng `make test`, không cần ghi đè biến nào (`.env` đã trỏ về `localhost`).
-- `make test` đo branch coverage (`[tool.coverage.run] branch = true`) rồi chạy cổng riêng từng module: dưới 80% ở `services/` + `handlers.py` của một module, hoặc ở nhóm hạ tầng `shared`, thì lỗi ([12](./12-testing-strategy.md) mục 8). `uv run pytest <file>` không đo coverage, không qua cổng.
+- `make test` đo branch coverage (`[tool.coverage.run] branch = true`) rồi chạy cổng riêng từng module: dưới 80% ở `services/` + `handlers.py` của một module, hoặc ở nhóm hạ tầng `common`, thì lỗi ([12](./12-testing-strategy.md) mục 8). `uv run pytest <file>` không đo coverage, không qua cổng.
 
 ## 6. Cấu hình IDE dùng chung
 
@@ -297,32 +297,32 @@ Team dùng **VS Code** và **PyCharm**. Repo commit cấu hình chung để clon
 | VS Code | `.vscode/launch.json` | "Django (local)": chạy `manage.py runserver` bằng interpreter `.venv`; "Pytest (local)": chạy test bằng interpreter `.venv` |
 | VS Code | `.vscode/extensions.json` | Extension khuyến nghị: Python, Pylance, Python Debugger, Ruff, Mypy Type Checker, Docker, EditorConfig, Mermaid preview |
 | PyCharm | `.run/*.run.xml` | Run configuration lưu dạng file dự án: "Pytest" (đã có), "Django server" (thêm ở ticket 15) |
-| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `backend/.venv` và coi `backend/` là gốc import (`config`, `shared`, `modules`), không cần chọn interpreter tay |
+| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `.venv` và coi gốc repo là gốc import (`config`, `common`, `infrastructure`, `apps`), không cần chọn interpreter tay |
 | Cả hai | `.editorconfig` | Thụt lề 4 dấu cách cho Python, 2 cho YAML/JSON/TOML; LF; UTF-8; xoá khoảng trắng cuối dòng |
 
-Interpreter của cả hai IDE là `backend/.venv` (tạo bằng `uv sync`; Windows: `backend/.venv/Scripts/python.exe`, macOS: `backend/.venv/bin/python`). Chỉ chạy `uv` trong `backend/`, không ở gốc repo, để không sinh `.venv` thứ hai khiến Pylance chọn nhầm (`reportMissingImports` cho mọi thư viện).
+Interpreter của cả hai IDE là `.venv` (tạo bằng `uv sync`; Windows: `.venv/Scripts/python.exe`, macOS: `.venv/bin/python`). Chỉ chạy `uv` ở gốc repo, không ở thư mục con, để không sinh `.venv` thứ hai khiến Pylance chọn nhầm (`reportMissingImports` cho mọi thư viện).
 
 ### 6.1. VS Code
 
-- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `backend/.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `backend/.venv`, rồi *Python: Restart Language Server*.
-- Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong `backend/` sẽ dừng đúng chỗ.
+- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `.venv`, rồi *Python: Restart Language Server*.
+- Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong code sẽ dừng đúng chỗ.
 
 ### 6.2. PyCharm
 
-- Interpreter: `backend/.venv` (Add Interpreter → Existing). Chạy/debug Django bằng "Django server". Không cần PyCharm Professional.
-- `backend/` là Sources Root (để import `config`, `shared`, `modules`), `backend/tests` là Test Sources Root.
+- Interpreter: `.venv` (Add Interpreter → Existing). Chạy/debug Django bằng "Django server". Không cần PyCharm Professional.
+- Gốc repo là Sources Root (để import `config`, `common`, `infrastructure`, `apps`), `tests` là Test Sources Root.
 
 Cấu hình sau nằm trong `.idea/` nên không commit; mỗi máy làm một lần:
 
-- Django support (Settings → Languages & Frameworks → Django): Enable, project root `backend`, Settings `config/settings/local.py`, Manage script `backend/manage.py`; tick "Do not use Django test runner" (test dùng pytest-django). Có thêm Run manage.py Task (`Ctrl+Alt+R`), Endpoints, gợi ý `settings.*`, model, tên URL.
+- Django support (Settings → Languages & Frameworks → Django): Enable, project root là gốc repo, Settings `config/settings/local.py`, Manage script `manage.py`; tick "Do not use Django test runner" (test dùng pytest-django). Có thêm Run manage.py Task (`Ctrl+Alt+R`), Endpoints, gợi ý `settings.*`, model, tên URL.
 - Database (Database → + → Data Source → PostgreSQL): host `localhost`, cổng `PG_PORT`, còn lại lấy từ `DATABASE_URL` (mục 2.3). Mật khẩu chỉ lưu trong `.idea/`.
-- Ruff (Settings → Python → Tools → Ruff): Enable, tick Formatting và Sort imports; dùng `ruff` của `backend/.venv` và `[tool.ruff]` trong `pyproject.toml`.
-- Plugin Makefile Language (Marketplace) để chạy target của `backend/Makefile`; plugin khác cần (Docker, .env, Markdown, Mermaid, TOML, YAML) có sẵn.
+- Ruff (Settings → Python → Tools → Ruff): Enable, tick Formatting và Sort imports; dùng `ruff` của `.venv` và `[tool.ruff]` trong `pyproject.toml`.
+- Plugin Makefile Language (Marketplace) để chạy target của `Makefile`; plugin khác cần (Docker, .env, Markdown, Mermaid, TOML, YAML) có sẵn.
 
 ## 7. `docker-compose.yml` (rút gọn)
 
 ```yaml
-name: fashion   # tên project cố định; mặc định là tên thư mục (backend), dễ trùng container của project khác
+name: fashion   # tên project cố định; mặc định là tên thư mục repo, dễ trùng container của project khác
 
 x-container-env: &container-env
   # .env viết cho máy (mục 2.3); trong container, localhost là chính container
@@ -367,8 +367,8 @@ services:
 ```
 
 - Image ghim tới bản vá, chỉ chọn bản đã phát hành ít nhất 7 ngày (như cooldown của Dependabot).
-- `Dockerfile` dựng một image cho `migrate`, `worker`, `beat`, `relay`: từ `python:3.14.<vá>-slim`, `uv` chép từ `ghcr.io/astral-sh/uv`, `uv sync --locked --no-build --no-dev` vào `/opt/venv` (ngoài `/app`, để bind mount `backend/` không đè `.venv` của máy lên venv container), chạy bằng user `app` không phải root.
-- Image chép tường minh `manage.py`, `config/`, `shared/`, `modules/` (không `COPY . .`) để chạy được khi không bind mount mà không lọt file nhạy cảm; `.dockerignore` giữ `.env`, `.venv` ngoài build context.
+- `Dockerfile` dựng một image cho `migrate`, `worker`, `beat`, `relay`: từ `python:3.14.<vá>-slim`, `uv` chép từ `ghcr.io/astral-sh/uv`, `uv sync --locked --no-build --no-dev` vào `/opt/venv` (ngoài `/app`, để bind mount gốc repo không đè `.venv` của máy lên venv container), chạy bằng user `app` không phải root.
+- Image chép tường minh `manage.py`, `config/`, `common/`, `infrastructure/`, `apps/` (không `COPY . .`) để chạy được khi không bind mount mà không lọt file nhạy cảm; `.dockerignore` giữ `.env`, `.venv` ngoài build context.
 - Không có service `postgres` ([ADR 0015](../adr/0015-local-postgres-on-host.md)) hay `api` (API chạy bằng `make run`, [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). `REDIS_PORT` đọc từ `.env`.
 - `migrate` chạy một lần rồi thoát; `worker`, `beat`, `relay` chỉ khởi động khi nó thoát thành công, nên DB trống không làm `beat`/`relay` lỗi liên tục. Migration lỗi thì `make up` dừng ở đây; xem bằng `make logs s=migrate`.
 - Service `relay` có từ ticket 10 của M0, cùng lúc với lệnh `run_outbox_relay`.

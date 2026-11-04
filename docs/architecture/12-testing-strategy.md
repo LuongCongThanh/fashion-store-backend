@@ -10,7 +10,7 @@ Quy ước viết code test (factory, mock, thời gian) nằm ở [13-python-dj
 - Chỉ giả lập **hệ thống bên ngoài**: Fake Gateway cho thanh toán và vận chuyển ([ADR 0005](../adr/0005-provider-adapters-fake-gateways.md)), `respx` cho `httpx`.
 - `settings/test.py` bật `FAKE_PROVIDERS_ENABLED=true` (cùng cờ với local) cho Fake Gateway và `FakeShippingProvider`, nên flow test gọi được trang và endpoint IPN của Fake Gateway. CI không gọi sandbox thật VNPay, MoMo, GHN (mục 7).
 - Celery chạy đồng bộ (`CELERY_TASK_ALWAYS_EAGER=True` trong `settings/test.py`); thời gian cố định bằng `time-machine`.
-- Transaction của test không bao giờ commit: task đẩy bằng `shared.tasks.enqueue_on_commit` không tự chạy, relay (tiến trình riêng) không tự gửi sự kiện. Test service cần task chạy dùng `django_capture_on_commit_callbacks(execute=True)`; flow test dùng `drain_events()` (mục 2.7).
+- Transaction của test không bao giờ commit: task đẩy bằng `common.tasks.enqueue_on_commit` không tự chạy, relay (tiến trình riêng) không tự gửi sự kiện. Test service cần task chạy dùng `django_capture_on_commit_callbacks(execute=True)`; flow test dùng `drain_events()` (mục 2.7).
 - Nghiệp vụ test ở tầng **service**; tầng API chỉ test phần thuộc HTTP, không test lại nghiệp vụ.
 - Repo là public: dữ liệu mẫu phải là giá trị giả rõ ràng ([11-git-workflow.md](./11-git-workflow.md) mục 8).
 
@@ -70,7 +70,7 @@ Selector tìm Sản phẩm (BR-CAT-13, PostgreSQL thật):
 | Kiểm kê (BR-INV-12) | Tồn kho 7, Hàng chờ xuất 3, số đếm 10 → không điều chỉnh; số đếm 9 → điều chỉnh −1 loại `stock_count` |
 | Điều chỉnh giảm vượt Số lượng bán được (BR-INV-11) | Ném `INSUFFICIENT_AVAILABLE`; Tồn kho không đổi |
 | Giữ hàng quá `expires_at` nhưng job chưa giải phóng | `reserve_stock` của Người mua khác thành công; Giữ hàng cũ `released`, `reserved` giảm tương ứng |
-| Job T4 khi `shared.events.delivery_lag()` quá 60 giây | Không huỷ đơn, log `cancel_skipped_delivery_backlog`; hết tồn đọng thì lượt sau huỷ bình thường. Bỏ lượt liên tục quá 15 phút → cảnh báo `cancel_skipped_too_long`, vẫn không huỷ |
+| Job T4 khi `common.events.delivery_lag()` quá 60 giây | Không huỷ đơn, log `cancel_skipped_delivery_backlog`; hết tồn đọng thì lượt sau huỷ bình thường. Bỏ lượt liên tục quá 15 phút → cảnh báo `cancel_skipped_too_long`, vẫn không huỷ |
 | Bắt đầu Thanh toán online ở phút 6:59 và phút 7:00 kể từ khi đặt đơn (BR-INV-05) | 6:59 tạo được Thanh toán; 7:00 ném `PaymentWindowClosed` (`PAYMENT_WINDOW_CLOSED`) |
 | `raise_flag` khi đơn đã có cờ cùng `kind` đang mở | Không tạo cờ thứ hai, `note` được nối thêm |
 | `placed_at`, `cancelled_at`, `completed_at` | Ghi đúng ở transition tương ứng (T2/T3, T4/T5/T7/T9/T14, T13); báo cáo Doanh thu lọc theo `completed_at` (BR-REV-01) |
@@ -137,7 +137,7 @@ Bắt buộc có các test handler sau:
 - **`X-Lookup-Token`**: `GET orders/{code}`, `POST orders/{code}/payments`, `POST orders/{code}/cancel` của Khách vãng lai bị từ chối khi thiếu token, token hết hạn hoặc của đơn khác. `lookup_token` trả từ checkout của Khách vãng lai dùng được ngay cho ba endpoint này.
 - JWT, BFF, cache auth: [05](./05-auth-security.md) mục 9. ACK webhook, khởi tạo thanh toán, gọi HTTP ngoài transaction: [06](./06-integrations.md) mục 9.
 - **Lỗi**: đúng mã HTTP và định dạng lỗi chuẩn (400, 401, 403, 404, 409, 429), gồm `409 PRICE_CHANGED` (bảng tính mới trong `details`) và `409 SHIPMENT_IN_PROGRESS`.
-- **`Idempotency-Key`** cho `checkout`, `orders/{code}/payments`, `stock/inbound`, `stock/adjust`, `stock/count`: thiếu key; cùng key trả đúng kết quả cũ; cùng key khác body ra `IDEMPOTENCY_CONFLICT`. Key lưu ở `shared_idempotency_key` (PostgreSQL), nên vẫn đúng khi Redis không chạy.
+- **`Idempotency-Key`** cho `checkout`, `orders/{code}/payments`, `stock/inbound`, `stock/adjust`, `stock/count`: thiếu key; cùng key trả đúng kết quả cũ; cùng key khác body ra `IDEMPOTENCY_CONFLICT`. Key lưu ở `common_idempotency_key` (PostgreSQL), nên vẫn đúng khi Redis không chạy.
 - **Còn xử lý:** hai request đồng thời cùng key chỉ có một operation_id/Payment, request kia nhận 202 PAYMENT_INITIALIZING. Khác body luôn 409, kể cả key in_progress. Purge không xoá key chưa rõ kết quả. Checkout commit kết quả key cùng Order; rollback không để Order mồ côi.
 - **Throttle**: endpoint throttle chặt (ví dụ `orders/lookup`) trả `429` khi vượt ngưỡng. Chỉ throttle theo `X-Client-IP` khi `X-BFF-Secret` đúng; thiếu/sai secret thì throttle theo IP kết nối ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)).
 - **Redis lỗi**: cache và throttle fail-open, request vẫn xử lý ([10-nfr.md](./10-nfr.md) mục 2).
@@ -377,12 +377,12 @@ Data migration test từ state ngay trước migration sang state cần kiểm:
 ```python
 @pytest.mark.django_db(transaction=True)
 def test_shipping_settings_data_migration(migrator: Migrator) -> None:
-    before = migrator.apply_initial_migration(("modules", "0008_create_shipping_settings"))
-    OldSettings = before.apps.get_model("modules", "ShippingSettings")
+    before = migrator.apply_initial_migration(("shipping", "0008_create_shipping_settings"))
+    OldSettings = before.apps.get_model("shipping", "ShippingSettings")
     assert not OldSettings.objects.exists()
 
-    after = migrator.apply_tested_migration(("modules", "0009_seed_shipping_settings"))
-    ShippingSettings = after.apps.get_model("modules", "ShippingSettings")
+    after = migrator.apply_tested_migration(("shipping", "0009_seed_shipping_settings"))
+    ShippingSettings = after.apps.get_model("shipping", "ShippingSettings")
     settings = ShippingSettings.objects.get(singleton=1)
 
     assert settings.fallback_fee == 35_000
@@ -421,14 +421,14 @@ Khai báo trong `pyproject.toml` (`--strict-markers`):
 
 ## 5. Hợp đồng API với frontend (OpenAPI)
 
-- Schema commit tại `backend/openapi.yaml`, đọc qua Swagger UI. Frontend chưa sinh TS client, nên `operationId` để drf-spectacular tự sinh; mở ticket đặt tên khi chuyển sang sinh client.
+- Schema commit tại `openapi.yaml`, đọc qua Swagger UI. Frontend chưa sinh TS client, nên `operationId` để drf-spectacular tự sinh; mở ticket đặt tên khi chuyển sang sinh client.
 - `make openapi` sinh lại bằng `scripts/gen_openapi.py`: gọi `manage.py spectacular --validate --fail-on-warn` với `config.settings.test` khi chưa đặt `DJANGO_SETTINGS_MODULE` (cùng settings với CI). Cần `--fail-on-warn` vì warning (serializer không đoán được, enum trùng tên) làm schema thiếu mà lệnh vẫn exit 0.
 - `scripts/gen_openapi.py --check` chạy trong `make lint` và bước Lint của CI (mục 8), exit 1 khi:
   - schema sai chuẩn OpenAPI hoặc có warning;
   - luật chú thích (hàm thuần `quality_violations` trên schema vừa render, chạy trước bước so drift) thấy operation dưới `/api/v1/` thiếu `summary`, ví dụ request/2xx, ví dụ `ErrorDTO` cho lỗi tự khai, tag sai dạng hoặc chữ tiếng Việt có dấu; in `<operationId>: <thiếu gì>` ([04](./04-api-contract.md) mục 5.6);
   - file đã commit lệch với code: in diff, nhắc chạy `make openapi`.
-- Đổi API thì chạy `make openapi` và commit `backend/openapi.yaml` cùng PR, để mọi thay đổi API hiện trong diff.
-- `backend/openapi.yaml` là file sinh, không sửa tay. Hook pre-commit `trailing-whitespace`, `end-of-file-fixer` bỏ qua nó để không lệch output generator; SonarCloud cũng bỏ qua (`.sonarcloud.properties`), issue báo ở code Python sinh ra nó.
+- Đổi API thì chạy `make openapi` và commit `openapi.yaml` cùng PR, để mọi thay đổi API hiện trong diff.
+- `openapi.yaml` là file sinh, không sửa tay. Hook pre-commit `trailing-whitespace`, `end-of-file-fixer` bỏ qua nó để không lệch output generator; SonarCloud cũng bỏ qua (`.sonarcloud.properties`), issue báo ở code Python sinh ra nó.
 - Chưa dùng `oasdiff` phát hiện breaking change: reviewer tự đọc diff; xoá field hay endpoint phải nêu rõ và báo frontend.
 
 ## 6. Migration
@@ -449,18 +449,17 @@ Job `backend` trong `.github/workflows/ci.yml`:
 |---|---|
 | `ruff check`, `ruff format --check` | Không lỗi |
 | `mypy` | Không lỗi (`--strict` cho `services`, `selectors`, `contracts`) |
-| `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp cây `modules/`; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 6) |
+| `python scripts/gen_importlinter.py --check` | Vùng contract `forbidden` sinh tự động trong `pyproject.toml` khớp cây `apps/`; sửa tay hoặc quên sinh lại thì exit 1 kèm diff ([02](./02-backend-structure.md) mục 6) |
 | `lint-imports` | Không vi phạm ranh giới module, kể cả quy tắc factory (mục 4) |
-| `python scripts/gen_openapi.py --check` | `backend/openapi.yaml` khớp code, schema hợp lệ, không warning, mọi operation `/api/v1/` đủ chú thích (mục 5) |
-| `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`: `pytest -n auto --cov=modules --cov=shared --cov-report=` (`pytest-cov` gom coverage từ worker `pytest-xdist`) |
+| `python scripts/gen_openapi.py --check` | `openapi.yaml` khớp code, schema hợp lệ, không warning, mọi operation `/api/v1/` đủ chú thích (mục 5) |
+| `pytest` | Toàn bộ test qua, kể cả `concurrency` và `flow`: `pytest -n auto --cov=apps --cov=common --cov=infrastructure --cov-report=` (`pytest-cov` gom coverage từ worker `pytest-xdist`) |
 | Coverage | `python scripts/check_module_coverage.py` ≥ 80% **branch coverage riêng** (`[tool.coverage.run] branch = true`) cho từng nhóm, chi tiết bên dưới |
 | `pip-audit` | Không có lỗ hổng |
 
 Cổng coverage:
 
-- Nhóm: `modules/<module>/services/**/*.py` + `modules/<module>/handlers.py` của **từng module**; hạ tầng `shared/events/**/*.py`, `shared/idempotency/**/*.py` (bỏ thư mục `tests`) và `shared/tasks.py` là một nhóm riêng.
-- Thư mục Django app ở gốc `modules/` (`management`, `migrations`, `templates`, ADR 0006) không phải module.
-- Không tính `shared/geo`, `shared/health` và phần định dạng của `shared/api` (ít nhánh nghiệp vụ). **Không** đặt ngưỡng toàn repo, để không ai viết test chỉ để lấp số.
+- Nhóm: `apps/<module>/services/**/*.py` + `apps/<module>/handlers.py` của **từng module**; hạ tầng `common/events/**/*.py`, `common/idempotency/**/*.py` (bỏ thư mục `tests`) và `common/tasks.py` là một nhóm riêng.
+- Không tính `apps/geo`, `common/observability` và phần định dạng của `common/api` (ít nhánh nghiệp vụ). **Không** đặt ngưỡng toàn repo, để không ai viết test chỉ để lấp số.
 - Script đọc dữ liệu và cấu hình coverage của project (`COVERAGE_FILE`, `[tool.coverage]` trong `pyproject.toml`, mặc định `.coverage`) qua API public `Coverage.branch_stats`, cộng nhánh đã chạy/tổng nhánh theo nhóm, so số nguyên với 80%; không dùng tỷ lệ gộp dòng + nhánh của `coverage report --fail-under`.
 - Module chưa có target bị bỏ qua; target không có nhánh được báo rõ và qua; file chưa chạy vẫn được phân tích. Thiếu dữ liệu hoặc chỉ đo statement là lỗi.
 

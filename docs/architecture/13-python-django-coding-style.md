@@ -1,6 +1,6 @@
 # 13. Coding style Python/Django
 
-Cẩm nang tổng hợp cách viết code Python/Django cho toàn bộ `backend/`: code production, migration,
+Cẩm nang tổng hợp cách viết code Python/Django cho toàn bộ repo: code production, migration,
 management command và test. Quy ước TypeScript/Next.js chỉ bổ sung sau khi frontend được bootstrap và có
 cấu hình lint/format thực tế.
 
@@ -12,7 +12,7 @@ Mức độ quy tắc:
 
 | Loại quy tắc | Nguồn sở hữu |
 |---|---|
-| Rule máy kiểm được | `backend/pyproject.toml`, `.editorconfig`, `.pre-commit-config.yaml`, `backend/Makefile` |
+| Rule máy kiểm được | `pyproject.toml`, `.editorconfig`, `.pre-commit-config.yaml`, `Makefile` |
 | Design constraint | Tài liệu architecture và ADR được dẫn chiếu tại từng mục |
 | Convention không tự động kiểm | Tài liệu này |
 
@@ -41,7 +41,7 @@ Quy trình riêng cho AI agent nằm ở `CLAUDE.md`, không thuộc coding conv
 | Chuỗi hiển thị | Bọc `gettext` để hỗ trợ vi/en; không nhúng chuỗi hiển thị trực tiếp nếu cần dịch |
 | Chữ trên Swagger | `summary`, `description`, ví dụ trong `extend_schema` / `extend_schema_serializer` viết tiếng Anh, không bọc `gettext` (schema sinh giống nhau ở mọi máy); docstring của view và serializer không vào schema. Mỗi view mới có `summary` và ví dụ; xem [04](./04-api-contract.md) mục 5.6 |
 | Type hints | Mọi hàm trong `services`, `selectors`, `contracts` có type hints đầy đủ; dùng `list[X]`, `X \| None`, không dùng `List`, `Optional` |
-| Tiền | DB dùng `BigIntegerField` theo đồng VND; code dùng `shared.money.Money`; API trả object gồm `amount` và `currency` |
+| Tiền | DB dùng `BigIntegerField` theo đồng VND; code dùng `common.money.Money`; API trả object gồm `amount` và `currency` |
 | Thời gian | Lưu UTC với `USE_TZ = True`, lấy giờ bằng `django.utils.timezone.now()`; hiển thị theo `Asia/Ho_Chi_Minh` |
 
 - Không dùng `Any` để né type checking khi biểu diễn được kiểu cụ thể.
@@ -56,7 +56,7 @@ Quy trình riêng cho AI agent nằm ở `CLAUDE.md`, không thuộc coding conv
   domain exception thuộc contract từ `exceptions.py`; ngoại lệ FK chốt trong
   [02](./02-backend-structure.md#5-giao-tiếp-giữa-module).
 - Không import trực tiếp `models`, `services`, `selectors` hoặc test factory nội bộ của module khác.
-- `shared` chỉ chứa hạ tầng dùng chung, không chứa nghiệp vụ riêng của một module.
+- `common` chỉ chứa hạ tầng dùng chung, không chứa nghiệp vụ riêng của một module.
 - Không tạo abstraction dùng chung khi mới có một use case; chỉ tách khi đã có trách nhiệm chung ổn định.
 - `import-linter` chỉ thực thi một phần các ranh giới trên; vẫn cần code review vì ORM traversal có thể
   vượt module mà không tạo import.
@@ -182,7 +182,7 @@ quy tắc hành vi của từng file.
   trước transaction khi kết quả được kiểm tra lại theo contract. Side effect bên ngoài phải được kích
   hoạt bền vững qua outbox/task sau commit, không gọi trực tiếp trước transaction.
 - Code nghiệp vụ không gọi `.delay()` hay `.apply_async()` trực tiếp. Dùng
-  `shared.tasks.enqueue_on_commit(...)`.
+  `common.tasks.enqueue_on_commit(...)`.
 - Tôn trọng thứ tự khoá đã chốt: checkout mới khoá Cart → StockItem theo `variant_id` → Variant theo `id`
   → Voucher; transition của Order đã tồn tại khoá Order trước rồi StockItem → Variant → Voucher.
 - Mọi cart mutation/merge khoá Cart theo `id` tăng dần và không lấy Cart sau StockItem.
@@ -216,7 +216,7 @@ Theo PEP 8: `snake_case` cho hàm, biến, module; `PascalCase` cho class; `UPPE
 | Celery task | `<module>.<snake_case>`, đặt cố định trên decorator | `shipping.create_shipment` |
 | File service/selector | Theo chủ đề nghiệp vụ, không theo tên model | `services/checkout.py` |
 | Test module | `test_<layer>_<topic>.py` | `test_services_checkout.py` |
-| Test xuyên module | Đặt trong `backend/tests/flows/` | `test_cod_checkout_flow.py` |
+| Test xuyên module | Đặt trong `tests/flows/` | `test_cod_checkout_flow.py` |
 
 Project chủ ý dùng `<verb>_<noun>`, khác `<entity>_<action>` của HackSoft Styleguide; không trộn hai cách.
 
@@ -240,7 +240,7 @@ Project chủ ý dùng `<verb>_<noun>`, khác `<entity>_<action>` của HackSoft
 ```python
 # ✅ Call site tự mô tả; không có mutable default.
 def reserve_stock(
-    *, order_id: UUID, lines: Sequence[StockLine], expires_at: datetime | None = None
+    *, reference: str, items: Sequence[StockLine], expires_at: datetime
 ) -> Reservation: ...
 def find_order_for_guest(*, order_code: str, email: str) -> Order | None: ...
 def list_orders_backoffice(*, status: OrderStatus | None = None) -> QuerySet[Order]: ...
@@ -312,17 +312,17 @@ class ShippingFeeCalculator:
 
 - Python 3.14, indent 4 space, UTF-8, LF, dòng tối đa 100 ký tự, nháy kép.
 - Chỉ dùng `ruff format`; không chạy Black, isort hoặc flake8 riêng.
-- Import theo nhóm stdlib → third-party → `config`, `shared`, `modules`; để Ruff sắp xếp.
+- Import theo nhóm stdlib → third-party → `config`, `common`, `infrastructure`, `apps`; để Ruff sắp xếp.
 - `ruff check` là lint chuẩn. Không tắt rule ở cấp file/project nếu lý do không áp dụng cho toàn phạm vi đó.
 - `mypy` với Django/DRF plugin là type checker chuẩn; service, selector và contract đạt mức strict cấu hình
-  trong `backend/pyproject.toml`.
+  trong `pyproject.toml`.
 - File không phải Python theo `.editorconfig` và pre-commit hooks. Project không dùng Prettier.
-- Không sửa tay vùng `# BEGIN gen_importlinter` trong `backend/pyproject.toml`; chạy generator ghi ở [02](./02-backend-structure.md#6-kiểm-tra-ranh-giới-bằng-import-linter).
+- Không sửa tay vùng `# BEGIN gen_importlinter` trong `pyproject.toml`; chạy generator ghi ở [02](./02-backend-structure.md#6-kiểm-tra-ranh-giới-bằng-import-linter).
 - `make fmt` tự sửa format; `make lint` là cổng kiểm tra, phải giữ cùng thứ tự với CI.
 
 ## 7. Django model và migration
 
-- Model nghiệp vụ do dự án sở hữu kế thừa `shared.models.BaseModel`, dùng UUID v7, không tự khai `id`.
+- Model nghiệp vụ do dự án sở hữu kế thừa `common.models.BaseModel`, dùng UUID v7, không tự khai `id`.
   Model địa giới, framework và audit/history dùng khoá riêng; xem [03](./03-data-model.md) và
   [ADR-0008](../adr/0008-uuid-v7-primary-keys.md).
 - `TextChoices` đặt ở cấp module; không tạo alias class chỉ khác hoa/thường với field (`Status` cạnh `status`).
@@ -375,7 +375,7 @@ Chiến lược, marker, coverage và CI gate nằm ở [12](./12-testing-strate
   flow test dùng `drain_events()`.
 - Trong `pytest.raises`, chỉ để một lời gọi có thể ném exception.
 - Assert dạng `actual == expected`; đặt kết quả thực vào biến khi biểu thức có thể gây hiểu nhầm.
-- Model test kế thừa `BaseModel` khai báo manager phù hợp để mypy không suy sai kiểu.
+- Model test kế thừa `common.models.BaseModel` khai báo manager phù hợp để mypy không suy sai kiểu.
 - Tên test mô tả hành vi quan sát được, không mô tả implementation.
 - Test độc lập thứ tự chạy, không phụ thuộc dữ liệu còn lại từ test khác.
 
@@ -402,13 +402,13 @@ của module. View mỏng gọi service: xem ví dụ ở mục 3.1.
 
 ```python
 # ✅ `ordering` gọi public API của `inventory`.
-from modules.inventory.contracts import reserve_stock
+from apps.inventory.contracts import reserve_stock
 
-reservation = reserve_stock(lines=stock_lines, expires_at=expires_at)
+reservation = reserve_stock(reference=order.code, items=stock_lines, expires_at=order.expires_at)
 
 # ❌ Import model/service nội bộ của module khác hoặc traversal ORM qua quan hệ của nó.
-from modules.inventory.models import StockItem
-from modules.inventory.services.reservations import create_reservation
+from apps.inventory.models import StockItem
+from apps.inventory.services.reservations import create_reservation
 
 stock = StockItem.objects.select_for_update().get(variant_id=variant_id)
 shipment__provider__status = order.shipment.provider.status
@@ -441,7 +441,7 @@ with transaction.atomic():
 
 ```python
 # ✅
-class Order(BaseModel):
+class Order(common.models.BaseModel):
     status = models.CharField(max_length=32, choices=OrderStatus.choices)
 
     class Meta:
@@ -475,7 +475,9 @@ status = models.CharField(max_length=32, default=OrderStatus.PENDING)
 
 ```python
 # ✅
-def reserve_stock(*, order_id: UUID, lines: list[StockLine]) -> Reservation:
+def reserve_stock(
+    *, reference: str, items: Sequence[StockLine], expires_at: datetime
+) -> Reservation:
     """Giữ Tồn kho cho Đơn thanh toán online.
 
     Áp dụng BR-INV-05. Các StockItem phải được khoá theo `variant_id` tăng dần để mọi
@@ -487,14 +489,14 @@ def reserve_stock(*, order_id: UUID, lines: list[StockLine]) -> Reservation:
 
 
 # ❌ Docstring lặp type hints, comment diễn giải code.
-def reserve_stock(order_id, lines):
+def reserve_stock(reference, items, expires_at):
     """Reserve stock.
 
     Args:
-        order_id: The order id.
+        reference: The reference.
     """
-    # Loop through every line.
-    for line in lines: ...
+    # Loop through every item.
+    for item in items: ...
 ```
 
 ### 11.5. Test một hành vi, một nguyên nhân thất bại
@@ -503,10 +505,12 @@ def reserve_stock(order_id, lines):
 # ✅
 @pytest.mark.br("BR-INV-05")
 def test_reserve_stock_rejects_quantity_above_available(stock_item: StockItem) -> None:
-    requested_quantity = stock_item.available_quantity + 1
+    quantity = stock_item.available_quantity + 1
+    items = [StockLine(variant_id=stock_item.variant_id, quantity=quantity)]
+    expires_at = timezone.now() + timedelta(minutes=15)
 
     with pytest.raises(OutOfStock):
-        reserve_stock(variant_id=stock_item.variant_id, quantity=requested_quantity)
+        reserve_stock(reference="FS0001", items=items, expires_at=expires_at)
 
     stock_item.refresh_from_db()
     actual = stock_item.reserved_quantity
@@ -514,11 +518,11 @@ def test_reserve_stock_rejects_quantity_above_available(stock_item: StockItem) -
 
 
 # ❌ Mock ORM, nhiều lời gọi có thể fail trong `pytest.raises`, assert không rõ đối tượng.
-@patch("modules.inventory.models.StockItem.objects.get")
+@patch("apps.inventory.models.StockItem.objects.get")
 def test_stock(mock_get):
     with pytest.raises(Exception):
         stock = build_stock()
-        reserve_stock(stock.variant_id, 99)
+        reserve_stock("FS0001", [(stock.variant_id, 99)], None)
     assert stock.reserved_quantity == 0
 ```
 

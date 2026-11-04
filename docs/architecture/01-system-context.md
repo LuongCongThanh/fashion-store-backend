@@ -97,7 +97,7 @@ graph TB
 | API | Xử lý request HTTP: storefront, back-office, webhook | ≥ 2 trên AWS, scale theo CPU |
 | Celery worker | Chạy handler sự kiện, gửi email, gọi API ngoài, job Đối soát | ≥ 1, scale theo độ dài queue |
 | Celery Beat | Đẩy job theo lịch (huỷ đơn hết hạn, Đối soát, chuyển đơn sang Hoàn tất). Lịch lưu trong PostgreSQL (`DatabaseScheduler`) | **Đúng 1** |
-| Outbox relay | Đọc bảng `shared_outbox_event` rồi đẩy sự kiện sang Celery | 1. Lúc deploy có thể chồng 2 bản, vẫn an toàn nhờ `FOR UPDATE SKIP LOCKED` |
+| Outbox relay | Đọc bảng `common_outbox_event` rồi đẩy sự kiện sang Celery | 1. Lúc deploy có thể chồng 2 bản, vẫn an toàn nhờ `FOR UPDATE SKIP LOCKED` |
 | PostgreSQL | Dữ liệu nghiệp vụ, outbox, `Idempotency-Key`, lịch job | 1 (Multi-AZ trên AWS) |
 | Redis | Broker Celery, cache, throttling, cache `token_version`. Đặt `noeviction`, mọi key cache có TTL. Redis lỗi thì API vẫn chạy, kể cả checkout (fail-open), nhưng xác nhận Thanh toán online dừng tới khi Redis hồi lại (xem [10](./10-nfr.md) mục 2) | 1 |
 
@@ -111,7 +111,7 @@ Cách đọc sơ đồ:
 
 - Mũi tên liền `A --> B`: A phụ thuộc trực tiếp vào B, tức là gọi `B/contracts.py`, nghe sự kiện trong `B/events.py` hoặc có FK tới model của B. Sơ đồ chỉ vẽ các phụ thuộc đang có. Phụ thuộc nào hợp lệ do luật theo lớp quyết định, xem [02-backend-structure.md](./02-backend-structure.md) mục 3.
 - Mũi tên đứt: chỉ minh hoạ hướng đi của sự kiện, từ module phát ở lớp dưới tới module nghe ở lớp trên. Đây không phải một loại phụ thuộc riêng: bên nghe đã có mũi tên liền tới bên phát. Tên sự kiện ghi tắt, bỏ tiền tố module. Sơ đồ chỉ nêu ví dụ, danh sách đầy đủ ở [07-async-events-jobs.md](./07-async-events-jobs.md) mục 2.
-- `shared` là app hạ tầng dùng chung, không phải module nghiệp vụ ([ADR 0006](../adr/0006-modular-monolith.md)).
+- `common` (hạ tầng nội bộ) và `infrastructure` (gọi API bên thứ ba) không phải module nên không vẽ ([ADR 0018](../adr/0018-one-django-app-per-module.md)).
 
 ```mermaid
 graph TB
@@ -127,10 +127,9 @@ graph TB
     inventory --> catalog
     inventory --> identity
     promotions --> identity
-    identity --> shared
-    catalog --> shared
-    payments --> shared
-    shipping --> shared
+    ordering --> geo
+    identity --> geo
+    shipping --> geo
 
     payments -. "sự kiện: payment-succeeded, refund-recorded…" .-> ordering
     shipping -. "sự kiện: shipment-created, shipment-delivered…" .-> ordering
@@ -184,4 +183,4 @@ Nếu IPN không tới, job Đối soát `payments.reconcile_pending_payments` (
 
 Tính từ lúc đặt đơn, link thanh toán hết hạn ở phút thứ 10, Giữ hàng hết hạn ở phút thứ 15. Khoảng đệm 5 phút dành cho IPN đến muộn. Đối soát chỉ là lưới an toàn: job chạy theo lịch cố định chứ không canh theo từng đơn, nên không bảo đảm kịp trước phút 15.
 
-Điều kiện của T3 (Giữ hàng còn hiệu lực, hoặc giữ lại được hàng khi đã quá hạn) và T4 (đơn vẫn ở `PENDING_PAYMENT`) được xét **lúc handler hoặc job chạy**, không phải lúc tiền về. Vì vậy nếu tiền về sát phút 15 và job `ordering.cancel_expired_pending_orders` chạy trước handler T3, đơn vẫn bị huỷ (T4) dù Người mua đã trả trong hạn. Đây là đánh đổi có chủ ý: Giữ hàng quá `expires_at` luôn vô hiệu ([03](./03-data-model.md)), và cửa sổ rủi ro chỉ vài giây trễ của relay. Để cửa sổ này không phình ra khi việc giao sự kiện bị tồn đọng (ví dụ sau khi Redis lỗi), job T4 bỏ qua lượt chạy khi `shared.events.delivery_lag()` quá **60 giây**, tức còn sự kiện chưa lập delivery hoặc delivery `pending` đã tới hạn mà chưa được xử lý ([07](./07-async-events-jobs.md) mục 3.2). Nếu handler T3 chạy khi đơn vẫn `PENDING_PAYMENT` nhưng Giữ hàng đã quá hạn, hệ thống thử giữ lại hàng: còn đủ Số lượng bán được thì đơn vẫn vào `PLACED`, không đủ thì chạy T4 rồi xử lý như đơn đã huỷ. Nếu tiền vẫn về khi Đơn hàng không còn ở `PENDING_PAYMENT` (đã huỷ, hoặc đã được trả bởi một lần Thanh toán khác), hệ thống tự tạo Hoàn tiền và gắn Cờ cần xử lý `unexpected_payment` (BR-PAY-05).
+Điều kiện của T3 (Giữ hàng còn hiệu lực, hoặc giữ lại được hàng khi đã quá hạn) và T4 (đơn vẫn ở `PENDING_PAYMENT`) được xét **lúc handler hoặc job chạy**, không phải lúc tiền về. Vì vậy nếu tiền về sát phút 15 và job `ordering.cancel_expired_pending_orders` chạy trước handler T3, đơn vẫn bị huỷ (T4) dù Người mua đã trả trong hạn. Đây là đánh đổi có chủ ý: Giữ hàng quá `expires_at` luôn vô hiệu ([03](./03-data-model.md)), và cửa sổ rủi ro chỉ vài giây trễ của relay. Để cửa sổ này không phình ra khi việc giao sự kiện bị tồn đọng (ví dụ sau khi Redis lỗi), job T4 bỏ qua lượt chạy khi `common.events.delivery_lag()` quá **60 giây**, tức còn sự kiện chưa lập delivery hoặc delivery `pending` đã tới hạn mà chưa được xử lý ([07](./07-async-events-jobs.md) mục 3.2). Nếu handler T3 chạy khi đơn vẫn `PENDING_PAYMENT` nhưng Giữ hàng đã quá hạn, hệ thống thử giữ lại hàng: còn đủ Số lượng bán được thì đơn vẫn vào `PLACED`, không đủ thì chạy T4 rồi xử lý như đơn đã huỷ. Nếu tiền vẫn về khi Đơn hàng không còn ở `PENDING_PAYMENT` (đã huỷ, hoặc đã được trả bởi một lần Thanh toán khác), hệ thống tự tạo Hoàn tiền và gắn Cờ cần xử lý `unexpected_payment` (BR-PAY-05).

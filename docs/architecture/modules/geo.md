@@ -1,6 +1,6 @@
 # Module `geo`
 
-> Trạng thái: **Đã chốt cho MVP**, đã có code (đang nằm ở `shared/geo/`, chuyển sang `apps/geo/` theo [ADR 0018](../../adr/0018-one-django-app-per-module.md)). Khuôn chung: [02 mục 4](../02-backend-structure.md#4-khuôn-mẫu-một-module).
+> Trạng thái: **Đã chốt cho MVP**, đã có code (đang nằm ở `backend/shared/geo/`, chuyển sang `apps/geo/` theo [ADR 0018](../../adr/0018-one-django-app-per-module.md)). Khuôn chung: [02 mục 4](../02-backend-structure.md#4-khuôn-mẫu-một-module).
 
 ## 1. Sở hữu
 
@@ -46,6 +46,6 @@ Chưa có `contracts.py`, `events.py`, `exceptions.py`: module khác hiện ch�
 
 ## 6. Tài liệu liên quan
 
-- Schema: [03 mục 1](../03-data-model.md#1-shared)
+- Schema: [03 mục 1](../03-data-model.md#1-geo-và-common)
 - Rủi ro địa chỉ 2 cấp và 3 cấp khi gọi GHN: [06](../06-integrations.md) mục 4
 - Dữ liệu nguồn: package `vietnam-provinces` ([14](../14-dependencies.md))

@@ -14,7 +14,7 @@ Các lệnh vận hành và hàm theo dõi tách sang ticket [18](../18-outbox-o
 
 Làm đúng [07 mục 1 và 3](../../../../docs/architecture/07-async-events-jobs.md) và [ADR 0007](../../../../docs/adr/0007-events-outbox-celery-no-kafka.md):
 
-- Model `OutboxEvent`, `EventDelivery` theo [03 mục 1.3–1.4](../../../../docs/architecture/03-data-model.md#13-shared_outbox_event-sự-kiện-chờ-phát).
+- Model `OutboxEvent`, `EventDelivery` theo [03 mục 1.3–1.4](../../../../docs/architecture/03-data-model.md#13-common_outbox_event-sự-kiện-chờ-phát).
 - `DomainEvent` (pydantic), `publish()` ghi outbox trong transaction hiện tại, decorator `@handles(event_type, version)`.
 - Relay (`manage.py run_outbox_relay`): lập delivery cho từng handler, giao các delivery `pending` tới hạn qua Celery, `FOR UPDATE SKIP LOCKED`, chạy hai bản cùng lúc vẫn an toàn. Thêm service `relay` vào `docker-compose.yml` ([08 mục 7](../../../../docs/architecture/08-local-development.md#7-docker-composeyml-rút-gọn)).
 - Consumer: khoá delivery, chạy handler trong savepoint, chuyển `completed`/`rejected`/`failed` cùng transaction với tác động DB; `RetryLater` và lịch retry lưu trong DB.

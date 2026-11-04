@@ -49,7 +49,7 @@ Mỗi module một file: sở hữu gì, cây thư mục, sơ đồ quan hệ v�
 
 ### [03. Mô hình dữ liệu](./03-data-model.md)
 
-ERD của từng module, theo thứ tự `shared`, `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`. Các quy ước chung:
+ERD của từng module, theo thứ tự `geo` và `common`, `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`. Các quy ước chung:
 
 - tên bảng có tiền tố theo module;
 - khoá chính `id` dùng UUID;

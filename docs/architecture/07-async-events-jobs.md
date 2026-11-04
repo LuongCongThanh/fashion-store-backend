@@ -15,7 +15,7 @@ sequenceDiagram
 
     S->>DB: BEGIN
     S->>DB: INSERT order …
-    S->>DB: INSERT shared_outbox_event (OrderPlacedV1)
+    S->>DB: INSERT common_outbox_event (OrderPlacedV1)
     S->>DB: COMMIT
     loop mỗi 1 giây
         RL->>DB: Tạo EventDelivery cho từng handler của outbox chưa lập danh sách, cùng transaction
@@ -46,8 +46,8 @@ sequenceDiagram
 - Consumer xử lý trong hai transaction, mỗi transaction khoá dòng delivery. Transaction 1 (ngắn) kiểm tra trạng thái, `next_attempt_at`, handler và class sự kiện còn đăng ký, parse payload, rồi tăng `interrupted_runs` và commit trước khi gọi handler. Parse lỗi thì chuyển `failed` ngay; bộ đếm đã chạm ngưỡng cũng chuyển `failed` (mục 1.3). Lý do: worker bị kill giữa lúc handler chạy thì không còn ghi được gì, bộ đếm phải có sẵn trong DB. Transaction 2 khoá lại, kiểm tra lại trạng thái và `next_attempt_at`, chạy handler và lưu kết quả. Task trùng chờ khoá rồi thấy kết quả đã commit thì kết thúc; task trùng tới giữa hai transaction có thể tăng bộ đếm thêm 1, nhưng kết quả lưu sau đó đặt bộ đếm về 0. Rủi ro chấp nhận: task trùng chen vào khe giữa hai transaction đúng lúc bộ đếm vừa lên ngưỡng làm delivery `failed` sớm một lần; khe rất ngắn, có cảnh báo và mở lại được bằng `retry_failed_events`. Rủi ro chấp nhận: gián đoạn không do handler (cold shutdown khi deploy, DB failover, worker hết bộ nhớ vì task khác) cũng tính là lần chạy dở; delivery chỉ chuyển `failed` khi đủ 3 lần liên tiếp trên cùng delivery. Hạn giao lại dài hơn `task_time_limit` 120 giây; timeout không cho phép bỏ qua khoá DB. Task tới muộn vẫn phải kiểm tra trạng thái hiện tại.
 - Trạng thái delivery `completed`/`rejected` được ghi cùng transaction với kết quả xử lý; đây cũng là dấu "đã xử lý", không có bảng riêng. Retry dùng `attempts`, `next_attempt_at` trong PostgreSQL; không dùng bộ đếm Celery làm nguồn quyết định. `last_dispatched_at` chỉ phục vụ quan sát. Broker không hoạt động thì relay giữ công việc trong DB và thử tiếp, không tính là handler thất bại.
 - Chỉ purge sự kiện quá 90 ngày đã có `deliveries_created_at` và mọi delivery đã `completed` hoặc `rejected`, cùng các delivery của sự kiện đó; giữ cả sự kiện và delivery `pending`/`failed` cho tới khi được xử lý. Cảnh báo công việc tồn đọng; không âm thầm xoá khi hết thời gian lưu thông thường.
-- API công khai `shared.events.delivery_lag()` trả tuổi của công việc giao sự kiện đáng lẽ hạ tầng đã phải xử lý, trả `timedelta` (`0` khi không tồn đọng), lấy lớn nhất giữa: `now − occurred_at` của sự kiện chưa có `deliveries_created_at` (bảng outbox không có cột giờ ghi; `occurred_at` ghi cùng transaction, xem ticket [28](../../.scratch/backend-bootstrap/issues/28-outbox-operations-hardening/spec.md) về chênh lệch khi transaction dài), và `now − next_attempt_at` của delivery `pending` có `next_attempt_at ≤ now`. Không tính delivery `failed`, `completed`, `rejected` hay `pending` đang chờ tới lượt retry. Lý do: hàm đo tồn đọng của relay, broker và worker cho job T4 (mục 3.2); một handler lỗi đã tự dời `next_attempt_at` về tương lai, nên không làm T4 ngừng huỷ đơn. Delivery `failed` có cảnh báo riêng ([10-nfr.md](./10-nfr.md) mục 4).
-- API công khai `shared.events.get_delivery_outcomes(event_id, handler_names)` trả `dict` có đủ mọi handler được yêu cầu, giá trị là trạng thái delivery pending/completed/rejected/failed hoặc `None` khi chưa có delivery (missing). Không suy thành công từ danh sách rỗng. Ẩn danh dùng required_handlers đã chốt trên ErasureRequest; replay không tự mở rộng yêu cầu đã hoàn tất.
+- API công khai `common.events.delivery_lag()` trả tuổi của công việc giao sự kiện đáng lẽ hạ tầng đã phải xử lý, trả `timedelta` (`0` khi không tồn đọng), lấy lớn nhất giữa: `now − occurred_at` của sự kiện chưa có `deliveries_created_at` (bảng outbox không có cột giờ ghi; `occurred_at` ghi cùng transaction, xem ticket [28](../../.scratch/backend-bootstrap/issues/28-outbox-operations-hardening/spec.md) về chênh lệch khi transaction dài), và `now − next_attempt_at` của delivery `pending` có `next_attempt_at ≤ now`. Không tính delivery `failed`, `completed`, `rejected` hay `pending` đang chờ tới lượt retry. Lý do: hàm đo tồn đọng của relay, broker và worker cho job T4 (mục 3.2); một handler lỗi đã tự dời `next_attempt_at` về tương lai, nên không làm T4 ngừng huỷ đơn. Delivery `failed` có cảnh báo riêng ([10-nfr.md](./10-nfr.md) mục 4).
+- API công khai `common.events.get_delivery_outcomes(event_id, handler_names)` trả `dict` có đủ mọi handler được yêu cầu, giá trị là trạng thái delivery pending/completed/rejected/failed hoặc `None` khi chưa có delivery (missing). Không suy thành công từ danh sách rỗng. Ẩn danh dùng required_handlers đã chốt trên ErasureRequest; replay không tự mở rộng yêu cầu đã hoàn tất.
 - `replay_events` bảo đảm delivery tồn tại cho handler được chọn, có thể thêm handler mới vào sự kiện cũ; không xoá dấu đã xử lý hay chạy lại cặp đã hoàn tất. Cặp `failed` cần lệnh `retry_failed_events` để mở lại có chủ đích. Lệnh chọn sự kiện có `deliveries_created_at ≥ --since` (lúc relay lập danh sách, không phải lúc sự kiện xảy ra), bỏ qua sự kiện relay chưa lập danh sách; `--since` không ghi múi giờ hiểu theo `TIME_ZONE`; `--handler` tuỳ chọn phải đăng ký cho đúng `--type`. Mỗi lô khoá sự kiện để purge chạy đồng thời không xoá sự kiện giữa chừng. Thêm handler mới cho một loại sự kiện đã có: sau deploy chạy `replay_events --type <sự kiện> --since <lúc bắt đầu deploy>`, vì trong lúc deploy relay bản cũ có thể đã lập danh sách delivery mà không biết handler mới.
 
 ### 1.2. Không bảo đảm
@@ -124,13 +124,13 @@ Thanh toán COD (`start_cod_payment`, `record_cod_collected`, `cancel_cod_paymen
 
 Lần gọi nhà cung cấp ngay trong request API (tạo link thanh toán, báo giá GHN) không đi qua queue `integrations`, nên `rate_limit` không áp cho chúng. Tần suất của các lần gọi này được giới hạn gián tiếp bằng throttle theo Người mua ([05-auth-security.md](./05-auth-security.md) mục 5).
 
-Code nghiệp vụ đẩy task bằng `shared.tasks.enqueue_on_commit`, không gọi `.delay()` trực tiếp ([13-python-django-coding-style.md](./13-python-django-coding-style.md) mục 4).
+Code nghiệp vụ đẩy task bằng `common.tasks.enqueue_on_commit`, không gọi `.delay()` trực tiếp ([13-python-django-coding-style.md](./13-python-django-coding-style.md) mục 4).
 
 ### 3.2. Lịch job (Celery Beat, lưu bằng `django-celery-beat`)
 
 | Job | Tần suất | Module | Liên quan |
 |---|---|---|---|
-| `ordering.cancel_expired_pending_orders` | Mỗi phút | ordering | T4. Bỏ qua lượt chạy (log `WARNING` `cancel_skipped_delivery_backlog`) khi `shared.events.delivery_lag()` quá **60 giây**. Lý do: sau khi Redis, relay hoặc worker lỗi, `payments.payment-succeeded` còn chờ giao; nếu T4 chạy trước thì đơn đã trả đúng hạn bị huỷ và phải Hoàn tiền ([01](./01-system-context.md) mục 4). Không giới hạn số lượt bỏ: huỷ nhầm đơn đã trả tiền tệ hơn giữ hàng lâu thêm. Bỏ lượt liên tục quá **15 phút** thì báo Sentry `cancel_skipped_too_long`, vì lúc này Giữ hàng quá hạn đang khoá Số lượng bán được |
+| `ordering.cancel_expired_pending_orders` | Mỗi phút | ordering | T4. Bỏ qua lượt chạy (log `WARNING` `cancel_skipped_delivery_backlog`) khi `common.events.delivery_lag()` quá **60 giây**. Lý do: sau khi Redis, relay hoặc worker lỗi, `payments.payment-succeeded` còn chờ giao; nếu T4 chạy trước thì đơn đã trả đúng hạn bị huỷ và phải Hoàn tiền ([01](./01-system-context.md) mục 4). Không giới hạn số lượt bỏ: huỷ nhầm đơn đã trả tiền tệ hơn giữ hàng lâu thêm. Bỏ lượt liên tục quá **15 phút** thì báo Sentry `cancel_skipped_too_long`, vì lúc này Giữ hàng quá hạn đang khoá Số lượng bán được |
 | `payments.reconcile_pending_payments` | Mỗi 5 phút | payments | T3, ADR 0005; Payment quá hạn link mà chưa thanh toán thì chuyển `expired` |
 | `shipping.reconcile_shipments` | Mỗi 15 phút | shipping | T11, T12; chỉ hỏi GHN về Vận đơn không có cập nhật trong 6 giờ, tối đa 500 mỗi vòng theo mặc định ([06](./06-integrations.md) mục 4); query mã shop cho requested/creation_unknown hết lease, không retry create mù; thử huỷ lại cancel_requested quá 15 phút |
 | `ordering.complete_delivered_orders` | Mỗi giờ | ordering | T13 |
@@ -138,8 +138,8 @@ Code nghiệp vụ đẩy task bằng `shared.tasks.enqueue_on_commit`, không g
 | `ordering.purge_expired_guest_carts` | Mỗi ngày 03:00 | ordering | BR-CRT-02 |
 | `notifications.recover_pending_emails` | Mỗi phút | notifications | Đẩy lại EmailLog `queued` tới hạn hoặc `sending` hết lease; xem mục 4 |
 | `notifications.purge_old_emails` | Mỗi ngày 04:15 | notifications | EmailLog `sent`, `failed`, `cancelled` tạo quá 90 ngày: xoá `to_address` và `context`, giữ dòng để thống kê ([06-compliance.md](../business/06-compliance.md) mục 5) |
-| `shared.purge_old_outbox_events` | Mỗi ngày 03:30 | shared | Chỉ xoá sự kiện quá 90 ngày đã hoàn tất mọi delivery; xoá delivery tương ứng |
-| `shared.purge_idempotency_keys` | Mỗi ngày 03:45 | shared | Chỉ xoá key completed quá 24 giờ; giữ in_progress chưa rõ kết quả |
+| `common.purge_old_outbox_events` | Mỗi ngày 03:30 | common | Chỉ xoá sự kiện quá 90 ngày đã hoàn tất mọi delivery; xoá delivery tương ứng |
+| `common.purge_idempotency_keys` | Mỗi ngày 03:45 | common | Chỉ xoá key completed quá 24 giờ; giữ in_progress chưa rõ kết quả |
 | `identity.purge_refresh_replays` | Mỗi phút | identity | Xoá ciphertext replay hết hạn; endpoint vẫn kiểm tra hạn và thu hồi trước decrypt, không chờ job |
 | `identity.purge_expired_tokens` | Mỗi ngày 04:00 | identity | Refresh token, reset token hết hạn |
 | `identity.reconcile_erasure_requests` | Mỗi phút | identity | Chỉ hoàn tất processing khi mọi handler bắt buộc completed; thiếu/failed/rejected thì giữ trạng thái và cảnh báo |
@@ -189,7 +189,7 @@ Lý do không ghi heartbeat vào DB rồi để một job Beat kiểm tra: khi c
 
 ## 5. Kịch bản kiểm thử
 
-Test đặt ở `shared/events/tests/` và `test_handlers_<chủ đề>.py` của module; nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md) mục 2.3.
+Test đặt ở `common/events/tests/` và `test_handlers_<chủ đề>.py` của module; nguyên tắc chung ở [12-testing-strategy.md](./12-testing-strategy.md) mục 2.3.
 
 - Consumer (mục 1.3), test bằng handler giả: khoá delivery; thành công commit tác động và completed cùng nhau. RetryLater/exception rollback savepoint handler, delivery giữ pending, lưu bộ đếm, last_error và lịch DB; DomainError khác rollback savepoint nhưng chuyển rejected, không retry. Payload không parse được (ValidationError hoặc lỗi khác lúc parse) chuyển failed ngay, không gọi handler, attempts và interrupted_runs giữ nguyên; lỗi ném trong handler, kể cả ValidationError, vẫn retry theo lịch.
 - Relay: tạo từng cặp event–handler và marker deliveries_created_at nguyên tử, không tạo trùng khi hai relay cùng chạy. Relay không phụ thuộc Beat. Chết sau khi lưu hạn giao lại nhưng trước enqueue: sau hạn, delivery được giao tiếp.
@@ -211,4 +211,4 @@ Test đặt ở `shared/events/tests/` và `test_handlers_<chủ đề>.py` củ
 | Xoá dữ liệu có một handler chưa xong, failed, rejected hoặc chưa có delivery | ErasureRequest giữ processing, completed_at null; không coi danh sách delivery rỗng là thành công |
 | Tất cả handler ẩn danh bắt buộc completed | Job hoàn tất một lần; gọi lại không phát thêm sự kiện; subject còn lấy được trong processing và được làm sạch sau hoàn tất |
 
-**Payload sự kiện không chứa secret hay PII** (mục 2): `backend/tests/test_event_payloads.py` duyệt mọi class `DomainEvent` đã đăng ký và fail nếu tên field **chứa** một từ trong danh sách cấm (`email`, `phone`, `address`, `name`, `token`, `password`) hoặc kết thúc bằng `_url`, nên `contact_name` hay `reset_token` cũng bị chặn. Test này chỉ bắt lỗi theo tên field; reviewer vẫn phải đọc payload của mọi sự kiện mới. Test đặt ở `backend/tests/` (không thuộc `root_packages`) vì cần nhìn thấy sự kiện của mọi module.
+**Payload sự kiện không chứa secret hay PII** (mục 2): `tests/test_event_payloads.py` duyệt mọi class `DomainEvent` đã đăng ký và fail nếu tên field **chứa** một từ trong danh sách cấm (`email`, `phone`, `address`, `name`, `token`, `password`) hoặc kết thúc bằng `_url`, nên `contact_name` hay `reset_token` cũng bị chặn. Test này chỉ bắt lỗi theo tên field; reviewer vẫn phải đọc payload của mọi sự kiện mới. Test đặt ở `tests/` (không thuộc `root_packages`) vì cần nhìn thấy sự kiện của mọi module.

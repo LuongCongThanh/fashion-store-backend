@@ -3,7 +3,7 @@
 > Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)).
 
 - File này chốt hợp đồng dữ liệu và hành vi. OpenAPI sinh bằng `drf-spectacular` tại `/api/schema/`, Swagger UI tại `/api/docs/` (chỉ local và staging nội bộ).
-- Schema đã sinh commit tại `backend/openapi.yaml`, CI chặn khi lệch code ([12](./12-testing-strategy.md) mục 5). File đó chỉ chứa endpoint đã triển khai; bảng endpoint ở đây không phải bằng chứng API đã có.
+- Schema đã sinh commit tại `openapi.yaml`, CI chặn khi lệch code ([12](./12-testing-strategy.md) mục 5). File đó chỉ chứa endpoint đã triển khai; bảng endpoint ở đây không phải bằng chứng API đã có.
 - Mọi request storefront và back-office đi qua Next.js BFF ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)); từ internet chỉ `/api/v1/webhooks/` gọi thẳng Django.
 
 ## 1. Quy ước chung
@@ -57,7 +57,7 @@ GET /api/v1/store/products?page=2&page_size=24
 
 ## 3. Định dạng lỗi
 
-Mọi lỗi trả cùng một định dạng (`shared/api/exception_handler.py`):
+Mọi lỗi trả cùng một định dạng (`common/api/exception_handler.py`):
 
 ```json
 HTTP 409
@@ -109,7 +109,7 @@ Các mã cần Frontend xử lý riêng:
 | GET | `categories` | catalog | Công khai | Cây danh mục | US-101 |
 | GET | `products` | catalog | Công khai | Danh sách có lọc `category`, `size`, `color` (theo mã trong danh sách size và bảng màu), `price_min`, `price_max`, `in_stock`, `q`, `ordering` (`newest`, `price`, `-price`, `best_selling`). `q` tìm chuỗi con trong tên, không dấu/không phân biệt hoa thường; trim đầu/cuối, rỗng thì bỏ lọc; không sửa lỗi gõ hay xếp hạng gần đúng (BR-CAT-13). `q` không thay cách sắp xếp đã chọn | US-101 → 103 |
 | GET | `products/{slug}` | catalog | Công khai | Chi tiết, các màu, ảnh, Biến thể kèm giá và còn hàng | US-104 |
-| GET | `geo/provinces`, `geo/provinces/{code}/wards` | shared | Công khai | Tỉnh/thành; phường/xã của một tỉnh/thành | US-301 |
+| GET | `geo/provinces`, `geo/provinces/{code}/wards` | geo | Công khai | Tỉnh/thành; phường/xã của một tỉnh/thành | US-301 |
 | GET | `cart` | ordering | Guest / Customer | Giỏ hàng kèm giá hiện tại và cảnh báo | US-202 |
 | POST | `cart/items` | ordering | Guest / Customer | Thêm Biến thể. Khách vãng lai chưa có giỏ (không gửi `X-Cart-Token`) thì tạo giỏ mới và trả `cart_token` | US-201 |
 | PATCH, DELETE | `cart/items/{id}` | ordering | Guest / Customer | Đổi số lượng; xoá | US-202 |
@@ -343,13 +343,13 @@ Các DTO đọc chỉ có field trong bảng này. Ký hiệu `Base + ...` kế 
 
 Các route trong bảng ở mục 4 có schema tại đây; path params giữ UUID/code/slug như mục 1. `Patch<X>` chỉ cho field ghi của X theo PATCH semantics; `None` không body. `ErrorDTO` áp cho lỗi mọi operation trừ webhook/HTML/CSV. Khi bootstrap, mỗi operation phải khai báo request/response/status/permission/error schemas trong OpenAPI và có ví dụ trước khi frontend dùng; CI kiểm schema sinh lại theo [12](./12-testing-strategy.md) mục 5. Không tự sinh OpenAPI từ field model để lấp chỗ còn chưa triển khai.
 
-Response lỗi mặc định do `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối); 415 `UNSUPPORTED_MEDIA_TYPE` khi operation có request body (media type ngoài parser của view). 401, 403 và 503 `AUTH_STATE_UNAVAILABLE` khi view cần đăng nhập (permission không chỉ `AllowAny`). Mỗi lỗi mặc định có mô tả và một ví dụ `ErrorDTO` tiếng Anh; mọi 429 có header `Retry-After` (integer, giây). View tự khai mã đặc thù (409, 422, 401 `INVALID_CREDENTIALS`…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè.
+Response lỗi mặc định do `common.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối); 415 `UNSUPPORTED_MEDIA_TYPE` khi operation có request body (media type ngoài parser của view). 401, 403 và 503 `AUTH_STATE_UNAVAILABLE` khi view cần đăng nhập (permission không chỉ `AllowAny`). Mỗi lỗi mặc định có mô tả và một ví dụ `ErrorDTO` tiếng Anh; mọi 429 có header `Retry-After` (integer, giây). View tự khai mã đặc thù (409, 422, 401 `INVALID_CREDENTIALS`…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè.
 
 Chú thích bắt buộc cho mỗi operation dưới `/api/v1/`, kiểm bằng `scripts/gen_openapi.py --check` (chạy trong `make lint` và CI; mỗi vi phạm in `<operationId>: <thiếu gì>`, vi phạm ở component in `<tên component>: <thiếu gì>`):
 
 - `summary`; ví dụ request khi có body; ví dụ cho mọi response 2xx có body. Ví dụ đặt qua `extend_schema_serializer(examples=…)` của serializer hoặc `extend_schema(examples=…)` của view; dữ liệu ví dụ là dữ liệu giả (`staff@example.com`).
-- Mã lỗi view tự khai có ví dụ `ErrorDTO`, và `code` của ví dụ ghi trong mô tả response dạng `` `CODE` `` (vd. ``"Wrong email or password (`INVALID_CREDENTIALS`)."``). Lỗi mặc định đã có ví dụ chung, view không cần khai. Checker nhận lỗi mặc định bằng mô tả trùng `shared.api.schema.ERROR_DESCRIPTIONS`, nên view khai lại mã mặc định thì dùng mô tả riêng.
-- Tag `<store|backoffice> · <module>` do `AutoSchema` suy ra (ứng dụng từ path, module từ package của view: `modules.identity…` → `identity`, `shared.geo` → `geo`); view không tự khai tag.
+- Mã lỗi view tự khai có ví dụ `ErrorDTO`, và `code` của ví dụ ghi trong mô tả response dạng `` `CODE` `` (vd. ``"Wrong email or password (`INVALID_CREDENTIALS`)."``). Lỗi mặc định đã có ví dụ chung, view không cần khai. Checker nhận lỗi mặc định bằng mô tả trùng `common.api.schema.ERROR_DESCRIPTIONS`, nên view khai lại mã mặc định thì dùng mô tả riêng.
+- Tag `<store|backoffice> · <module>` do `AutoSchema` suy ra (ứng dụng từ path, module từ package của view: `apps.identity…` → `identity`, `common.geo` → `geo`); view không tự khai tag.
 - Mọi chữ hiển thị trên Swagger viết **tiếng Anh**: `summary`, `description`, mô tả parameter, mô tả request/response, mô tả field của component (lấy từ `help_text` của serializer) và dữ liệu ví dụ (trừ `message` của ví dụ lỗi). Đây là ngoại lệ có chủ đích của quy tắc tài liệu viết tiếng Việt: docstring vẫn tiếng Việt, và `AutoSchema` không đưa docstring của view hay serializer vào schema.
 
 Request body chỉ nhận JSON (`DEFAULT_PARSER_CLASSES = [JSONParser]`); endpoint upload tự khai `MultiPartParser`. Trang Swagger có phần giới thiệu tiếng Anh (`SPECTACULAR_SETTINGS["DESCRIPTION"]`) và không khai `SERVERS`, để gọi thử đúng host đang mở.

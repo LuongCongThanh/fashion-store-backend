@@ -9,8 +9,8 @@ Phạm vi chính là 44 bảng do dự án định nghĩa. Các bảng framework
 
 ### 0.1. Cột chung và khoá
 
-- Các model của 44 bảng do dự án định nghĩa kế thừa `shared.models.BaseModel`, có 3 cột không ghi lại trong từng bảng: `id uuid` (PK, UUID v7), `created_at timestamptz NOT NULL`, `updated_at timestamptz NOT NULL`. Ngoại lệ trong nhóm này là `shared_province` và `shared_ward`: dùng mã chính thức làm khoá chính và không có 3 cột này ([ADR 0008](../adr/0008-uuid-v7-primary-keys.md)). Quy tắc này không áp lên bảng framework hoặc event model do pghistory sinh (mục 0.9).
-- BaseModel là abstract và kế thừa abstract `shared.models.UUIDv7Model`, nơi duy nhất khai báo `id` UUID v7; `OutboxEvent` và `EventDelivery` kế thừa thẳng `UUIDv7Model` vì không có `created_at`/`updated_at`. `id` dùng `default=shared.models.uuid7`, `created_at` dùng `default=timezone.now`, `updated_at` dùng `auto_now=True`; đây là giá trị do Python cấp, không phải default/trigger của DB. `created_at` không sửa sau khi tạo. Vì `auto_now` không chạy với thao tác bulk, manager của BaseModel tự gán `updated_at=timezone.now()` cho `QuerySet.update` khi bên gọi không truyền, và với `bulk_update` thiếu `updated_at` trong `fields` thì gán `updated_at=timezone.now()` cho mọi object rồi thêm field này (có sẵn trong `fields` thì giữ giá trị của từng object); `bulk_create` lấy đủ hai mốc từ default của field. Migration/SQL ghi trực tiếp không đi qua manager nên phải tự gán `updated_at`. API không cho client đặt hai mốc này.
+- Các model của 44 bảng do dự án định nghĩa kế thừa `common.models.BaseModel`, có 3 cột không ghi lại trong từng bảng: `id uuid` (PK, UUID v7), `created_at timestamptz NOT NULL`, `updated_at timestamptz NOT NULL`. Ngoại lệ trong nhóm này là `geo_province` và `geo_ward`: dùng mã chính thức làm khoá chính và không có 3 cột này ([ADR 0008](../adr/0008-uuid-v7-primary-keys.md)). Quy tắc này không áp lên bảng framework hoặc event model do pghistory sinh (mục 0.9).
+- BaseModel là abstract và kế thừa abstract `common.models.UUIDv7Model`, nơi duy nhất khai báo `id` UUID v7; `OutboxEvent` và `EventDelivery` kế thừa thẳng `UUIDv7Model` vì không có `created_at`/`updated_at`. `id` dùng `default=common.models.uuid7`, `created_at` dùng `default=timezone.now`, `updated_at` dùng `auto_now=True`; đây là giá trị do Python cấp, không phải default/trigger của DB. `created_at` không sửa sau khi tạo. Vì `auto_now` không chạy với thao tác bulk, manager của BaseModel tự gán `updated_at=timezone.now()` cho `QuerySet.update` khi bên gọi không truyền, và với `bulk_update` thiếu `updated_at` trong `fields` thì gán `updated_at=timezone.now()` cho mọi object rồi thêm field này (có sẵn trong `fields` thì giữ giá trị của từng object); `bulk_create` lấy đủ hai mốc từ default của field. Migration/SQL ghi trực tiếp không đi qua manager nên phải tự gán `updated_at`. API không cho client đặt hai mốc này.
 - Các khoá tự nhiên khác (`Idempotency-Key`, `jti`, ánh xạ GHN, cặp sự kiện–handler) giữ bằng ràng buộc `UNIQUE`.
 - Không thêm cột chỉ lặp lại một giá trị đã suy ra được từ bảng khác hoặc từ `created_at`. Ngoại lệ được ghi rõ lý do tại chỗ (ví dụ bản chụp của Dòng đơn hàng, cột `reserved` cập nhật cùng transaction).
 
@@ -63,14 +63,14 @@ Phạm vi chính là 44 bảng do dự án định nghĩa. Các bảng framework
 
 ### 0.6. Chuẩn hoá số điện thoại
 
-- Dùng một hàm `shared.phones.normalize_vn_phone` dựa trên thư viện `phonenumbers`, parse với vùng mặc định `VN`, kiểm tra số hợp lệ thuộc Việt Nam và xuất E.164. Ví dụ `0901234567`, `+84 901 234 567` cùng được lưu thành `+84901234567`. Không tự suy đoán số thiếu mã vùng/đầu số; đầu vào không hợp lệ trả lỗi validate, không lưu nguyên chuỗi.
+- Dùng một hàm `common.phones.normalize_vn_phone` dựa trên thư viện `phonenumbers`, parse với vùng mặc định `VN`, kiểm tra số hợp lệ thuộc Việt Nam và xuất E.164. Ví dụ `0901234567`, `+84 901 234 567` cùng được lưu thành `+84901234567`. Không tự suy đoán số thiếu mã vùng/đầu số; đầu vào không hợp lệ trả lỗi validate, không lưu nguyên chuỗi.
 - Chuẩn hoá ở service trước khi ghi và trước khi so sánh: Account, Address, contact_phone của Order, phone của VoucherRedemption, subject_phone của Consent/ErasureRequest/CustomerDataAccessLog và endpoint tra cứu đơn đều dùng cùng hàm. Chuỗi rỗng chỉ được giữ ở field tuỳ chọn đã cho phép. Không đặt UNIQUE cho phone vì nhiều Tài khoản/Đơn hàng có thể dùng chung số.
 - Giá trị đã ẩn danh được xử lý riêng trong service ẩn danh, không đi qua validator số thật. Không log số gốc/số đã chuẩn hoá. Dữ liệu nhập từ nguồn cũ cần management command chuẩn hoá trước khi dùng cho tra cứu, giới hạn Voucher hoặc yêu cầu xoá; không sửa lại dữ liệu đã ẩn danh.
 
 ### 0.7. Khởi tạo và seed
 
-1. Migration `shared` tạo các bảng địa giới, outbox và idempotency; BaseModel abstract không tạo bảng. Bật `unaccent`, `pg_trgm`, `btree_gist` trước các index/EXCLUDE cần chúng, tạo hàm `immutable_unaccent` trước GIN index.
-2. Migration đầu tiên của app `modules` tạo Account; các migration tiếp theo tạo bảng theo thứ tự FK hợp lệ. Bảng history/trigger được tạo cùng migration model tương ứng. Dùng dependency migration rõ ràng giữa `shared` và `modules`.
+1. Mỗi app có chuỗi migration riêng ([ADR 0018](../adr/0018-one-django-app-per-module.md)). Migration `common` tạo bảng outbox và idempotency, `geo` tạo bảng địa giới; `common.models.BaseModel` abstract không tạo bảng. Bật `unaccent`, `pg_trgm`, `btree_gist` trước các index/EXCLUDE cần chúng, tạo hàm `immutable_unaccent` trước GIN index.
+2. Migration đầu tiên của `identity` tạo Account. Migration của một app chỉ phụ thuộc (`dependencies`) migration của app lớp dưới, theo đúng chiều FK, nên không có vòng phụ thuộc. Bảng history/trigger được tạo cùng migration model tương ứng.
 3. Data migration tạo một Kho MVP với giá trị khởi tạo kỹ thuật `code = MAIN`, `name = Kho chính`; mọi service lấy Kho từ cấu hình/default warehouse của inventory, không hardcode UUID. Tạo hai singleton theo bảng dưới; dùng historical models trong `RunPython`, không import service hiện hành, không gọi mạng từ migration. Reverse data migration không được tự xoá dữ liệu nghiệp vụ đã sử dụng các dòng này.
 4. `load_geo` và command nạp ánh xạ GHN chạy sau migrate, có thể chạy lại theo khoá tự nhiên, không xoá mã còn được FK tham chiếu. Tạo Staff bằng command riêng; dữ liệu mẫu catalog chỉ ở local/test.
 
@@ -107,7 +107,7 @@ Một Order online có nhiều Payment tra theo `reference`; `Order.payment_id` 
 
 | Nhóm | Mục đích / ai quản lý migration |
 |---|---|
-| 44 bảng tại mục 1–9 | Dữ liệu tham chiếu, nghiệp vụ, cấu hình, nhật ký và hàng đợi do dự án quản lý qua migrations của `shared`/`modules` |
+| 44 bảng tại mục 1–9 | Dữ liệu tham chiếu, nghiệp vụ, cấu hình, nhật ký và hàng đợi do dự án quản lý qua migrations của `common` và từng app trong `apps/` |
 | Event model pghistory theo allowlist mục 10.1 | Snapshot lịch sử và metadata sự kiện; khai báo tên bảng có tiền tố module, đưa schema/trigger được sinh vào migration dự án; không bắt kế thừa BaseModel |
 | Context pghistory | Metadata chỉ chứa `actor_id`; bảng/schema theo cấu hình pghistory, migration thuộc thư viện khi dùng context chuẩn. Không thêm request, IP hay PII |
 | `django_celery_beat_*` | Lịch job; migration của django-celery-beat. Lịch chuẩn khai báo trong code theo 02/07 |
@@ -241,7 +241,7 @@ Pydantic bảo vệ key/type/độ dài tại boundary; `CHECK` bảo vệ quan 
 
 ```python
 def seed_shipping_settings(apps, schema_editor) -> None:
-    ShippingSettings = apps.get_model("modules", "ShippingSettings")
+    ShippingSettings = apps.get_model("shipping", "ShippingSettings")
     ShippingSettings.objects.get_or_create(singleton=1, defaults={"fallback_fee": 35_000})
 
 
@@ -268,33 +268,33 @@ def test_sale_price_rejects_overlapping_periods(variant: Variant) -> None:
 - Thêm case biên hai khoảng liền nhau phải được chấp nhận (`[)`).
 - Constraint phức tạp, partial index và data migration chạy trên PostgreSQL thật, không SQLite hay chỉ `full_clean()`.
 
-## 1. `shared`
+## 1. `geo` và `common`
 
 ```mermaid
 erDiagram
-    shared_province ||--o{ shared_ward : "có"
-    shared_outbox_event ||--o{ shared_event_delivery : "giao cho handler"
-    shared_province {
+    geo_province ||--o{ geo_ward : "có"
+    common_outbox_event ||--o{ common_event_delivery : "giao cho handler"
+    geo_province {
         varchar code PK
     }
-    shared_ward {
+    geo_ward {
         varchar code PK
         varchar province_code FK
     }
-    shared_outbox_event {
+    common_outbox_event {
         uuid id PK "= event_id"
     }
-    shared_event_delivery {
+    common_event_delivery {
         uuid id PK
         uuid event_id FK
     }
-    shared_idempotency_key {
+    common_idempotency_key {
         uuid id PK
         uuid operation_id UK
     }
 ```
 
-### 1.1. `shared_province`: Tỉnh/thành phố
+### 1.1. `geo_province`: Tỉnh/thành phố
 
 Dữ liệu địa giới 2 cấp sau sắp xếp từ 07/2025 (BR-ORD-04), nạp bằng management command. Không có cột của BaseModel.
 
@@ -303,17 +303,17 @@ Dữ liệu địa giới 2 cấp sau sắp xếp từ 07/2025 (BR-ORD-04), nạ
 | `code` | `varchar(10)` | không | — | **PK**. Mã Cục Thống kê |
 | `name` | `varchar(255)` | không | — | Tên tỉnh/thành phố |
 
-### 1.2. `shared_ward`: Phường/xã
+### 1.2. `geo_ward`: Phường/xã
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
 | `code` | `varchar(10)` | không | — | **PK**. Mã Cục Thống kê |
-| `province_code` | `varchar(10)` | không | — | FK → `shared_province.code`, `PROTECT` |
+| `province_code` | `varchar(10)` | không | — | FK → `geo_province.code`, `PROTECT` |
 | `name` | `varchar(255)` | không | — | Tên phường/xã |
 
 Index: `province_code`.
 
-### 1.3. `shared_outbox_event`: Sự kiện chờ phát
+### 1.3. `common_outbox_event`: Sự kiện chờ phát
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
@@ -325,15 +325,15 @@ Index: `province_code`.
 | `deliveries_created_at` | `timestamptz` | có | `NULL` | NULL = relay chưa lập danh sách delivery cho sự kiện này |
 
 - Partial index trên `occurred_at WHERE deliveries_created_at IS NULL` cho relay.
-- Relay tạo toàn bộ `shared_event_delivery` của sự kiện và ghi `deliveries_created_at` trong cùng transaction.
+- Relay tạo toàn bộ `common_event_delivery` của sự kiện và ghi `deliveries_created_at` trong cùng transaction.
 
-### 1.4. `shared_event_delivery`: Một cặp sự kiện–handler
+### 1.4. `common_event_delivery`: Một cặp sự kiện–handler
 
 Mỗi dòng là công việc của một handler với một sự kiện, đồng thời là dấu "đã xử lý" để chống xử lý trùng. Không có bảng riêng cho sự kiện đã xử lý hay sự kiện lỗi: trạng thái và thông tin lỗi nằm ngay trên dòng này.
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
-| `event_id` | `uuid` | không | — | FK → `shared_outbox_event.id`, `CASCADE` (bảng con thuần) |
+| `event_id` | `uuid` | không | — | FK → `common_outbox_event.id`, `CASCADE` (bảng con thuần) |
 | `handler` | `varchar(100)` | không | — | ID đăng ký ổn định của handler |
 | `status` | `enum(pending \| completed \| rejected \| failed)` | không | `pending` | |
 | `attempts` | `integer` | không | `0` | Số lần handler lỗi đã lưu; `CHECK(attempts >= 0)` |
@@ -361,7 +361,7 @@ Ghi chú:
 - Consumer tăng `interrupted_runs` và commit trước khi gọi handler, rồi đặt về `0` cùng transaction lưu kết quả (`completed`, `rejected`, lịch retry, `failed`). Bộ đếm còn lại nghĩa là lần chạy trước bị cắt ngang. Đã đủ 3 lần liên tiếp thì lần giao sau chuyển `failed` với `last_error = 'HandlerInterrupted'`, không gọi handler; `attempts` không đổi. Task mất do Redis không tới consumer nên không tăng bộ đếm. Xem [07 mục 1.3](./07-async-events-jobs.md#13-retry-và-lỗi).
 - Purge chỉ xoá outbox quá 90 ngày đã có `deliveries_created_at` và mọi delivery `completed`/`rejected` (delivery bị xoá theo `CASCADE`). Giữ sự kiện còn delivery `pending`/`failed` để khôi phục.
 
-### 1.5. `shared_idempotency_key`: Khoá chống tạo trùng
+### 1.5. `common_idempotency_key`: Khoá chống tạo trùng
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
@@ -397,7 +397,7 @@ erDiagram
     identity_account ||--o{ identity_consent : "đồng ý"
     identity_account ||--o{ identity_erasure_request : "yêu cầu"
     identity_account ||--o{ identity_customer_data_access_log : "Staff xem / bị xem"
-    shared_ward ||--o{ identity_address : "thuộc"
+    geo_ward ||--o{ identity_address : "thuộc"
     identity_account {
         uuid id PK
         varchar email UK
@@ -440,7 +440,7 @@ erDiagram
 
 ### 2.1. `identity_account`: Tài khoản
 
-Custom user model (`AUTH_USER_MODEL = "modules.Account"`), kế thừa `AbstractBaseUser`, **không** kế thừa `PermissionsMixin`: quyền dựa trên `kind` ([05](./05-auth-security.md)), nên không tạo các bảng group/permission của Django.
+Custom user model (`AUTH_USER_MODEL = "identity.Account"`), kế thừa `AbstractBaseUser`, **không** kế thừa `PermissionsMixin`: quyền dựa trên `kind` ([05](./05-auth-security.md)), nên không tạo các bảng group/permission của Django.
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
@@ -465,7 +465,7 @@ Ràng buộc: `UNIQUE(lower(email))`, tức một email chỉ thuộc một Tài
 | `account_id` | `uuid` | không | — | FK → `identity_account`, `CASCADE` (bảng con thuần) |
 | `recipient_name` | `varchar(255)` | không | — | |
 | `phone` | `varchar(20)` | không | — | |
-| `ward_code` | `varchar(10)` | không | — | FK → `shared_ward.code`, `PROTECT`; tỉnh suy ra từ phường/xã |
+| `ward_code` | `varchar(10)` | không | — | FK → `geo_ward.code`, `PROTECT`; tỉnh suy ra từ phường/xã |
 | `street` | `varchar(255)` | không | — | Địa chỉ chi tiết |
 | `is_default` | `boolean` | không | `false` | |
 
@@ -1020,7 +1020,7 @@ Ghi chú:
 ```mermaid
 erDiagram
     shipping_shipment ||--o{ shipping_shipment_event : "nhận"
-    shared_ward ||--o| shipping_ghn_location_mapping : "ánh xạ"
+    geo_ward ||--o| shipping_ghn_location_mapping : "ánh xạ"
     shipping_shipment {
         uuid id PK
         varchar reference UK
@@ -1110,7 +1110,7 @@ Index: `(shipment_id, occurred_at)`.
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
-| `ward_code` | `varchar(10)` | không | — | **UK**. FK → `shared_ward.code`, `PROTECT` |
+| `ward_code` | `varchar(10)` | không | — | **UK**. FK → `geo_ward.code`, `PROTECT` |
 | `ghn_province_id` | `integer` | không | — | |
 | `ghn_district_id` | `integer` | không | — | |
 | `ghn_ward_code` | `varchar(16)` | không | — | |
@@ -1140,7 +1140,7 @@ erDiagram
     catalog_variant ||--o{ ordering_order_line : ""
     payments_payment ||--o| ordering_order : "thanh toán dùng cho đơn"
     payments_refund ||--o| ordering_return_request : "hoàn"
-    shared_ward ||--o{ ordering_order : "giao tới"
+    geo_ward ||--o{ ordering_order : "giao tới"
     ordering_cart {
         uuid id PK
         uuid customer_id FK
@@ -1224,7 +1224,7 @@ Ràng buộc: `UNIQUE(cart_id, variant_id)`.
 | `contact_name` | `varchar(255)` | không | — | |
 | `contact_phone` | `varchar(20)` | không | — | Khách vãng lai tra cứu đơn bằng số này |
 | `contact_email` | `varchar(254)` | không | `''` | Tuỳ chọn khi checkout (US-301 AC1); lưu chữ thường |
-| `ship_ward_code` | `varchar(10)` | không | — | FK → `shared_ward.code`, `PROTECT` |
+| `ship_ward_code` | `varchar(10)` | không | — | FK → `geo_ward.code`, `PROTECT` |
 | `ship_street` | `varchar(255)` | không | — | Địa chỉ chi tiết |
 | `subtotal` | `bigint` | không | — | Tạm tính; `CHECK(subtotal > 0)` |
 | `discount` | `bigint` | không | `0` | Giảm giá Voucher; `CHECK(discount >= 0 AND discount <= subtotal)` (BR-VCH-06) |
@@ -1424,7 +1424,7 @@ Ghi chú: tạo EmailLog `queued` cùng transaction với handler; task claim b�
 
 - Staff gọi endpoint complete để **bắt đầu** xử lý: `ordering` kiểm tra điều kiện rồi gọi `apply_erasure_request`. Trong cùng transaction, `identity` khoá yêu cầu, chuyển `received` → `processing`, lưu `started_at`, `erasure_event_id` và `required_handlers`, ẩn danh Tài khoản và ghi sự kiện vào outbox. Không đặt `completed_at` lúc này. Gọi lại khi `processing`/`completed` thì trả trạng thái hiện tại, không phát thêm sự kiện.
 - Danh sách handler bắt buộc có ID đăng ký ổn định cho `ordering`, `promotions`, `notifications`. Cấu hình tại project và kiểm tra đủ đăng ký lúc khởi động; snapshot danh sách vào yêu cầu, không suy ra từ các delivery tình cờ tồn tại. Không import module lớp trên vào `identity`. Handler `ordering` hoàn tất cả redaction của `payments` và `shipping` trước khi commit.
-- Job `identity.reconcile_erasure_requests` đọc kết quả qua API hạ tầng `shared.events.get_delivery_outcomes(event_id, handler_names)`; API này chỉ truy vấn `shared_event_delivery`, không import modules. Chỉ khi **tất cả handler bắt buộc** có delivery `completed` mới chuyển `processing` → `completed` và đặt `completed_at` dưới khoá yêu cầu. Delivery thiếu, `pending`, `failed` hoặc `rejected` đều không được coi là xong: giữ `processing` và cảnh báo; `retry_failed_events` phục hồi cặp `failed`. Lỗi xử lý ẩn danh cần retry, không cố tình chuyển thành `DomainError` bị bỏ qua.
+- Job `identity.reconcile_erasure_requests` đọc kết quả qua API hạ tầng `common.events.get_delivery_outcomes(event_id, handler_names)`; API này chỉ truy vấn `common_event_delivery`, không import `apps`. Chỉ khi **tất cả handler bắt buộc** có delivery `completed` mới chuyển `processing` → `completed` và đặt `completed_at` dưới khoá yêu cầu. Delivery thiếu, `pending`, `failed` hoặc `rejected` đều không được coi là xong: giữ `processing` và cảnh báo; `retry_failed_events` phục hồi cặp `failed`. Lỗi xử lý ẩn danh cần retry, không cố tình chuyển thành `DomainError` bị bỏ qua.
 - Giữ đối tượng cần ẩn danh (`account_id` hoặc `subject_phone` của Khách vãng lai) trong ErasureRequest suốt `processing` để handler còn lấy được sau khi Account/Order đã ẩn danh. Không đưa thông tin này vào sự kiện. Khi hoàn tất, thay `subject_phone` bằng `subject_phone_hmac` trên yêu cầu và các dòng Consent/CustomerDataAccessLog của đối tượng; giữ ID và các mốc thời gian làm bằng chứng ([ADR 0016](../adr/0016-erasure-evidence-phone-hmac.md)). Replay không tự thêm handler mới vào yêu cầu đã hoàn tất; thay đổi phạm vi ẩn danh cần quy trình migration riêng.
 
 | Bảng | Module | Xử lý |
@@ -1440,7 +1440,7 @@ Ghi chú: tạo EmailLog `queued` cùng transaction với handler; task claim b�
 | `shipping_shipment`, `shipping_shipment_event` | shipping (do `ordering` gọi) | Xoá PII trong `creation_input` và `raw_payload` |
 | `payments_payment_event` | payments (do `ordering` gọi) | Xoá PII trong `raw_payload` |
 | Lịch sử pghistory | — | Không cần xử lý: chỉ ghi field không phải PII (mục 10.1) |
-| `shared_outbox_event` | — | Không cần xử lý: payload sự kiện không chứa PII |
+| `common_outbox_event` | — | Không cần xử lý: payload sự kiện không chứa PII |
 | `identity_consent`, `identity_erasure_request`, `identity_customer_data_access_log` | identity | **Giữ** làm bằng chứng tuân thủ: đã đồng ý gì, đã yêu cầu xoá khi nào, và Staff nào đã xem dữ liệu của ai (CMP-07). Các dòng khớp đối tượng (theo `account_id`, hoặc `subject_phone` với Khách vãng lai): `subject_phone` → `''`, ghi `subject_phone_hmac`, trong cùng transaction chuyển yêu cầu sang `completed` ([ADR 0016](../adr/0016-erasure-evidence-phone-hmac.md)) |
 
 ### 10.1. Các field được ghi lịch sử

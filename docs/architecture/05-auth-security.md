@@ -120,10 +120,10 @@ Cam kết vô hiệu Staff và thu hồi do đổi/reset mật khẩu/ẩn danh 
 
 | Permission class | Nằm ở | Điều kiện |
 |---|---|---|
-| `IsCustomer` | `shared/api/permissions.py` | `kind = customer` và `aud = store` |
-| `IsStaff` | `shared/api/permissions.py` | `kind ∈ {staff, admin}` và `aud = backoffice` |
-| `IsAdmin` | `shared/api/permissions.py` | `kind = admin` và `aud = backoffice` |
-| `IsOrderOwner` | `modules/ordering/api/permissions.py` (là nghiệp vụ của `ordering`, nên không đặt ở `shared`) | Đơn thuộc Khách hàng đang đăng nhập, hoặc header `X-Lookup-Token` hợp lệ cho đúng đơn |
+| `IsCustomer` | `common/api/permissions.py` | `kind = customer` và `aud = store` |
+| `IsStaff` | `common/api/permissions.py` | `kind ∈ {staff, admin}` và `aud = backoffice` |
+| `IsAdmin` | `common/api/permissions.py` | `kind = admin` và `aud = backoffice` |
+| `IsOrderOwner` | `apps/ordering/api/permissions.py` (là nghiệp vụ của `ordering`, nên không đặt ở `common`) | Đơn thuộc Khách hàng đang đăng nhập, hoặc header `X-Lookup-Token` hợp lệ cho đúng đơn |
 
 Mặc định của DRF là **từ chối** (`DEFAULT_PERMISSION_CLASSES = [IsAuthenticated]`); endpoint công khai phải khai báo rõ `AllowAny`. Mỗi endpoint back-office có test kiểm tra Staff/Admin/Customer/ẩn danh.
 
@@ -133,7 +133,7 @@ Mặc định của DRF là **từ chối** (`DEFAULT_PERMISSION_CLASSES = [IsAu
 
 Dùng throttling của DRF cho hạn mức request chung, lưu trong Redis. Built-in throttle dùng thao tác cache không atomic nên là giới hạn gần đúng, không phải bảo đảm chống brute force tuyệt đối ([tài liệu DRF](https://www.django-rest-framework.org/api-guide/throttling/)). Hạn mức đăng nhập sai ở mục 3 có failure ledger Redis riêng, check/reserve/ghi kết quả atomic bằng Lua/script được kiểm thử; không diễn đạt một `ScopedRateThrottle` đếm mọi request là bộ đếm chỉ các lần sai.
 
-Failure ledger dùng timestamp của cửa sổ trượt 15 phút, ID suất sinh mới (`uuid4`) cho mỗi lần thử để hoàn tất một lần (không dùng `X-Request-ID` vì id do BFF gửi có thể lặp, làm failure ghi đè nhau), và key HMAC (`shared.privacy.pii_hmac`, keyring `PII_HMAC_KEYS`, [ADR 0016](../adr/0016-erasure-evidence-phone-hmac.md)) của email sau trim/lowercase hoặc IP đã chuẩn hoá; không đưa email/IP thô vào tên key/log. Kiểm tra và giữ suất trước khi thử mật khẩu để các request đồng thời không cùng vượt ngưỡng; kết quả sai chuyển suất thành một failure, thành công trả suất và xoá các failure email đã xảy ra trước lần thành công đó, không xoá lịch sử IP. Suất còn chờ có hạn theo ngân sách timeout đăng nhập và được thu hồi khi worker chết; không ghi nhiều failure cho cùng request. `Retry-After` chỉ tính trên chiều (email hoặc IP) đang chạm ngưỡng: thời điểm số failure + suất của chiều đó tụt dưới hạn mức. Request lỗi giữa chừng (500) trả suất mà không ghi failure. Redis lỗi hoặc treo (timeout client ngắn) thì cả throttle và failure ledger **fail-open** (bỏ qua), vẫn dùng lỗi đăng nhập chung và phát metric cảnh báo không chứa định danh: event log `login_failure_ledger_unavailable` kèm `operation` là nguồn của metric này; WAF trên CloudFront vẫn chặn thô. Đây là đánh đổi tính sẵn sàng đã chọn, không hứa giữ hạn mức chính xác khi Redis không hoạt động.
+Failure ledger dùng timestamp của cửa sổ trượt 15 phút, ID suất sinh mới (`uuid4`) cho mỗi lần thử để hoàn tất một lần (không dùng `X-Request-ID` vì id do BFF gửi có thể lặp, làm failure ghi đè nhau), và key HMAC (`common.privacy.pii_hmac`, keyring `PII_HMAC_KEYS`, [ADR 0016](../adr/0016-erasure-evidence-phone-hmac.md)) của email sau trim/lowercase hoặc IP đã chuẩn hoá; không đưa email/IP thô vào tên key/log. Kiểm tra và giữ suất trước khi thử mật khẩu để các request đồng thời không cùng vượt ngưỡng; kết quả sai chuyển suất thành một failure, thành công trả suất và xoá các failure email đã xảy ra trước lần thành công đó, không xoá lịch sử IP. Suất còn chờ có hạn theo ngân sách timeout đăng nhập và được thu hồi khi worker chết; không ghi nhiều failure cho cùng request. `Retry-After` chỉ tính trên chiều (email hoặc IP) đang chạm ngưỡng: thời điểm số failure + suất của chiều đó tụt dưới hạn mức. Request lỗi giữa chừng (500) trả suất mà không ghi failure. Redis lỗi hoặc treo (timeout client ngắn) thì cả throttle và failure ledger **fail-open** (bỏ qua), vẫn dùng lỗi đăng nhập chung và phát metric cảnh báo không chứa định danh: event log `login_failure_ledger_unavailable` kèm `operation` là nguồn của metric này; WAF trên CloudFront vẫn chặn thô. Đây là đánh đổi tính sẵn sàng đã chọn, không hứa giữ hạn mức chính xác khi Redis không hoạt động.
 
 **IP của người dùng.** Mọi request storefront và back-office đi qua Next.js, nên IP nguồn mà Django thấy là IP của Next.js. Nếu throttle theo IP nguồn, mọi Người mua dùng chung một hạn mức. Cách xử lý:
 
@@ -141,7 +141,7 @@ Failure ledger dùng timestamp của cửa sổ trượt 15 phút, ID suất sin
 - Next.js gửi IP đã xác định trong header `X-Client-IP`, kèm `X-BFF-Secret` có giá trị bằng biến môi trường `BFF_SHARED_SECRET`. Trước khi go-live cần test toàn đường browser → edge → BFF → Django với header giả, không chỉ unit test Django so secret.
 - Middleware của Django chỉ tin `X-Client-IP` khi `X-BFF-Secret` đúng (so bằng `hmac.compare_digest`); sai hoặc thiếu thì dùng IP nguồn.
 - `BFF_SHARED_SECRET` nhận tối đa hai giá trị, cách nhau bằng dấu phẩy, để xoay secret mà không gián đoạn: thêm secret mới vào Django trước, đổi Next.js, rồi bỏ secret cũ ([09](./09-deployment-aws-target.md)).
-- Mọi throttle "theo IP" bên dưới dùng giá trị đã xác minh này. Log ứng dụng dùng định danh IP có HMAC (`shared.privacy.pii_hmac`) khi cần tương quan, không ghi nguyên IP hoặc toàn bộ proxy headers vào log nghiệp vụ.
+- Mọi throttle "theo IP" bên dưới dùng giá trị đã xác minh này. Log ứng dụng dùng định danh IP có HMAC (`common.privacy.pii_hmac`) khi cần tương quan, không ghi nguyên IP hoặc toàn bộ proxy headers vào log nghiệp vụ.
 
 | Scope | Giới hạn **[Giả định · kiểm chứng: tỉ lệ `429` của người dùng thật trong tháng đầu production]** |
 |---|---|

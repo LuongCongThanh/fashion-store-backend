@@ -61,7 +61,7 @@ Thay đổi làm gãy API hoặc contract sự kiện: thêm `!` sau scope **và
 
 ### 3.2. `scope`
 
-Tên module hoặc khu vực: `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`, `shared`, `config`, `adr`, `glossary`, `ci`, `deps`. Không bắt buộc nhưng **nên có**.
+Tên module hoặc khu vực: `identity`, `catalog`, `inventory`, `promotions`, `payments`, `shipping`, `ordering`, `notifications`, `geo`, `common`, `infrastructure`, `config`, `adr`, `glossary`, `ci`, `deps`. Không bắt buộc nhưng **nên có**.
 
 ### 3.3. Ví dụ
 
@@ -94,7 +94,7 @@ docs(adr): add 0007 events via outbox and celery
 |---|---|---|
 | `.github/workflows/ci.yml` | `secrets` | `gitleaks` quét toàn bộ lịch sử |
 | | `pr-title` | Tiêu đề PR đúng Conventional Commits (chỉ chạy trên PR) |
-| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `gen_openapi.py --check`, `pytest`, coverage và `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `backend/pyproject.toml` |
+| | `backend` | `ruff`, `mypy`, `gen_importlinter.py --check`, `lint-imports`, `gen_openapi.py --check`, `pytest`, coverage và `pip-audit` ([12-testing-strategy.md](./12-testing-strategy.md) mục 8). Tự bỏ qua khi chưa có `pyproject.toml` |
 | `.github/workflows/codeql.yml` | `codeql (actions)`, `codeql (python)` | CodeQL bộ `security-extended`, chạy trên PR, push lên `main` và mỗi thứ Hai |
 
 - `ci.yml` chạy khi push lên `main`, `uat`, `dev` và trên mọi PR.
@@ -231,7 +231,7 @@ git push origin "$version"
 ```
 
 - Không tag chỉ vì PR đã đóng: phải **Merged**, commit trên `main` chứa đúng tip `uat` đã nghiệm thu và version khớp. Ghi SHA được nghiệm thu vào PR release để người gắn tag đối chiếu.
-- Cờ `cz` đã kiểm với `commitizen` 4.19.3 (pin trong `backend/pyproject.toml` và `.pre-commit-config.yaml`). `--files-only` đã deprecate, thay bằng `--version-files-only`.
+- Cờ `cz` đã kiểm với `commitizen` 4.19.3 (pin trong `pyproject.toml` và `.pre-commit-config.yaml`). `--files-only` đã deprecate, thay bằng `--version-files-only`.
 
 ### 5.4. Hotfix
 
@@ -316,9 +316,9 @@ Không dùng `git reset --hard` hoặc sửa lịch sử nhánh dùng chung đ�
 
 - **SemVer** `vMAJOR.MINOR.PATCH`. Giữ `0.x.y` tới go-live; bản go-live là `v1.0.0`.
 - Tag chỉ gắn trên `main`, **sau** khi merge, trên commit merge của PR release `uat` → `main` (hoặc commit squash của PR hotfix).
-- Bản chỉ có tài liệu, trước khi có `backend/pyproject.toml`, đi qua `uat` và `main` như thường nhưng **không** tag, không bump version; `v0.1.0` dành cho release đầu tiên có code.
-- `backend/CHANGELOG.md` sinh bằng `commitizen` từ commit Conventional Commits, cập nhật trên `dev` (release) hoặc trong `hotfix/*` (hotfix), rồi vào `main` qua PR.
-- Version ở `backend/pyproject.toml`, `commitizen` cập nhật trong commit `chore(release): vX.Y.Z`; cấu hình đọc `[project].version`, tag dạng `v$version`.
+- Bản chỉ có tài liệu, trước khi có `pyproject.toml`, đi qua `uat` và `main` như thường nhưng **không** tag, không bump version; `v0.1.0` dành cho release đầu tiên có code.
+- `CHANGELOG.md` sinh bằng `commitizen` từ commit Conventional Commits, cập nhật trên `dev` (release) hoặc trong `hotfix/*` (hotfix), rồi vào `main` qua PR.
+- Version ở `pyproject.toml`, `commitizen` cập nhật trong commit `chore(release): vX.Y.Z`; cấu hình đọc `[project].version`, tag dạng `v$version`.
 - Không chạy `cz bump` chế độ mặc định (tự commit, tự tag), vì tag sẽ nằm trên `dev` chứ không phải `main`.
 
 ## 8. Những thứ không được commit

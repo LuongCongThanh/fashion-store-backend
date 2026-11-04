@@ -10,7 +10,7 @@ Spec: [spec.md](../../spec.md)
 
 ## Việc cần làm
 
-- Model `IdempotencyKey` theo [03 mục 1.5](../../../../docs/architecture/03-data-model.md#15-shared_idempotency_key-khoá-chống-tạo-trùng).
+- Model `IdempotencyKey` theo [03 mục 1.5](../../../../docs/architecture/03-data-model.md#15-common_idempotency_key-khoá-chống-tạo-trùng).
 - `shared/api/idempotency.py`: claim key bằng transaction ngắn kèm lease, lưu kết quả cùng transaction với tác động nghiệp vụ, replay kết quả đã `completed`, theo quy ước ở [04 mục 1](../../../../docs/architecture/04-api-contract.md#1-quy-ước-chung). Scope = method + endpoint chuẩn hoá + danh tính (Tài khoản hoặc guest cart token).
 - Job `purge_idempotency_keys`: chỉ xoá bản ghi `completed` quá 24 giờ.
 - Một endpoint mẫu chỉ có trong `config.settings.test` để test hành vi.
