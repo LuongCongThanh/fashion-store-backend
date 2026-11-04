@@ -70,3 +70,26 @@ Chưa có spec.
 ### Còn mở
 
 - [01](../../.scratch/sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) · test tải bằng k6 trên staging · `needs-triage`
+
+## `module-plans` — M1 Catalog và Tồn kho
+
+[Feature spec](../../.scratch/module-plans/m1-catalog-inventory/spec.md)
+
+### Đã xong
+
+Chưa có.
+
+### Còn mở
+
+- [01](../../.scratch/module-plans/m1-catalog-inventory/issues/01-backoffice-login/spec.md) · Staff/Admin đăng nhập back-office · `ready-for-agent`
+- [02](../../.scratch/module-plans/m1-catalog-inventory/issues/02-refresh-logout/spec.md) · xoay refresh token và đăng xuất · `ready-for-agent` · blocked by 01
+- [03](../../.scratch/module-plans/m1-catalog-inventory/issues/03-category-navigation/spec.md) · quản lý Danh mục và storefront navigation · `ready-for-agent` · blocked by 01
+- [04](../../.scratch/module-plans/m1-catalog-inventory/issues/04-size-color-registry/spec.md) · danh sách size và bảng màu · `ready-for-agent` · blocked by 01
+- [05](../../.scratch/module-plans/m1-catalog-inventory/issues/05-product-variant-management/spec.md) · quản lý Sản phẩm và Biến thể · `ready-for-agent` · blocked by 03, 04
+- [06](../../.scratch/module-plans/m1-catalog-inventory/issues/06-product-images/spec.md) · ảnh Sản phẩm theo màu · `ready-for-agent` · blocked by 05
+- [07](../../.scratch/module-plans/m1-catalog-inventory/issues/07-pricing/spec.md) · Giá bán và Giá khuyến mãi · `ready-for-agent` · blocked by 05
+- [08](../../.scratch/module-plans/m1-catalog-inventory/issues/08-stock-inbound-visibility/spec.md) · xem Tồn kho và Nhập kho · `ready-for-agent` · blocked by 05, 07
+- [09](../../.scratch/module-plans/m1-catalog-inventory/issues/09-stock-adjustment/spec.md) · điều chỉnh Tồn kho · `ready-for-agent` · blocked by 08
+- [10](../../.scratch/module-plans/m1-catalog-inventory/issues/10-stock-count/spec.md) · Kiểm kê · `ready-for-agent` · blocked by 09
+- [11](../../.scratch/module-plans/m1-catalog-inventory/issues/11-storefront-product-discovery/spec.md) · storefront khám phá Sản phẩm · `ready-for-agent` · blocked by 06, 07, 10
+- [12](../../.scratch/module-plans/m1-catalog-inventory/issues/12-m1-acceptance/spec.md) · acceptance và hardening toàn M1 · `ready-for-agent` · blocked by 01–11
