@@ -2,7 +2,7 @@
 
 import math
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import cache
 from typing import Protocol, cast
 
@@ -168,7 +168,12 @@ class LoginAttemptLedger:
             result = self._reserve(keys=reservation.keys, args=args)
         except RedisError, OSError:
             _log_ledger_unavailable("reserve")
-            return replace(reservation, enforced=False)
+            return LoginReservation(
+                attempt_id=reservation.attempt_id,
+                email_key=reservation.email_key,
+                ip_key=reservation.ip_key,
+                enforced=False,
+            )
         # Lua trả {1, 0} khi giữ được suất, {0, retry_after_seconds} khi bị chặn
         is_reserved, retry_after = cast("list[int]", result)
         if not is_reserved:
