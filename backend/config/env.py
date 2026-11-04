@@ -44,6 +44,14 @@ class Env(BaseSettings):
     STOREFRONT_ORIGIN: str
     # 1 hoặc 2 secret cách nhau bằng dấu phẩy để xoay không gián đoạn (05 mục 5)
     BFF_SHARED_SECRET: Annotated[tuple[SecretStr, ...], NoDecode]
+    # `kid|private-key-base64|public-key-base64`, nhiều khoá cách nhau bằng dấu phẩy.
+    # Để rỗng ở máy chưa làm M1; deploy check và token codec từ chối keyring rỗng.
+    JWT_SIGNING_KEYS: SecretStr = SecretStr("")
+    JWT_ISSUER: str = "fashion-store"
+    JWT_AUDIENCE_BACKOFFICE: str = "backoffice"
+    JWT_ACCESS_TTL_SECONDS: int = 600
+    JWT_BACKOFFICE_REFRESH_TTL_SECONDS: int = 43_200
+    JWT_LEEWAY_SECONDS: int = 30
 
     @field_validator("PII_HMAC_KEYS", mode="before")
     @classmethod

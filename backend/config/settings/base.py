@@ -10,6 +10,37 @@ SECRET_KEY = env.DJANGO_SECRET_KEY.get_secret_value()
 PII_HMAC_KEYS = tuple((kid, secret.get_secret_value()) for kid, secret in env.PII_HMAC_KEYS)
 # Secret Next.js gửi trong X-BFF-Secret; 2 giá trị khi đang xoay (05 mục 5)
 BFF_SHARED_SECRETS = tuple(secret.get_secret_value() for secret in env.BFF_SHARED_SECRET)
+JWT_ISSUER = env.JWT_ISSUER
+JWT_AUDIENCE_BACKOFFICE = env.JWT_AUDIENCE_BACKOFFICE
+JWT_ACCESS_TTL_SECONDS = env.JWT_ACCESS_TTL_SECONDS
+JWT_BACKOFFICE_REFRESH_TTL_SECONDS = env.JWT_BACKOFFICE_REFRESH_TTL_SECONDS
+JWT_LEEWAY_SECONDS = env.JWT_LEEWAY_SECONDS
+
+
+def _jwt_keyring(raw: str) -> dict[str, dict[str, str]]:
+    """Đọc keyring JWT mà không đưa key vào exception hoặc log."""
+    import base64
+
+    keys: dict[str, dict[str, str]] = {}
+    if not raw:
+        return keys
+    try:
+        for entry in raw.split(","):
+            kid, private, public = entry.split("|", 2)
+            if not kid or kid in keys:
+                raise ValueError
+            keys[kid] = {
+                "private_key": base64.b64decode(private).decode() if private else "",
+                "public_key": base64.b64decode(public).decode(),
+            }
+    except (ValueError, UnicodeDecodeError) as exc:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured("JWT_SIGNING_KEYS sai định dạng") from exc
+    return keys
+
+
+JWT_SIGNING_KEYS = _jwt_keyring(env.JWT_SIGNING_KEYS.get_secret_value())
 DEBUG = False
 ALLOWED_HOSTS: list[str] = []
 
@@ -39,6 +70,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
 MIDDLEWARE = [
