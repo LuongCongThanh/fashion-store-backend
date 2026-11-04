@@ -1,6 +1,6 @@
 # 02 – `shared` thành `common` + `apps/geo`, `modules` thành `apps/identity`
 
-Status: ready-for-agent · Ưu tiên: 3 · Blocked by: [01](../01-flatten-repo-root/spec.md) · **PR:**
+Status: resolved · Ưu tiên: 3 · Blocked by: [01](../01-flatten-repo-root/spec.md) · **PR:** #76
 
 Spec: [spec.md](../../spec.md)
 

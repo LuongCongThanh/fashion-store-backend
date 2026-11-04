@@ -8,11 +8,11 @@ Thứ tự hoàn thành thực tế của ticket trong `.scratch/`, theo thời 
 
 [Spec](../../.scratch/one-app-per-module/spec.md) · [ADR 0018](../adr/0018-one-django-app-per-module.md)
 
-### Còn mở
+### Đã xong
 
-- [01](../../.scratch/one-app-per-module/issues/01-flatten-repo-root/spec.md) · đưa Django project từ `backend/` lên gốc repo · `ready-for-agent`
-- [02](../../.scratch/one-app-per-module/issues/02-django-apps/spec.md) · `shared` thành `common` + `apps/geo`, `modules` thành `apps/identity`, sinh lại migration · `ready-for-agent` · blocked by 01
-- [03](../../.scratch/one-app-per-module/issues/03-mirror-test-layout/spec.md) · đặt lại vị trí và tên file test theo quy tắc soi gương · `ready-for-agent` · blocked by 02
+1. [01](../../.scratch/one-app-per-module/issues/01-flatten-repo-root/spec.md) · đưa Django project từ `backend/` lên gốc repo · PR #75 · 05/11/2026
+2. [02](../../.scratch/one-app-per-module/issues/02-django-apps/spec.md) · `shared` thành `common` + `apps/geo`, `modules` thành `apps/identity`, sinh lại migration · PR #76 · 05/11/2026
+3. [03](../../.scratch/one-app-per-module/issues/03-mirror-test-layout/spec.md) · đặt file test theo đường dẫn soi gương, `test_test_layout.py` chặn file đặt sai · PR #77 · 05/11/2026
 
 ## `dev-security-baseline`
 

@@ -24,7 +24,7 @@ Cập nhật trong cùng PR đóng ticket. Nguồn sự thật là dòng `Status
 | Ưu tiên | Mốc / feature | Ticket mở | Ghi chú |
 |---|---|---|---|
 | 1 | [`dev-security-baseline`](../dev-security-baseline/spec.md) | 🟡 03 | Chủ repo tự kiểm tra 3 AC; 01, 02 ✅ |
-| 2–4 | [`one-app-per-module`](../one-app-per-module/spec.md) | ⬜ 01 → 02 → 03 | Chặn M1 02–04 |
+| ✅ | [`one-app-per-module`](../one-app-per-module/spec.md) | — | 01, 02, 03 ✅ |
 | 5–15 | **M1** [`catalog-inventory`](../catalog-inventory/spec.md) | ⬜ 02, 03, 04, 05, 07, 06, 08, 09, 10, 11, 12 | 03 và 04 làm song song được; 01, 13 ✅ |
 | 16–17 | **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | ⬜ 14, 20 | Cần chủ repo sửa ruleset; làm xen kẽ |
 | 18–20 | **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | ⏸ 28 → 25, 13 | Trước go-live; mốc chính M0 đã xong (23 ticket ✅) |
