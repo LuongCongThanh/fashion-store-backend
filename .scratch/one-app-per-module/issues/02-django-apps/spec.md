@@ -15,6 +15,7 @@ Mỗi module là một Django app trong `apps/`, `common` là hạ tầng nội 
   - `management/commands/`: lệnh hạ tầng (relay, replay, retry, `sync_beat_schedule`, `reset_db`).
 - [ ] **`apps/geo/`** (label `geo`) từ `shared/geo/`, kèm lệnh `load_geo`; API ở `api/store/`.
 - [ ] **`apps/identity/`** (label `identity`) từ `modules/identity/`, kèm `create_staff`; `AUTH_USER_MODEL = "identity.Account"`.
+- [ ] Xoá các package rỗng `modules/{catalog,inventory,ordering,payments,promotions,shipping,notifications}/`; app tương ứng tạo khi module bắt đầu có code.
 - [ ] Bỏ app `modules`: việc tự nạp `events.py`, `handlers.py` trong `modules/apps.py` chuyển sang `common.events`, nạp từ mọi app trong `INSTALLED_APPS`.
 - [ ] Bỏ `shared/testing/`: factory → `common/tests/factories.py`; fixture → `conftest.py` ở gốc; `drain_events()` → `common/events/testing.py`.
 - [ ] Đổi tên bảng: `shared_outbox_event`, `shared_event_delivery`, `shared_idempotency_key` → `common_*`; `shared_province`, `shared_ward` → `geo_province`, `geo_ward`.
@@ -36,6 +37,7 @@ Mỗi module là một Django app trong `apps/`, `common` là hạ tầng nội 
 - [ ] Không còn package `shared`, `modules`. `INSTALLED_APPS` có `common`, `apps.geo`, `apps.identity`; `makemigrations --check` không sinh gì.
 - [ ] `make db-reset` rồi `make migrate`, `load_geo`, `create_staff`, đăng nhập back-office chạy như trước.
 - [ ] `lint-imports` xanh với contract mới; `tests/tooling/test_import_boundaries.py` chứng minh module import nội bộ module khác vẫn fail.
+- [ ] Số test thu thập (`pytest --collect-only -q`) trước và sau bằng nhau (ghi số trước khi bắt đầu).
 - [ ] `make fmt`, `make lint`, `make test` xanh; cổng branch coverage đạt cho `apps.identity`, `apps.geo`, `common`.
 - [ ] `git grep -nE "\bshared[./]|\bmodules\."` chỉ còn trong `.scratch/` và ADR lịch sử.
 

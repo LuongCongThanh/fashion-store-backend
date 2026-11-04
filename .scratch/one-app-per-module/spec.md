@@ -16,6 +16,9 @@ Hiện trạng: Django project nằm trong `backend/`; một app `modules` chứ
 - **Thứ tự:** 3 ticket nối tiếp, mỗi ticket một PR, CI xanh: đưa lên gốc repo → đổi Django app → sắp test.
 - **Migration:** sinh lại từ đầu ở ticket 02, không viết migration chuyển dữ liệu. Mỗi dev chạy `make db-reset` một lần sau khi merge.
 - **`infrastructure/`:** chưa tạo vì chưa có adapter. Package, lớp `infrastructure` trong contract `layers` và contract "chỉ module sở hữu import" tạo cùng adapter đầu tiên (VNPay/MoMo, GHN hoặc Google).
+- **Module chưa có code:** không tạo app rỗng; package rỗng trong `modules/` bị xoá ở ticket 02.
+- **Số test:** mỗi ticket so `pytest --collect-only -q` trước và sau; phải bằng nhau.
+- **Nhánh:** tách từ `dev` theo [11](../../docs/architecture/11-git-workflow.md), PR vào `dev`.
 - **Tài liệu lịch sử:** ADR 0006, 0017 và `.scratch/` không sửa đường dẫn.
 
 ## Ticket

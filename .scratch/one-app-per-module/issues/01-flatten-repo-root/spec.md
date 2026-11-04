@@ -9,6 +9,7 @@ Mọi lệnh (`make`, `uv`, `docker compose`, `pre-commit`) chạy từ gốc re
 
 ## Việc cần làm
 - [ ] `git mv` toàn bộ `backend/` lên gốc, kể cả file ẩn (`.env.example`, `.python-version`, `.dockerignore`). Không chép `.venv`, cache, `.env`.
+- [ ] Xoá `backend/.claude/` (chỉ chứa lock của phiên cũ, không track).
 - [ ] Gộp `backend/scripts/` vào `scripts/` (giữ nguyên `scripts/setup/`).
 - [ ] `backend/tests/` (test công cụ) → `tests/tooling/`.
 - [ ] Sửa đường dẫn `backend/` trong:
@@ -30,6 +31,7 @@ Mọi lệnh (`make`, `uv`, `docker compose`, `pre-commit`) chạy từ gốc re
 
 ## Acceptance criteria
 - [ ] Không còn thư mục `backend/`; `git grep -n "backend/"` chỉ còn trong `.scratch/` và ADR lịch sử.
+- [ ] Số test thu thập (`pytest --collect-only -q`) trước và sau bằng nhau.
 - [ ] Từ gốc: `make fmt`, `make lint`, `make test` xanh; `docker compose up` chạy được worker, beat, relay; `pre-commit run --all-files` xanh.
 - [ ] CI xanh trên PR; Dependabot trỏ đúng thư mục gốc.
 - [ ] Test skill `ship-ticket-fashion` xanh.
