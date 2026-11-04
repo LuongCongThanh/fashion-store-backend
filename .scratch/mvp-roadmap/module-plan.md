@@ -392,7 +392,7 @@ Không tạo toàn bộ ticket M1–M6 cùng lúc. Khi mốc trước gần xong
 5. M5: PAY-07 + ORD-13 → INV-07 + ORD-14 → NTF-05 → ORD-15 (**Có thể hoãn**).
 6. M6: ID-04–08 → ORD-17 → ID-09 + ORD-19 (**Có thể hoãn**) → ID-10 + PAY-08 + SHP-08 + ORD-18 + NTF-07.
 
-Feature spec chi tiết của M1 nằm tại [`m1-catalog-inventory/spec.md`](./m1-catalog-inventory/spec.md). Tài liệu đó sở hữu phạm vi, vertical tickets và gate hoàn tất M1; file này tiếp tục sở hữu thứ tự tổng thể giữa 8 module.
+Feature spec chi tiết của M1 nằm tại [`catalog-inventory/spec.md`](../catalog-inventory/spec.md). Tài liệu đó sở hữu phạm vi, vertical tickets và gate hoàn tất M1; file này tiếp tục sở hữu thứ tự tổng thể giữa 8 module.
 
 ## 13. Điểm cần theo dõi, chưa đổi roadmap
 

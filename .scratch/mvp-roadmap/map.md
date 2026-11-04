@@ -19,57 +19,57 @@ M1 có identity lõi vì endpoint back-office của catalog và inventory cần 
 
 ## Tiến độ
 
-Cập nhật trong cùng PR đóng ticket. Nguồn sự thật vẫn là dòng `Status:` của từng ticket; bảng này chỉ để nhìn nhanh. Ticket ✅ xếp theo thứ tự merge; ngày và PR của từng ticket ở [`ticket-history.md`](../../docs/agents/ticket-history.md).
+Cập nhật trong cùng PR đóng ticket. Nguồn sự thật là dòng `Status:` và `Ưu tiên:` của từng ticket; bảng này chỉ để nhìn nhanh, ticket mở xếp theo `Ưu tiên`. Ngày và PR ở [`ticket-history.md`](../../docs/agents/ticket-history.md).
 
-| Mốc / feature | Trạng thái | Ticket |
-|---|---|---|
-| [`dev-security-baseline`](../dev-security-baseline/spec.md) | Gần xong | ✅ 01, 02 · 🟡 03 chờ chủ repo tự kiểm tra 3 AC |
-| **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | Xong (mốc chính) | ✅ 06, 07, 08, 09, 16, 15, 17, 10, 18, 11, 12, 21, 24, 27, 23, 22, 01, 04, 02, 03, 19, 26, 29 · Backlog không chặn M0, làm xen kẽ: 14, 20 · ⏸ trước go-live: 13 macOS, 25, 28 outbox (`ready-for-agent`) |
-| **M1** [`module-plans/m1-catalog-inventory`](../module-plans/m1-catalog-inventory/spec.md) | Đang làm | ✅ 01, 13 · ⬜ 02–12 |
-| **M2** – **M6** | Chưa có spec | Tạo spec khi mốc trước gần xong |
-| **M7** `sandbox-acceptance` | Chưa có spec | ⏸ [01](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) k6, `needs-triage` |
+| Ưu tiên | Mốc / feature | Ticket mở | Ghi chú |
+|---|---|---|---|
+| 1 | [`dev-security-baseline`](../dev-security-baseline/spec.md) | 🟡 03 | Chủ repo tự kiểm tra 3 AC; 01, 02 ✅ |
+| 2–4 | [`one-app-per-module`](../one-app-per-module/spec.md) | ⬜ 01 → 02 → 03 | Chặn M1 02–04 |
+| 5–15 | **M1** [`catalog-inventory`](../catalog-inventory/spec.md) | ⬜ 02, 03, 04, 05, 07, 06, 08, 09, 10, 11, 12 | 03 và 04 làm song song được; 01, 13 ✅ |
+| 16–17 | **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | ⬜ 14, 20 | Cần chủ repo sửa ruleset; làm xen kẽ |
+| 18–20 | **M0** [`backend-bootstrap`](../backend-bootstrap/spec.md) | ⏸ 28 → 25, 13 | Trước go-live; mốc chính M0 đã xong (23 ticket ✅) |
+| 21 | **M7** [`sandbox-acceptance`](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) | ⏸ 01 k6 | `needs-triage`, chờ M2 và staging |
+| — | **M2** – **M6** | — | Tạo spec khi mốc trước gần xong |
 
 Ký hiệu: ✅ `resolved` · 🟡 đang dở · ⬜ chưa làm · ⏸ để sau.
 
 ## Decisions-so-far
 
+### Quy tắc chung
+
 - 29/10/2026: Tài liệu `docs/` chốt cho MVP; code tới đâu cập nhật tài liệu tới đó trong cùng PR ([README](../../README.md#trạng-thái-tài-liệu)).
 - 29/10/2026: Python 3.14, bỏ `uuid-utils` ([ADR 0008](../../docs/adr/0008-uuid-v7-primary-keys.md)).
-- 29/10/2026: Các con số nghiệp vụ trước đây là `[Giả định]` đã chốt; con số kỹ thuật mang nhãn `[Giả định · kiểm chứng: …]`.
+- 29/10/2026: Con số nghiệp vụ `[Giả định]` đã chốt; con số kỹ thuật mang nhãn `[Giả định · kiểm chứng: …]`.
 - 29/10/2026: Đăng ký luôn trả `202` như nhau, không lộ email đã tồn tại (US-501 AC2).
 - 29/10/2026: Bằng chứng tuân thủ giữ HMAC số điện thoại sau ẩn danh ([ADR 0016](../../docs/adr/0016-erasure-evidence-phone-hmac.md)).
-- 29/10/2026: Hoá đơn điện tử giữ xuất thủ công ở MVP; kế toán xác nhận trước go-live.
-- 30/10/2026: M0 xong khi có ticket 11 (idempotency) và 12 (`Account`), rồi vào M1. Ticket 01–04, 14, 19–23 thành backlog làm xen kẽ, không chặn mốc; 13 và 24–28 để trước go-live. Lý do: các ticket này không chặn endpoint nào của M1, và M0 đã phình từ 4 lên 27 ticket do mỗi review sinh ticket mới.
-- 31/10/2026: Triage ticket 24–28 (outbox) thành `ready-for-agent`; [sandbox-acceptance/01](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) giữ `needs-triage` tới khi có checkout (M2) và staging. Thứ tự làm backlog M0: 21, 24, 27, 23, 01, 04, 02, 22 → 03, 19, 28, 26, 25, 14, 20. Lý do: lỗi thật (lộ password, giao lại vô hạn) trước, rồi cổng chặn CI cần có trước khi M1 thêm module; 14, 20 cần chủ repo sửa ruleset.
-- 02/11/2026: `backend/shared/events` (outbox) đã có 4 ticket sửa; trước khi làm 25, 26, 28 chạy `/improve-codebase-architecture backend/shared/events`, ticket trùng việc thì gộp hoặc đóng `wontfix`.
-- 03/11/2026: Ticket 19 chốt quy tắc tin BFF dùng chung: `shared.api.client_ip.bff_secret_matches(request)` là chỗ duy nhất so `X-BFF-Secret`; header nào khác chỉ tin khi hàm này đúng. Django dùng `X-Request-ID` làm `request_id` (log, `ErrorDTO`, `correlation_id`) khi secret đúng và giá trị khớp `[A-Za-z0-9._-]{1,64}`; Next.js BFF phải bỏ `X-Request-ID` của browser và tự sinh cho mỗi request (05 §1.1). Chi tiết ở [19](../backend-bootstrap/issues/19-trust-upstream-request-id/spec.md#quyết-định).
-- 03/11/2026: `backend/openapi.yaml` là hợp đồng API đã commit; ticket thêm hoặc đổi endpoint, serializer chạy `make openapi` và commit file cùng PR, không thì bước Lint của CI fail ([ticket 03](../backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md), 12 mục 5).
-- 03/11/2026: Review kiến trúc `backend/shared/events` xong (theo mục 02/11). Ticket [26](../backend-bootstrap/issues/26-outbox-refactor-smells/spec.md) gom mọi chuyển trạng thái `EventDelivery` thành method trên model (tự lưu đúng cột, nhận `now`, không log; thao tác hàng loạt là classmethod) và đưa vị từ tới hạn / đã lập danh sách / chưa kết thúc thành QuerySet primitive cạnh index. Helper test, trait factory, abstract model UUID v7 và rút gọn test trùng tách sang ticket [29](../backend-bootstrap/issues/29-outbox-test-helpers/spec.md). B3, B5 ở lại [28](../backend-bootstrap/issues/28-outbox-operations-hardening/spec.md), chặn bởi 26. Ứng viên "vòng xả tồn đọng trong `relay`" là cách làm ticket 25. Thứ tự backlog M0 còn lại: 26, 29, 28, 25, 14, 20.
-- 02/11/2026: Mọi contract import-linter đặt tên ASCII tiếng Anh; contract `forbidden` do `backend/scripts/gen_importlinter.py` sinh, không sửa tay ([ticket 04](../backend-bootstrap/issues/04-import-linter-test-factories/spec.md)).
-- 30/10/2026: Lõi idempotency ở `shared/idempotency.py`, không import DRF, để service (checkout, Thanh toán, kho) gọi `claim.complete()` trong transaction của mình; `shared/api/idempotency.py` chỉ là lớp HTTP ([ticket 11](../backend-bootstrap/issues/11-shared-idempotency/spec.md)).
-- 29/10/2026: ADR 0019 đổi số thành [0015](../../docs/adr/0015-local-postgres-on-host.md).
-- 29/10/2026: Không dùng Django Admin ở mọi môi trường, kể cả local; xem dữ liệu bằng `psql`/IDE ([ADR 0004](../../docs/adr/0004-custom-nextjs-admin.md)).
-- 29/10/2026: Biến môi trường và lệnh `Makefile` thêm ở mốc dùng tới, không khai báo trước ([08](../../docs/architecture/08-local-development.md) mục 2.3 và 3).
-- 29/10/2026: Compose có service `migrate` chạy trước các service app.
-- 29/10/2026: Đóng [dev-security-baseline/02](../dev-security-baseline/issues/02-ci-and-dependabot/spec.md); trivy và Dependabot cho `backend/` chuyển sang [backend-bootstrap/14](../backend-bootstrap/issues/14-trivy-and-dependabot-backend/spec.md).
-- 29/10/2026: Ticket k6 chuyển từ M0 sang [sandbox-acceptance/01](../sandbox-acceptance/issues/01-load-test-k6-staging/spec.md) (M7).
-- 29/10/2026: Làm ticket 07 song song với 08; phần cần container gọi PostgreSQL trên máy tách sang ticket 15.
-- 29/10/2026: Tách ticket lớn của M0: 07 → 07 + 15 (Compose), `gen_importlinter.py` gộp vào 04; 09 → 09 + 16 (lớp API) + 17 (địa giới); 10 → 10 + 18 (lệnh vận hành).
-- 29/10/2026: `sync_beat_schedule` làm ở ticket 15 vì service `migrate` gọi nó; service `relay` thêm vào Compose ở ticket 10 cùng `run_outbox_relay`.
-- 29/10/2026: Ticket 09 chốt API của `shared` (keyring nhiều khoá, `Money`, `DomainError.http_status`, `redact_pii`, manager giữ `updated_at`); chi tiết ở [09](../backend-bootstrap/issues/09-shared-core/spec.md#quyết-định).
-- 29/10/2026: Ticket 16 chốt API của `shared.api`: `page_size` > 100 giới hạn ở 100 (sửa 04 mục 5.1), 405 là `METHOD_NOT_ALLOWED`, quyền mặc định `IsAuthenticated` ngay từ M0, `BFF_SHARED_SECRET` nhận tối đa 2 secret, khoá throttle là `pii_hmac(client_ip)`; chi tiết ở [16](../backend-bootstrap/issues/16-shared-api-layer/spec.md#quyết-định). Tin `X-Request-ID` từ BFF tách sang ticket [19](../backend-bootstrap/issues/19-trust-upstream-request-id/spec.md) (`needs-triage`).
-- 29/10/2026: Ticket 15 thêm lệnh `shared` `reset_db` cho `make db-reset` (recipe chỉ gọi `uv run`/`docker compose`, không gọi `psql`); management command hạ tầng của `shared` được mở transaction (sửa 02 §9.1); Dependabot cho image trong Compose tách sang ticket [20](../backend-bootstrap/issues/20-dependabot-compose-images/spec.md) (`needs-triage`).
-- 30/10/2026: Ticket 17 chốt mã địa giới là mã Cục Thống kê có số 0 đứng đầu (tỉnh `01`, phường/xã `00004`); mọi FK `ward_code` của module sau dùng dạng này. `load_geo` không xoá mã cũ. Route `api/v1/store/` đầu tiên gắn trong `config/urls.py`; chi tiết ở [17](../backend-bootstrap/issues/17-shared-geo/spec.md#quyết-định). Khai báo `ErrorDTO` trong OpenAPI tách sang ticket [22](../backend-bootstrap/issues/22-openapi-error-responses/spec.md) (`needs-triage`).
-- 30/10/2026: Ticket 10 chốt API sự kiện cho mọi module: `shared.events.publish(event)` chỉ gọi trong `transaction.atomic` của service (ngoài transaction ném `RuntimeError`); handler khai báo `@handles(event_type, version=…, name="<module>.<snake_case>")`, `name` bắt buộc và cố định; `ModulesConfig.ready()` tự nạp `events.py`, `handlers.py` của module con; code nghiệp vụ đẩy task bằng `shared.tasks.enqueue_on_commit(task_name, **kwargs)` (task phải đã đăng ký, tên sai ném lỗi ngay); flow test gọi `shared.testing.events.drain_events()`. Chi tiết ở [10](../backend-bootstrap/issues/10-shared-events-outbox/spec.md#quyết-định). Ticket mới từ review: [24](../backend-bootstrap/issues/24-outbox-killed-handler-redispatch/spec.md)–[27](../backend-bootstrap/issues/27-outbox-invalid-payload-fails-fast/spec.md) (`needs-triage`).
-- 30/10/2026: Ticket 18 chốt API theo dõi outbox cho module dùng sau: `shared.events.delivery_lag() -> timedelta` (job T4 của `ordering` so với 60 giây), `shared.events.get_delivery_outcomes(event_id, handler_names) -> dict[str, DeliveryStatus | None]` (`None` = chưa có delivery; `identity.reconcile_erasure_requests` chỉ coi `completed` là xong). Lệnh vận hành `retry_failed_events`, `replay_events` (chọn theo `deliveries_created_at`), job `shared.purge_old_outbox_events` 03:30 là lịch Beat đầu tiên trong `config/celery.py`. Chi tiết ở [18](../backend-bootstrap/issues/18-outbox-operations/spec.md#quyết-định). Ticket mới từ review: [28](../backend-bootstrap/issues/28-outbox-operations-hardening/spec.md) (`needs-triage`).
-- 31/10/2026: Ticket 12 đóng M0. API cho mốc sau: `Account` (`AUTH_USER_MODEL = "modules.Account"`, migration `modules/0001`, không cài `django.contrib.auth`); `modules.identity.services.accounts.create_staff_account(*, email, password, kind, full_name="")` kiểm email, độ mạnh mật khẩu (`AUTH_PASSWORD_VALIDATORS` theo 05 §3) và email trùng, ném `InvalidEmail`, `WeakPassword` (422), `EmailAlreadyUsed` (409); back-office tạo Staff (US-1001) dùng lại service này. Fixture `staff_client`/`admin_client` dùng `force_authenticate` với claims `aud = backoffice` tới khi ticket JWT của M1 thay bằng token thật, giữ tên fixture. Chi tiết ở [12](../backend-bootstrap/issues/12-account-bootstrap/spec.md#quyết-định).
-- 01/11/2026: Ticket 27 chốt hợp đồng parse sự kiện cho mọi module: consumer parse payload ở transaction 1, trước khi gọi handler; mọi lỗi parse (`ValidationError` hay lỗi khác của class/validator) chuyển delivery `failed` ngay, không retry, log ERROR `event_delivery_failed` (kèm `invalid_fields` `{field, type}` hoặc traceback). Sửa class `…V1` lỡ phá vỡ thì đưa về hình dạng cũ hoặc cho field mới là tuỳ chọn rồi `retry_failed_events`; thêm `V2` không cứu được dòng cũ. Contract test schema sự kiện vào backlog, xem lại ở M1. Chi tiết ở [27](../backend-bootstrap/issues/27-outbox-invalid-payload-fails-fast/spec.md#quyết-định).
-- 01/11/2026: Ticket 22 chốt OpenAPI lỗi cho mọi module: `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) tự thêm response `ErrorDTO` 400, 500 cho mọi operation, 429 khi view có throttle, 404 khi path có tham số hoặc có query `page`; view chỉ khai mã đặc thù (409, 422…) bằng `extend_schema(responses=…)`, mã đã khai không bị ghi đè. Ticket JWT của M1 thêm 401/403 và 503 vào bộ mặc định. Chi tiết ở [22](../backend-bootstrap/issues/22-openapi-error-responses/spec.md#quyết-định).
-- 01/11/2026: Ticket 23: `backend/Makefile` export `PYTHONUTF8=1` và hook `lint-imports` của pre-commit đặt `PYTHONUTF8=1`, vì Windows ghi output chuyển hướng theo ANSI code page. Entry point mới chạy Python và in tiếng Việt ra pipe (script, hook, `subprocess` trong test) phải tự đặt biến này; cách sửa tận gốc (tên contract ASCII hoặc đặt cho cả user ở 08 §2) nằm ở backlog, gắn ticket 04.
-- 01/11/2026: Ticket 01: `make test` và CI chặn branch coverage < 80% riêng cho `services/` + `handlers.py` của từng module và nhóm hạ tầng `shared` (`shared/events`, `shared/idempotency.py`, `shared/api/idempotency.py`, `shared/tasks.py`) bằng `scripts/check_module_coverage.py`; không có ngưỡng toàn repo (12 §8). Module mới có `services/` hoặc `handlers.py` tự vào cổng; thư mục Django app `management`/`migrations`/`templates` trong `modules/` không phải module.
-- 03/11/2026: Ticket 26 chốt quy ước cho mọi module (13 mục 7.1): chuyển trạng thái của model là method trên model, tự `save(update_fields=…)`, nhận `now`, không log; chuyển hàng loạt (`UPDATE` theo id caller đã khoá) là `@classmethod` của model; custom `QuerySet` chỉ chứa vị từ không side effect, đặt cùng file với `Meta.indexes`. Mẫu ở `shared/events/models.py` (`EventDelivery`). Chi tiết ở [26](../backend-bootstrap/issues/26-outbox-refactor-smells/spec.md#quyết-định).
-- 04/11/2026: Ticket M1/01 chốt nền xác thực back-office cho các ticket M1 sau: view back-office tự khai `authentication_classes = (JWTAuthentication,)` + `IsStaff`/`IsAdmin`, `DEFAULT_AUTHENTICATION_CLASSES` giữ rỗng (05 mục 4); fixture `staff_client`/`admin_client` giờ gắn access token thật qua fixture `jwt_keyring` (thay `force_authenticate` của ticket 12, giữ tên fixture); `shared.api.schema.AutoSchema` thêm 401/403/503 cho view không chỉ `AllowAny`; deploy check `shared.E002` đòi `JWT_SIGNING_KEYS`. Chi tiết ở [01](../module-plans/m1-catalog-inventory/issues/01-backoffice-login/spec.md#quyết-định).
-- 04/11/2026: Ticket M1/13 chốt quy ước OpenAPI cho mọi endpoint M1 sau: `DEFAULT_PARSER_CLASSES = [JSONParser]` toàn cục (endpoint upload của 06 tự khai `MultiPartParser`); tag `<store|backoffice> · <module>` do `AutoSchema` suy ra, view không tự khai; mỗi operation dưới `/api/v1/` cần `summary`, ví dụ request/2xx và ví dụ `ErrorDTO` cho lỗi tự khai (`` `CODE` `` trong mô tả), toàn bộ chữ trên Swagger tiếng Anh, docstring không vào schema; `gen_openapi.py --check` (`make lint`) chặn thiếu chú thích. `operationId` để tự sinh tới khi frontend sinh TS client. Chi tiết ở [04 §5.6](../../docs/architecture/04-api-contract.md) và [13](../module-plans/m1-catalog-inventory/issues/13-openapi-docs-quality/spec.md#quyết-định).
+- 29/10/2026: Hoá đơn điện tử xuất thủ công ở MVP; kế toán xác nhận trước go-live.
+- 29/10/2026: Không dùng Django Admin ở mọi môi trường ([ADR 0004](../../docs/adr/0004-custom-nextjs-admin.md)).
+- 29/10/2026: Biến môi trường và lệnh `Makefile` thêm ở mốc dùng tới, không khai báo trước ([08](../../docs/architecture/08-local-development.md) mục 2.3, 3).
+- 30/10/2026: Ticket sinh ra từ review không chặn mốc đang làm: đưa vào backlog làm xen kẽ hoặc để trước go-live. Lý do: M0 phình từ 4 lên 27 ticket vì mỗi review sinh ticket mới.
+- 03/11/2026: `backend/openapi.yaml` là hợp đồng API đã commit; đổi endpoint hoặc serializer thì chạy `make openapi` và commit cùng PR ([03](../backend-bootstrap/issues/03-openapi-schema-drift-check/spec.md)).
+- 02/11/2026: Contract import-linter đặt tên ASCII tiếng Anh; contract `forbidden` do `scripts/gen_importlinter.py` sinh, không sửa tay ([04](../backend-bootstrap/issues/04-import-linter-test-factories/spec.md)).
+- 05/11/2026: Mỗi ticket mở có `Ưu tiên: N` đánh liên tục qua mọi feature ([issue-tracker](../../docs/agents/issue-tracker.md#thứ-tự-ưu-tiên)). Kế hoạch M1 chuyển về `.scratch/catalog-inventory/`, kế hoạch 8 module chuyển về [`module-plan.md`](module-plan.md).
+
+### API nền mà module sau phải dùng
+
+Mỗi dòng: ticket chốt gì; chi tiết ở mục `## Quyết định` của ticket.
+
+- [09](../backend-bootstrap/issues/09-shared-core/spec.md#quyết-định): API `shared` (keyring, `Money`, `DomainError.http_status`, `redact_pii`, manager giữ `updated_at`).
+- [16](../backend-bootstrap/issues/16-shared-api-layer/spec.md#quyết-định): `shared.api` (`page_size` tối đa 100, 405 `METHOD_NOT_ALLOWED`, mặc định `IsAuthenticated`, tối đa 2 `BFF_SHARED_SECRET`, throttle theo `pii_hmac(client_ip)`).
+- [19](../backend-bootstrap/issues/19-trust-upstream-request-id/spec.md#quyết-định): chỉ `bff_secret_matches(request)` so `X-BFF-Secret`; `X-Request-ID` từ BFF chỉ tin khi secret đúng.
+- [15](../backend-bootstrap/issues/15-docker-compose-local/spec.md): Compose có service `migrate` chạy trước app; lệnh `reset_db` cho `make db-reset`.
+- [17](../backend-bootstrap/issues/17-shared-geo/spec.md#quyết-định): mã địa giới theo Cục Thống kê, giữ số 0 đầu; FK `ward_code` dùng dạng này.
+- [10](../backend-bootstrap/issues/10-shared-events-outbox/spec.md#quyết-định): `publish` chỉ trong `transaction.atomic`; `@handles(…, name=…)` bắt buộc `name`; `enqueue_on_commit`; flow test dùng `drain_events()`.
+- [18](../backend-bootstrap/issues/18-outbox-operations/spec.md#quyết-định): `delivery_lag()`, `get_delivery_outcomes()`; lệnh `retry_failed_events`, `replay_events`; Beat `purge_old_outbox_events` 03:30.
+- [27](../backend-bootstrap/issues/27-outbox-invalid-payload-fails-fast/spec.md#quyết-định): payload sự kiện sai thì delivery `failed` ngay, không retry; sửa `…V1` lỡ phá vỡ thì đưa về hình dạng cũ.
+- [26](../backend-bootstrap/issues/26-outbox-refactor-smells/spec.md#quyết-định): chuyển trạng thái là method trên model (`save(update_fields)`, nhận `now`, không log); QuerySet chỉ chứa vị từ, cạnh `Meta.indexes` (13 mục 7.1).
+- [11](../backend-bootstrap/issues/11-shared-idempotency/spec.md): lõi idempotency ở `shared/idempotency.py`, không import DRF; service gọi `claim.complete()` trong transaction của mình.
+- [12](../backend-bootstrap/issues/12-account-bootstrap/spec.md#quyết-định): `Account`, `create_staff_account(...)` với lỗi `InvalidEmail`/`WeakPassword`/`EmailAlreadyUsed`.
+- [22](../backend-bootstrap/issues/22-openapi-error-responses/spec.md#quyết-định): `AutoSchema` tự thêm `ErrorDTO` 400/500/429/404; view chỉ khai mã đặc thù.
+- [23](../backend-bootstrap/issues/23-makefile-utf8-output/spec.md): entry point mới in tiếng Việt ra pipe phải đặt `PYTHONUTF8=1`.
+- [01](../backend-bootstrap/issues/01-services-coverage-gate/spec.md): branch coverage ≥ 80% cho `services/` + `handlers.py` từng module và nhóm hạ tầng `shared`.
+- [M1/01](../catalog-inventory/issues/01-backoffice-login/spec.md#quyết-định): view back-office tự khai `JWTAuthentication` + `IsStaff`/`IsAdmin`; fixture `staff_client`/`admin_client` dùng token thật; `AutoSchema` thêm 401/403/503.
+- [M1/13](../catalog-inventory/issues/13-openapi-docs-quality/spec.md#quyết-định): chỉ `JSONParser`; tag `<store|backoffice> · <module>` tự suy; mỗi operation cần `summary` và ví dụ tiếng Anh; `gen_openapi.py --check` chặn thiếu.
 
 ## Fog
 

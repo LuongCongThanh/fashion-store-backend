@@ -14,13 +14,6 @@ Mỗi **module** là một vùng nghiệp vụ có ranh giới và là đúng m�
 | 3 | [`shipping`](./shipping.md) | Phí ship, Vận đơn, Đối soát | _(kế hoạch)_ |
 | 2 | [`geo`](./geo.md) | Tỉnh/thành, phường/xã | Có |
 
-Mỗi file có cùng dàn ý:
-
-1. **Sở hữu**: module chịu trách nhiệm cho những gì.
-2. **Cây thư mục**: file nào đặt ở đâu.
-3. **Quan hệ với module khác**: sơ đồ gọi `contracts` (nét liền) và sự kiện (nét đứt, chiều phát → nghe).
-4. **Public API**: `contracts.py`, `events.py`, `exceptions.py`, tức phần module khác được dùng.
-5. **Quy tắc riêng**: chỉ những gì đặc thù của module.
-6. **Tài liệu liên quan**.
+Dàn ý chung: 1. **Sở hữu** · 2. **Cây thư mục** · 3. **Quan hệ với module khác** (gọi `contracts` nét liền; sự kiện nét đứt, chiều phát → nghe) · 4. **Public API** (`contracts.py`, `events.py`, `exceptions.py`) · 5. **Quy tắc riêng** (chỉ phần đặc thù) · 6. **Tài liệu liên quan**.
 
 Field của model không chép ở đây; schema nằm ở [03](../03-data-model.md). Danh mục sự kiện đầy đủ và lịch job ở [07](../07-async-events-jobs.md).

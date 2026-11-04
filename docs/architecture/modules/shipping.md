@@ -4,9 +4,9 @@
 
 ## 1. Sở hữu
 
-Báo giá Phí ship, Vận đơn GHN, webhook, Đối soát Vận đơn, ánh xạ địa chỉ sang mã của GHN, cấu hình Phí ship dự phòng.
-
-`shipping` ở lớp 3 và **không biết gì về Đơn hàng**: chỉ làm việc với `reference` (Mã đơn) và báo kết quả lên bằng sự kiện. Code gọi API GHN nằm ở `infrastructure/shipping/`.
+- Báo giá Phí ship, Vận đơn GHN, webhook, Đối soát Vận đơn, ánh xạ địa chỉ sang mã GHN, cấu hình Phí ship dự phòng.
+- Lớp 3, **không biết gì về Đơn hàng**: chỉ dùng `reference` (Mã đơn), báo kết quả bằng sự kiện.
+- Code gọi API GHN ở `infrastructure/shipping/`.
 
 ## 2. Cây thư mục
 
@@ -48,7 +48,7 @@ graph LR
 
 ### 4.1. `contracts.py`
 
-Trừ `quote_fee`, mọi hàm chỉ đọc, ghi DB và đẩy task sau commit, nên gọi trong transaction (kể cả trong handler) là an toàn. HTTP tới GHN chỉ chạy trong task.
+Trừ `quote_fee`, mọi hàm chỉ đọc, ghi DB, đẩy task sau commit, nên gọi trong transaction (kể cả handler) an toàn. HTTP tới GHN chỉ chạy trong task.
 
 | Hàm | Ghi chú |
 |---|---|
@@ -72,9 +72,10 @@ Trừ `quote_fee`, mọi hàm chỉ đọc, ghi DB và đẩy task sau commit, n
 
 ### 5.1. Tạo và huỷ Vận đơn
 
-- Task `create_shipment` (queue `integrations`): claim lease, tra theo mã shop trước khi retry. Chỉ khi biết chắc kết quả mới phát `ShipmentCreatedV1` hoặc `ShipmentCreationFailedV1`; timeout thì giữ `creation_unknown` ([06 mục 4.3](../06-integrations.md#43-khôi-phục-tạo-vận-đơn-chưa-rõ-kết-quả)).
-- Task `cancel_shipment` (queue `integrations`, có retry): thành công thì Vận đơn `cancelled`. Hết retry thì giữ `cancel_requested` và báo Sentry; Staff xử lý tay theo Cờ cần xử lý `shipment_after_cancel`.
-- `GhnLocationMapping` ánh xạ `geo.Ward` sang ID của GHN; Admin sửa qua back-office. Service tra mapping rồi truyền mã vào adapter; adapter không đọc database.
+- Task `create_shipment` (queue `integrations`): claim lease, tra theo mã shop trước khi retry. Chỉ phát khi biết chắc kết quả: `ShipmentCreatedV1` hoặc `ShipmentCreationFailedV1`; timeout thì giữ `creation_unknown` ([06 mục 4.3](../06-integrations.md#43-khôi-phục-tạo-vận-đơn-chưa-rõ-kết-quả)).
+- Task `cancel_shipment` (queue `integrations`, có retry): thành công → `cancelled`; hết retry → giữ `cancel_requested`, báo Sentry, Staff xử lý tay theo Cờ cần xử lý `shipment_after_cancel`.
+- `GhnLocationMapping` ánh xạ `geo.Ward` sang ID GHN; Admin sửa qua back-office.
+- Service tra mapping rồi truyền mã vào adapter; adapter không đọc database.
 
 ### 5.2. Job
 

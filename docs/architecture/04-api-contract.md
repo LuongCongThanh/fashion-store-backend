@@ -1,8 +1,10 @@
 # 04. API contract
 
-> Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)). File này chốt hợp đồng dữ liệu và hành vi; khi có backend, OpenAPI được sinh bằng `drf-spectacular` tại `/api/schema/`, Swagger UI tại `/api/docs/` (chỉ local và staging nội bộ). Schema đã sinh được commit tại `backend/openapi.yaml` và CI chặn khi file lệch code ([12](./12-testing-strategy.md) mục 5); file này chỉ chứa endpoint đã triển khai, nên không coi bảng endpoint ở đây là bằng chứng API đã có.
->
-> Mọi request của storefront và back-office đi qua Next.js BFF ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)). Từ internet chỉ có `/api/v1/webhooks/` gọi thẳng vào Django.
+> Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)).
+
+- File này chốt hợp đồng dữ liệu và hành vi. OpenAPI sinh bằng `drf-spectacular` tại `/api/schema/`, Swagger UI tại `/api/docs/` (chỉ local và staging nội bộ).
+- Schema đã sinh commit tại `openapi.yaml`, CI chặn khi lệch code ([12](./12-testing-strategy.md) mục 5). File đó chỉ chứa endpoint đã triển khai; bảng endpoint ở đây không phải bằng chứng API đã có.
+- Mọi request storefront và back-office đi qua Next.js BFF ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)); từ internet chỉ `/api/v1/webhooks/` gọi thẳng Django.
 
 ## 1. Quy ước chung
 
@@ -19,9 +21,23 @@
 | Giỏ của Khách vãng lai | Header `X-Cart-Token` (Frontend lưu trong cookie `cart_token`) |
 | Đơn của Khách vãng lai | Header `X-Lookup-Token`: token 30 phút gắn với đúng một đơn, do `POST checkout` (với Khách vãng lai) hoặc `POST orders/lookup` cấp. Next.js cất token trong session |
 | IP người dùng | Django đọc `X-Client-IP` do BFF gửi kèm `X-BFF-Secret` ([05-auth-security.md](./05-auth-security.md) mục 5) |
-| Chống tạo trùng | Header `Idempotency-Key` UUID bắt buộc với checkout, bắt đầu Thanh toán và `stock/inbound`, `stock/adjust`, `stock/count`. Scope = method + endpoint chuẩn hoá (gồm ID tài nguyên) + danh tính Tài khoản hoặc guest cart token ổn định; thao tác kho dùng account_id Staff. Thiếu key hoặc key không phải UUID trả `400 VALIDATION_ERROR`; body phải là JSON, khác thì `415 UNSUPPORTED_MEDIA_TYPE`. Cùng key khác body chuẩn hoá trả `409 IDEMPOTENCY_CONFLICT`; còn xử lý trả `202 IdempotencyPendingDTO`, riêng tạo Payment trả `202 PaymentStartDTO`; kèm `Retry-After: 3`. Key completed trả nguyên status/body đã lưu. Giữ completed 24 giờ, không purge in_progress chưa rõ kết quả. Auth/quyền sở hữu vẫn kiểm tra trước khi replay; replay completed trước khi kiểm hạn quote mới, không chạy lại side effect. Body thay đổi, quote mới hoặc lần thử Payment mới dùng key mới |
+| Chống tạo trùng | Header `Idempotency-Key` (UUID), quy tắc ngay dưới bảng |
 
-Các transition không yêu cầu key trừ khi bảng endpoint ghi rõ. Transition lặp mặc định trả `409 INVALID_TRANSITION`; ngoại lệ được chỉ rõ: ghi nhận Hoàn tiền cùng dữ liệu, xác nhận nhập lại kho và bắt đầu/hoàn tất ẩn danh trả kết quả đã có. Không suy ra mọi POST đều idempotent. Mọi response lỗi thông thường theo `ErrorDTO` mục 3; webhook dùng ACK riêng tại mục 4.3 và 06.
+`Idempotency-Key`:
+
+- Bắt buộc với checkout, bắt đầu Thanh toán, `stock/inbound`, `stock/adjust`, `stock/count`.
+- Scope = method + endpoint chuẩn hoá (gồm ID tài nguyên) + danh tính Tài khoản hoặc guest cart token ổn định; thao tác kho dùng account_id Staff.
+- Thiếu key hoặc không phải UUID: `400 VALIDATION_ERROR`. Body không phải JSON: `415 UNSUPPORTED_MEDIA_TYPE`.
+- Cùng key, khác body chuẩn hoá: `409 IDEMPOTENCY_CONFLICT`. Còn xử lý: `202 IdempotencyPendingDTO` (tạo Payment: `202 PaymentStartDTO`), kèm `Retry-After: 3`.
+- Key completed trả nguyên status/body đã lưu, không chạy lại side effect. Giữ completed 24 giờ; không purge in_progress chưa rõ kết quả.
+- Auth/quyền sở hữu vẫn kiểm trước khi replay; replay completed trước khi kiểm hạn quote mới.
+- Body thay đổi, quote mới hoặc lần thử Payment mới dùng key mới.
+
+Transition:
+
+- Không yêu cầu key trừ khi bảng endpoint ghi rõ. Không suy ra mọi POST đều idempotent.
+- Lặp lại mặc định trả `409 INVALID_TRANSITION`. Ngoại lệ trả kết quả đã có: ghi nhận Hoàn tiền cùng dữ liệu, xác nhận nhập lại kho, bắt đầu/hoàn tất ẩn danh.
+- Lỗi thông thường theo `ErrorDTO` mục 3; webhook dùng ACK riêng (mục 4.3 và 06).
 
 ## 2. Phân trang
 
@@ -35,11 +51,13 @@ GET /api/v1/store/products?page=2&page_size=24
 }
 ```
 
-`page_size` mặc định 24, tối đa 100: lớn hơn 100 thì giới hạn ở 100; nhỏ hơn 1 hoặc không phải số nguyên trả `400 VALIDATION_ERROR`. `page` nhỏ hơn 1 hoặc không phải số nguyên cũng trả `400 VALIDATION_ERROR` (kèm `details.fields.page`); trang vượt quá cuối trả `404 NOT_FOUND`.
+- `page_size` mặc định 24; > 100 bị giới hạn ở 100.
+- `page` hoặc `page_size` < 1 hay không phải số nguyên: `400 VALIDATION_ERROR` (kèm `details.fields.<tên>`).
+- Trang vượt quá cuối: `404 NOT_FOUND`.
 
 ## 3. Định dạng lỗi
 
-Mọi lỗi trả cùng một định dạng (`shared/api/exception_handler.py`):
+Mọi lỗi trả cùng một định dạng (`common/api/exception_handler.py`):
 
 ```json
 HTTP 409
@@ -69,16 +87,10 @@ HTTP 409
 | 500 | Lỗi hệ thống | `INTERNAL_ERROR` (không lộ chi tiết) |
 | 503 | Không thể xác minh trạng thái auth bắt buộc từ DB | `AUTH_STATE_UNAVAILABLE`; không fallback chấp nhận token từ cache cho thao tác nhạy cảm (05 mục 2.2) |
 
-Chọn 409 hay 422 cho mã mới:
-
-- **409**: kết quả phụ thuộc trạng thái hệ thống, và trạng thái đó có thể đã đổi từ lúc client xem (Tồn kho, trạng thái đơn, giá, idempotency). Client nên tải lại dữ liệu rồi thử lại.
-- **422**: chính yêu cầu không thoả quy tắc (Voucher không áp được cho đơn này, vượt Hạn mức COD, giá không hợp lệ). Gửi lại y nguyên vẫn lỗi.
-
-Các mã Voucher là lớp con của `VoucherNotApplicable` trong `promotions`, mỗi lý do một mã để Frontend báo đúng lý do (US-304 AC2).
-
-Frontend dịch theo `code`; `message` chỉ là bản dịch mặc định theo `Accept-Language`.
-
-Các field số điện thoại được chuẩn hoá E.164 Việt Nam theo 03 mục 0.6 trước khi ghi hoặc tra cứu. Ví dụ `0901234567` và `+84 901 234 567` có cùng định danh; đầu vào không hợp lệ trả `400 VALIDATION_ERROR` kèm field tương ứng. Không dùng chuỗi gốc để kiểm giới hạn Voucher, lookup đơn hoặc xác định đối tượng yêu cầu xoá.
+- Mã mới chọn **409** khi kết quả phụ thuộc trạng thái có thể đã đổi từ lúc client xem (Tồn kho, trạng thái đơn, giá, idempotency): client tải lại rồi thử lại. Chọn **422** khi chính yêu cầu sai quy tắc (Voucher không áp được, vượt Hạn mức COD, giá không hợp lệ): gửi lại y nguyên vẫn lỗi.
+- Mã Voucher là lớp con của `VoucherNotApplicable` trong `promotions`, mỗi lý do một mã (US-304 AC2).
+- Frontend dịch theo `code`; `message` chỉ là bản dịch mặc định theo `Accept-Language`.
+- Số điện thoại chuẩn hoá E.164 Việt Nam (03 mục 0.6) trước khi ghi hoặc tra cứu: `0901234567` và `+84 901 234 567` cùng định danh; sai trả `400 VALIDATION_ERROR` kèm field. Không dùng chuỗi gốc để kiểm giới hạn Voucher, lookup đơn hoặc xác định đối tượng yêu cầu xoá.
 
 Các mã cần Frontend xử lý riêng:
 
@@ -97,12 +109,10 @@ Các mã cần Frontend xử lý riêng:
 | GET | `categories` | catalog | Công khai | Cây danh mục | US-101 |
 | GET | `products` | catalog | Công khai | Danh sách có lọc `category`, `size`, `color` (theo mã trong danh sách size và bảng màu), `price_min`, `price_max`, `in_stock`, `q`, `ordering` (`newest`, `price`, `-price`, `best_selling`). `q` tìm chuỗi con trong tên, không dấu/không phân biệt hoa thường; trim đầu/cuối, rỗng thì bỏ lọc; không sửa lỗi gõ hay xếp hạng gần đúng (BR-CAT-13). `q` không thay cách sắp xếp đã chọn | US-101 → 103 |
 | GET | `products/{slug}` | catalog | Công khai | Chi tiết, các màu, ảnh, Biến thể kèm giá và còn hàng | US-104 |
-| GET | `geo/provinces` | shared | Công khai | Danh sách tỉnh/thành | US-301 |
-| GET | `geo/provinces/{code}/wards` | shared | Công khai | Phường/xã của một tỉnh/thành | US-301 |
+| GET | `geo/provinces`, `geo/provinces/{code}/wards` | geo | Công khai | Tỉnh/thành; phường/xã của một tỉnh/thành | US-301 |
 | GET | `cart` | ordering | Guest / Customer | Giỏ hàng kèm giá hiện tại và cảnh báo | US-202 |
 | POST | `cart/items` | ordering | Guest / Customer | Thêm Biến thể. Khách vãng lai chưa có giỏ (không gửi `X-Cart-Token`) thì tạo giỏ mới và trả `cart_token` | US-201 |
-| PATCH | `cart/items/{id}` | ordering | Guest / Customer | Đổi số lượng | US-202 |
-| DELETE | `cart/items/{id}` | ordering | Guest / Customer | Xoá | US-202 |
+| PATCH, DELETE | `cart/items/{id}` | ordering | Guest / Customer | Đổi số lượng; xoá | US-202 |
 | POST | `cart/merge` | ordering | Customer, kèm `X-Cart-Token` | Gộp giỏ vãng lai vào giỏ của Tài khoản (BR-CRT-03). Next.js gọi ngay sau khi đăng nhập thành công | US-204 |
 | POST | `checkout/quote` | ordering | Guest / Customer | `QuoteInput` → `200 QuoteDTO` gồm tiền, dòng hàng và quote_token ký cho báo giá Người mua đã xem (mục 5). Làm tròn theo BR-VCH-10; tổng ≤ 0 trả `422 ORDER_TOTAL_NOT_POSITIVE` | US-303, 304 |
 | POST | `checkout` | ordering | Guest / Customer | `CheckoutInput` gồm QuoteInput, quote_token và expected_total dạng MoneyDTO, cần Idempotency-Key. Xác minh token và kiểm tra lại dưới khoá; lệch trả `409 PRICE_CHANGED`, hết hạn trả `409 QUOTE_EXPIRED`; tổng ≤ 0 trả `422 ORDER_TOTAL_NOT_POSITIVE`. Thành công `201 CheckoutCreatedDTO`; lookup_token = null với Khách hàng, có JWT với Khách vãng lai | US-301 → 307 |
@@ -120,17 +130,18 @@ Các mã cần Frontend xử lý riêng:
 | POST | `auth/logout` | identity | Có refresh token đúng audience | Thu hồi family hiện tại; không yêu cầu access token còn hạn | — |
 | POST | `auth/password/forgot` | identity | Công khai | Gửi link đặt lại mật khẩu; luôn trả `202` như nhau | US-503 |
 | POST | `auth/password/reset` | identity | Công khai | Đặt lại mật khẩu bằng token trong link | US-503 |
-| GET | `me` | identity | Customer | Hồ sơ | US-505, 506 |
-| PATCH | `me` | identity | Customer | Sửa họ tên, số điện thoại, ngôn ngữ, và lựa chọn nhận email marketing (`marketing_opt_in`, mỗi lần đổi ghi một Consent mới, CMP-03). Không đổi được email ở MVP | US-505, 506 |
-| GET | `me/addresses` | identity | Customer | Sổ địa chỉ | US-504 |
-| POST | `me/addresses` | identity | Customer | Thêm địa chỉ | US-504 |
-| PATCH | `me/addresses/{id}` | identity | Customer | Sửa địa chỉ, đặt làm mặc định | US-504 |
-| DELETE | `me/addresses/{id}` | identity | Customer | Xoá địa chỉ | US-504 |
+| GET, PATCH | `me` | identity | Customer | Xem hồ sơ; sửa họ tên, số điện thoại, ngôn ngữ, và lựa chọn nhận email marketing (`marketing_opt_in`, mỗi lần đổi ghi một Consent mới, CMP-03). Không đổi được email ở MVP | US-505, 506 |
+| GET, POST | `me/addresses` | identity | Customer | Sổ địa chỉ; thêm địa chỉ | US-504 |
+| PATCH, DELETE | `me/addresses/{id}` | identity | Customer | Sửa, đặt làm mặc định; xoá địa chỉ | US-504 |
 | POST | `me/erasure-request` | identity | Customer | Gửi Yêu cầu xoá dữ liệu | US-1101 |
 
-`checkout` (với Khách vãng lai) và `orders/lookup` trả về một `lookup_token` JWT Ed25519 gắn với đúng một đơn, hết hạn sau 30 phút. Claims bắt buộc: `iss` theo cấu hình, `aud = order_lookup`, `token_use = lookup`, `sub = Mã đơn`, `iat`, `exp`; header có `kid`. Cấp và xác minh qua `identity.contracts` ([`identity`](./modules/identity.md) mục 5.2), không lưu token vào DB. `IsOrderOwner` kiểm tra token hợp lệ và Mã đơn khớp URL; không chấp nhận access/refresh token thay thế. Lookup token cũng không được dùng như access token ở endpoint khác. Token không thu hồi sớm được; hạn 30 phút là đánh đổi đã chọn. Next.js cất token trong session và gửi qua header `X-Lookup-Token` (05 mục 2).
+`lookup_token` (do `checkout` của Khách vãng lai và `orders/lookup` cấp):
 
-Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/login`, vì `identity` ở lớp dưới không được gọi `ordering` ([02-backend-structure.md](./02-backend-structure.md) mục 3).
+- JWT Ed25519 gắn đúng một đơn, hạn 30 phút, không thu hồi sớm được (đánh đổi đã chọn). Claims: `iss` theo cấu hình, `aud = order_lookup`, `token_use = lookup`, `sub = Mã đơn`, `iat`, `exp`; header có `kid`.
+- Cấp và xác minh qua `identity.contracts` ([`identity`](./modules/identity.md) mục 5.2), không lưu DB. Next.js cất trong session, gửi qua `X-Lookup-Token` (05 mục 2).
+- `IsOrderOwner` kiểm token hợp lệ và Mã đơn khớp URL; không nhận access/refresh token thay thế, và lookup token không dùng như access token ở endpoint khác.
+
+Gộp giỏ là endpoint riêng của `ordering`, không nằm trong `auth/login`, vì `identity` ở lớp dưới không được gọi `ordering` ([02](./02-backend-structure.md) mục 3).
 
 ### 4.2. Back-office: `/api/v1/backoffice/`
 
@@ -151,8 +162,7 @@ Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/logi
 | POST | `orders/bulk/confirm` | ordering | Staff | Xác nhận hàng loạt (US-602) |
 | POST | `orders/bulk/hand-over` | ordering | Staff | Bàn giao hàng loạt (US-603) |
 | POST | `orders/{id}/returned-to-warehouse` | ordering | Staff | Xác nhận nhập lại cho đơn `RETURNED_TO_SENDER` hoặc `CANCELLED` có `warehouse_return_required = true`; khoá Order, nhập kho và ghi `returned_to_warehouse_at` cùng transaction. Gọi lại trả kết quả đã ghi, không cộng tồn lần nữa; đơn không thuộc diện này trả `409 INVALID_TRANSITION` |
-| GET | `returns` | ordering | Staff | Danh sách Đổi trả |
-| POST | `returns` | ordering | Staff | Ghi nhận yêu cầu Đổi trả cho một đơn Đã giao (US-606) |
+| GET, POST | `returns` | ordering | Staff | Danh sách Đổi trả; ghi nhận yêu cầu Đổi trả cho một đơn Đã giao (US-606) |
 | POST | `returns/{id}/receive` | ordering | Staff | Xác nhận đã nhận hàng gửi trả; Tồn kho chưa được cộng lại |
 | POST | `returns/{id}/accept` | ordering | Staff | Chấp nhận theo từng dòng, body `{lines: [{return_line_id, accepted_quantity, restock}]}` (BR-RET-08); tính số hoàn lũy kế theo BR-RET-07. Tổng > 0 tạo yêu cầu Hoàn tiền; có hàng được chấp nhận nhưng tổng = 0 thì khép lại `refunded`, `refund_id = null`, không tạo Hoàn tiền |
 | POST | `returns/{id}/reject` | ordering | Staff | Từ chối, kèm ghi chú việc gửi lại hàng (BR-RET-09) |
@@ -164,51 +174,37 @@ Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/logi
 | POST | `stock/count` | inventory | Staff | Kiểm kê (cần `Idempotency-Key`): gửi số đếm theo Biến thể, hệ thống điều chỉnh theo chênh lệch với Tồn kho + Hàng chờ xuất (US-703) |
 | GET | `customers` | identity | Staff | Danh sách Khách hàng |
 | GET | `customers/{id}` | identity | Staff | Chi tiết Khách hàng (ghi log truy cập, CMP-07). Lịch sử đơn lấy bằng `GET orders?customer_id=` |
-| GET | `erasure-requests` | ordering | Staff | Danh sách Yêu cầu xoá dữ liệu (đọc qua `identity.contracts`) |
-| POST | `erasure-requests` | ordering | Staff | Tạo yêu cầu cho Khách vãng lai sau khi xác minh qua kênh hỗ trợ |
+| GET, POST | `erasure-requests` | ordering | Staff | Danh sách Yêu cầu xoá dữ liệu (đọc qua `identity.contracts`); tạo yêu cầu cho Khách vãng lai sau khi xác minh qua kênh hỗ trợ |
 | POST | `erasure-requests/{id}/complete` | ordering | Staff | Kiểm tra mọi đơn liên quan ở trạng thái cuối và không còn Hoàn tiền chờ xử lý (CMP-05), chuyển yêu cầu sang `processing` rồi trả `202` kèm `request_id` và `status`. Gọi lại không phát thêm sự kiện; đã `completed` thì trả kết quả hiện tại. `completed_at` chỉ có khi mọi bước ẩn danh bắt buộc thành công |
-| GET | `categories` | catalog | Admin | Cây danh mục |
-| POST | `categories` | catalog | Admin | Tạo Danh mục |
+| GET, POST | `categories` | catalog | Admin | Cây danh mục; tạo Danh mục |
 | PATCH | `categories/{id}` | catalog | Admin | Sửa, đổi Danh mục cha, đổi thứ tự |
 | DELETE | `categories/{id}` | catalog | Admin | Chỉ khi không còn Sản phẩm hay Danh mục con |
-| GET | `products` | catalog | Admin | Danh sách, mọi trạng thái |
-| POST | `products` | catalog | Admin | Tạo Sản phẩm ở trạng thái `draft` |
-| GET | `products/{id}` | catalog | Admin | Chi tiết |
-| PATCH | `products/{id}` | catalog | Admin | Sửa thông tin |
+| GET, POST | `products` | catalog | Admin | Danh sách mọi trạng thái; tạo Sản phẩm ở `draft` |
+| GET, PATCH | `products/{id}` | catalog | Admin | Chi tiết; sửa thông tin |
 | DELETE | `products/{id}` | catalog | Admin | Chỉ Sản phẩm `draft`: chưa từng bán nên chưa có trong đơn (BR-CAT-09) |
 | POST | `products/{id}/publish` | catalog | Admin | `draft` → `active` |
 | POST | `products/{id}/archive` | catalog | Admin | Ngừng bán (`archived`) |
 | POST | `products/{id}/variants` | catalog | Admin | Tạo Biến thể, hoặc sinh ma trận size × màu (US-802) |
 | PATCH | `products/{id}/variants/{variant_id}` | catalog | Admin | Sửa Giá bán, trạng thái. Hạ Giá bán xuống ≤ Giá khuyến mãi đang hoặc sắp hiệu lực thì `422 LIST_PRICE_BELOW_SALE_PRICE` (BR-PRC-05) |
 | POST | `products/{id}/images` | catalog | Admin | Upload ảnh theo màu |
-| PATCH | `products/{id}/images/{image_id}` | catalog | Admin | Đổi thứ tự ảnh |
-| DELETE | `products/{id}/images/{image_id}` | catalog | Admin | Xoá ảnh |
-| GET | `sizes` | catalog | Admin | Danh sách size |
-| POST | `sizes` | catalog | Admin | Thêm size (US-805) |
-| PATCH | `sizes/{id}` | catalog | Admin | Sửa, ẩn bằng `is_active = false`; không có DELETE |
-| GET | `colors` | catalog | Admin | Bảng màu |
-| POST | `colors` | catalog | Admin | Thêm màu (US-805) |
-| PATCH | `colors/{id}` | catalog | Admin | Sửa, ẩn bằng `is_active = false`; không có DELETE |
-| GET | `sale-prices` | catalog | Admin | Danh sách Giá khuyến mãi |
-| POST | `sale-prices` | catalog | Admin | Tạo cho một Biến thể hoặc mọi Biến thể của một Sản phẩm (US-804) |
+| PATCH, DELETE | `products/{id}/images/{image_id}` | catalog | Admin | Đổi thứ tự ảnh; xoá ảnh |
+| GET, POST | `sizes`, `colors` | catalog | Admin | Danh sách size/bảng màu; thêm (US-805) |
+| PATCH | `sizes/{id}`, `colors/{id}` | catalog | Admin | Sửa, ẩn bằng `is_active = false`; không có DELETE |
+| GET, POST | `sale-prices` | catalog | Admin | Danh sách Giá khuyến mãi; tạo cho một Biến thể hoặc mọi Biến thể của một Sản phẩm (US-804) |
 | PATCH | `sale-prices/{id}` | catalog | Admin | Sửa giá, thời gian; kết thúc sớm bằng cách sửa `ends_at` |
 | DELETE | `sale-prices/{id}` | catalog | Admin | Chỉ khi chưa bắt đầu |
-| GET | `vouchers` | promotions | Admin | Danh sách kèm số lượt đã dùng |
-| POST | `vouchers` | promotions | Admin | Tạo Voucher |
+| GET, POST | `vouchers` | promotions | Admin | Danh sách kèm số lượt đã dùng; tạo Voucher |
 | PATCH | `vouchers/{id}` | promotions | Admin | Sửa, vô hiệu (`is_active = false`). Không có DELETE vì Voucher có Lượt dùng |
-| GET | `staff` | identity | Admin | Danh sách Tài khoản Staff |
-| POST | `staff` | identity | Admin | Tạo Tài khoản Staff (Tài khoản Admin chỉ tạo bằng lệnh) |
+| GET, POST | `staff` | identity | Admin | Danh sách Tài khoản Staff; tạo Tài khoản Staff (Tài khoản Admin chỉ tạo bằng lệnh) |
 | PATCH | `staff/{id}` | identity | Admin | Sửa, vô hiệu (`is_active = false`, mọi phiên mất hiệu lực ngay) |
-| GET | `settings/ordering` | ordering | Admin | Ngưỡng miễn phí ship, Hạn mức COD |
-| PATCH | `settings/ordering` | ordering | Admin | Sửa hai giá trị trên |
-| GET | `settings/shipping` | shipping | Admin | Phí ship dự phòng |
-| PATCH | `settings/shipping` | shipping | Admin | Sửa Phí ship dự phòng |
+| GET, PATCH | `settings/ordering` | ordering | Admin | Xem/sửa Ngưỡng miễn phí ship, Hạn mức COD |
+| GET, PATCH | `settings/shipping` | shipping | Admin | Xem/sửa Phí ship dự phòng |
 | GET | `settings/ghn-locations` | shipping | Admin | Phường/xã chưa có ánh xạ sang GHN (US-1004) |
 | PATCH | `settings/ghn-locations/{ward_code}` | shipping | Admin | Gán ID tỉnh, quận, phường của GHN cho một phường/xã |
 | GET | `reports/revenue` | ordering | Admin | Báo cáo Doanh thu (BR-REV-01, BR-REV-02) |
 | GET | `reports/paid-orders.csv` | ordering | Admin | Danh sách đơn đã thu tiền theo ngày, để gửi cho kế toán |
 
-**Module sở hữu endpoint.** Mỗi endpoint nằm trong `api/` của đúng một module (cột Module). Màn cần dữ liệu của nhiều module thì Frontend gọi nhiều endpoint, hoặc endpoint đặt ở module cao nhất trong số đó và lấy phần còn lại qua `contracts` của module lớp dưới. Ví dụ `stock` (`inventory`) lấy SKU và tên qua `catalog.contracts`; còn chi tiết Khách hàng (`identity`) không đọc được Đơn hàng, nên Frontend lấy lịch sử đơn bằng `GET orders?customer_id=`.
+**Module sở hữu endpoint.** Mỗi endpoint nằm trong `api/` của đúng một module (cột Module). Màn cần dữ liệu nhiều module thì Frontend gọi nhiều endpoint, hoặc endpoint đặt ở module cao nhất và lấy phần còn lại qua `contracts` lớp dưới. Ví dụ `stock` lấy SKU/tên qua `catalog.contracts`; chi tiết Khách hàng (`identity`) không đọc được Đơn hàng nên Frontend dùng `GET orders?customer_id=`.
 
 ### 4.3. Webhook: `/api/v1/webhooks/`
 
@@ -218,7 +214,11 @@ Gộp giỏ là endpoint riêng của `ordering` thay vì nằm trong `auth/logi
 | POST | `momo/ipn` | payments | Chữ ký HMAC-SHA256 | HTTP 204 |
 | POST | `ghn` | shipping | Token bí mật trong header + IP allow-list **[Cần xác minh cơ chế GHN hỗ trợ]** | HTTP 200 |
 
-Webhook không dùng ErrorDTO/envelope chung khi provider có ACK riêng. Chỉ ACK đã xử lý sau khi xác minh, lưu observation/cập nhật Payment hoặc Shipment và outbox cần thiết đã commit; thông báo trùng đã commit có thể ACK ngay. Sai chữ ký, không khớp giao dịch hoặc DB rollback dùng bảng phản hồi riêng ở 06 mục 1.3; không trả thành công để che lỗi lưu. ACK xác nhận tiếp nhận/xử lý, không tự có nghĩa giao dịch thanh toán thành công. Nghiệp vụ Order tiếp tục qua sự kiện. Đây là phần duy nhất của Django mở ra internet (ngoại lệ Fake Gateway local tại 06).
+- Không dùng ErrorDTO/envelope chung khi provider có ACK riêng.
+- Chỉ ACK sau khi xác minh và đã commit observation/cập nhật Payment hoặc Shipment cùng outbox cần thiết; thông báo trùng đã commit được ACK ngay.
+- Sai chữ ký, không khớp giao dịch hoặc DB rollback dùng bảng phản hồi ở 06 mục 1.3; không trả thành công để che lỗi lưu.
+- ACK chỉ xác nhận tiếp nhận/xử lý, không có nghĩa thanh toán thành công; nghiệp vụ Order tiếp tục qua sự kiện.
+- Đây là phần duy nhất của Django mở ra internet (ngoại lệ Fake Gateway local tại 06).
 
 ### 4.4. Vận hành
 
@@ -238,7 +238,7 @@ Webhook không dùng ErrorDTO/envelope chung khi provider có ACK riêng. Chỉ 
 - PATCH chỉ thay field được gửi; bỏ qua là giữ nguyên, `null` chỉ hợp lệ với field được ghi nullable. Object lồng được thay toàn bộ nếu được gửi, không deep-merge ngầm. PATCH rỗng hoặc field read-only/key lạ trả `400 VALIDATION_ERROR`; không mặc định bỏ qua field lạ.
 - GET không nhận body. Lệnh không có dữ liệu đầu vào chấp nhận body vắng mặt hoặc `{}`. DELETE thành công trả 204 không body. Object trả trực tiếp, danh sách phân trang dùng `Page<T> = {count: integer >= 0, next: URL hoặc null, previous: URL hoặc null, results: T[]}`; cây địa giới/Danh mục dùng array không phân trang như registry. Không bọc thêm `data`.
 - `ErrorDTO = {error: {code: string, message: string, details: object, request_id: string}}`; `details` chỉ dùng schema theo code: validation có `fields: {field_path: string[]}`, PRICE_CHANGED có `quote: QuoteDTO`, thiếu hàng có `items: [{variant_id: UUID, requested: integer, available: integer}]`; code không có chi tiết dùng `{}`. Lỗi object không thuộc chủ sở hữu trả 404, không tiết lộ đối tượng tồn tại.
-- Danh sách phân trang luôn có thứ tự ổn định: ordering đã chọn rồi thêm `id` làm tie-break; mặc định mới nhất (`created_at` giảm dần, `id` giảm dần). Query page sai kiểu/ngoài miền và `page_size` sai kiểu/nhỏ hơn 1 trả 400 (`page_size` lớn hơn 100 bị giới hạn ở 100), trang vượt phạm vi trả 404. Query thời gian dùng ISO 8601 có múi giờ, khoảng báo cáo `[from, to)`, ngày hiển thị/báo cáo theo Asia/Ho_Chi_Minh.
+- Danh sách phân trang luôn có thứ tự ổn định: ordering đã chọn rồi thêm `id` làm tie-break; mặc định mới nhất (`created_at` giảm dần, `id` giảm dần). Kiểm `page`/`page_size` theo mục 2. Query thời gian dùng ISO 8601 có múi giờ, khoảng báo cáo `[from, to)`, ngày hiển thị/báo cáo theo Asia/Ho_Chi_Minh.
 
 ### 5.2. Schema dùng chung và checkout
 
@@ -343,13 +343,13 @@ Các DTO đọc chỉ có field trong bảng này. Ký hiệu `Base + ...` kế 
 
 Các route trong bảng ở mục 4 có schema tại đây; path params giữ UUID/code/slug như mục 1. `Patch<X>` chỉ cho field ghi của X theo PATCH semantics; `None` không body. `ErrorDTO` áp cho lỗi mọi operation trừ webhook/HTML/CSV. Khi bootstrap, mỗi operation phải khai báo request/response/status/permission/error schemas trong OpenAPI và có ví dụ trước khi frontend dùng; CI kiểm schema sinh lại theo [12](./12-testing-strategy.md) mục 5. Không tự sinh OpenAPI từ field model để lấp chỗ còn chưa triển khai.
 
-Response lỗi mặc định do `shared.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối); 415 `UNSUPPORTED_MEDIA_TYPE` khi operation có request body (media type ngoài parser của view). 401, 403 và 503 `AUTH_STATE_UNAVAILABLE` khi view cần đăng nhập (permission không chỉ `AllowAny`). Mỗi lỗi mặc định có mô tả và một ví dụ `ErrorDTO` tiếng Anh; mọi 429 có header `Retry-After` (integer, giây). View tự khai mã đặc thù (409, 422, 401 `INVALID_CREDENTIALS`…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè.
+Response lỗi mặc định do `common.api.schema.AutoSchema` (`DEFAULT_SCHEMA_CLASS`) thêm vào mọi operation, theo thứ tự mã tăng dần, đều là `ErrorDTO`: 400 và 500 luôn có; 429 khi view có throttle; 404 khi path có tham số hoặc operation có query `page` (trang vượt quá cuối); 415 `UNSUPPORTED_MEDIA_TYPE` khi operation có request body (media type ngoài parser của view). 401, 403 và 503 `AUTH_STATE_UNAVAILABLE` khi view cần đăng nhập (permission không chỉ `AllowAny`). Mỗi lỗi mặc định có mô tả và một ví dụ `ErrorDTO` tiếng Anh; mọi 429 có header `Retry-After` (integer, giây). View tự khai mã đặc thù (409, 422, 401 `INVALID_CREDENTIALS`…) bằng `extend_schema(responses=…)`; mã view đã khai không bị ghi đè.
 
 Chú thích bắt buộc cho mỗi operation dưới `/api/v1/`, kiểm bằng `scripts/gen_openapi.py --check` (chạy trong `make lint` và CI; mỗi vi phạm in `<operationId>: <thiếu gì>`, vi phạm ở component in `<tên component>: <thiếu gì>`):
 
 - `summary`; ví dụ request khi có body; ví dụ cho mọi response 2xx có body. Ví dụ đặt qua `extend_schema_serializer(examples=…)` của serializer hoặc `extend_schema(examples=…)` của view; dữ liệu ví dụ là dữ liệu giả (`staff@example.com`).
-- Mã lỗi view tự khai có ví dụ `ErrorDTO`, và `code` của ví dụ ghi trong mô tả response dạng `` `CODE` `` (vd. ``"Wrong email or password (`INVALID_CREDENTIALS`)."``). Lỗi mặc định đã có ví dụ chung, view không cần khai. Checker nhận lỗi mặc định bằng mô tả trùng `shared.api.schema.ERROR_DESCRIPTIONS`, nên view khai lại mã mặc định thì dùng mô tả riêng.
-- Tag `<store|backoffice> · <module>` do `AutoSchema` suy ra (ứng dụng từ path, module từ package của view: `modules.identity…` → `identity`, `shared.geo` → `geo`); view không tự khai tag.
+- Mã lỗi view tự khai có ví dụ `ErrorDTO`, và `code` của ví dụ ghi trong mô tả response dạng `` `CODE` `` (vd. ``"Wrong email or password (`INVALID_CREDENTIALS`)."``). Lỗi mặc định đã có ví dụ chung, view không cần khai. Checker nhận lỗi mặc định bằng mô tả trùng `common.api.schema.ERROR_DESCRIPTIONS`, nên view khai lại mã mặc định thì dùng mô tả riêng.
+- Tag `<store|backoffice> · <module>` do `AutoSchema` suy ra (ứng dụng từ path, module từ package của view: `apps.identity…` → `identity`, `common.geo` → `geo`); view không tự khai tag.
 - Mọi chữ hiển thị trên Swagger viết **tiếng Anh**: `summary`, `description`, mô tả parameter, mô tả request/response, mô tả field của component (lấy từ `help_text` của serializer) và dữ liệu ví dụ (trừ `message` của ví dụ lỗi). Đây là ngoại lệ có chủ đích của quy tắc tài liệu viết tiếng Việt: docstring vẫn tiếng Việt, và `AutoSchema` không đưa docstring của view hay serializer vào schema.
 
 Request body chỉ nhận JSON (`DEFAULT_PARSER_CLASSES = [JSONParser]`); endpoint upload tự khai `MultiPartParser`. Trang Swagger có phần giới thiệu tiếng Anh (`SPECTACULAR_SETTINGS["DESCRIPTION"]`) và không khai `SERVERS`, để gọi thử đúng host đang mở.
@@ -360,8 +360,7 @@ Request body chỉ nhận JSON (`DEFAULT_PARSER_CLASSES = [JSONParser]`); endpoi
 | store GET products / products/{slug} | ProductQuery / None | 200 Page<ProductSummaryDTO> / ProductDTO |
 | store GET geo/provinces / geo/provinces/{code}/wards | None | 200 GeoDTO[] |
 | store GET cart | None | 200 CartDTO |
-| store POST cart/items; PATCH cart/items/{id} | CartAddInput; CartQuantityInput | 200 CartDTO, kể cả khi tạo giỏ mới |
-| store DELETE cart/items/{id} | None | 204 |
+| store POST cart/items; PATCH/DELETE cart/items/{id} | CartAddInput; CartQuantityInput / None | 200 CartDTO, kể cả khi tạo giỏ mới; DELETE 204 |
 | store POST cart/merge | None, X-Cart-Token bắt buộc | 200 CartMergeDTO; giỏ Guest đã gộp không còn quyền dùng token cũ |
 | store POST checkout/quote; checkout | QuoteInput; CheckoutInput | 200 QuoteDTO; 201 CheckoutCreatedDTO hoặc 202 IdempotencyPendingDTO |
 | store POST orders/{code}/payments | PaymentStartInput | 200/202 PaymentStartDTO |
@@ -387,8 +386,7 @@ Request body chỉ nhận JSON (`DEFAULT_PARSER_CLASSES = [JSONParser]`); endpoi
 | backoffice POST orders/bulk/confirm; orders/bulk/hand-over | BulkInput | 200 BulkResultDTO |
 | backoffice POST orders/{id}/returned-to-warehouse | None | 200 BackofficeOrderDTO, replay không nhập kho thêm |
 | backoffice GET/POST returns | StatusQuery / ReturnInput | 200 Page<ReturnDTO> / 201 ReturnDTO |
-| backoffice POST returns/{id}/receive | None | 200 ReturnDTO |
-| backoffice POST returns/{id}/accept; reject | ReturnAcceptInput; NoteInput | 200 ReturnDTO |
+| backoffice POST returns/{id}/receive; accept; reject | None; ReturnAcceptInput; NoteInput | 200 ReturnDTO |
 | backoffice GET refunds; POST refunds/{id}/complete | StatusQuery; RefundCompleteInput | 200 Page<RefundDTO>; RefundDTO |
 | backoffice GET stock | Stock query tại5.5 | 200 Page<StockDTO> |
 | backoffice POST stock/inbound; adjust; count | StockWriteInput theo từng lệnh | 200 StockDTO hoặc 202 IdempotencyPendingDTO |
@@ -398,8 +396,7 @@ Request body chỉ nhận JSON (`DEFAULT_PARSER_CLASSES = [JSONParser]`); endpoi
 | backoffice GET/POST categories | None / CategoryInput | 200 CategoryTreeDTO[] / 201 CategoryDTO |
 | backoffice PATCH/DELETE categories/{id} | Patch<CategoryInput> / None | 200 CategoryDTO / 204 |
 | backoffice GET products; products/{id} | ProductQuery; None | 200 Page<ProductSummaryDTO>; ProductDTO |
-| backoffice POST/PATCH products; products/{id} | ProductInput / Patch<ProductInput> | 201 / 200 ProductDTO |
-| backoffice DELETE products/{id} | None | 204 |
+| backoffice POST products; PATCH/DELETE products/{id} | ProductInput; Patch<ProductInput> / None | 201 ProductDTO; 200 ProductDTO / 204 |
 | backoffice POST products/{id}/publish; archive | None | 200 ProductDTO |
 | backoffice POST products/{id}/variants | VariantCreateInput | 201 VariantDTO[] |
 | backoffice PATCH products/{id}/variants/{variant_id} | VariantPatchInput | 200 VariantDTO |

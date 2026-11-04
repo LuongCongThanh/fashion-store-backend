@@ -4,9 +4,9 @@
 
 ## 1. Sở hữu
 
-Thanh toán online (VNPay, MoMo) và COD, IPN, Hoàn tiền, Đối soát với Cổng thanh toán.
-
-`payments` ở lớp 3 và **không biết gì về Đơn hàng**: nó chỉ làm việc với mã tham chiếu `reference` (Mã đơn) và báo kết quả lên bằng sự kiện. Nhờ vậy `ordering` gọi được nó khi checkout mà không tạo vòng phụ thuộc. Code gọi API của cổng nằm ở `infrastructure/payment/`.
+- Thanh toán online (VNPay, MoMo) và COD, IPN, Hoàn tiền, Đối soát với Cổng thanh toán.
+- Lớp 3, **không biết gì về Đơn hàng**: chỉ dùng `reference` (Mã đơn), báo kết quả bằng sự kiện, nên `ordering` gọi được khi checkout mà không tạo vòng phụ thuộc.
+- Code gọi API cổng ở `infrastructure/payment/`.
 
 ## 2. Cây thư mục
 
@@ -52,11 +52,11 @@ graph LR
 
 | Hàm | Ghi chú |
 |---|---|
-| `prepare_payment(reference, amount, gateway, expires_at, operation_id) -> UUID` | Chỉ ghi DB: dựng `return_url` từ cấu hình backend, lưu snapshot. Gọi trong transaction của ordering đã kiểm Order; `operation_id` đã có thì trả `payment_id` cũ |
+| `prepare_payment(reference, amount, gateway, expires_at, operation_id) -> UUID` | Chỉ ghi DB: dựng `return_url` từ cấu hình backend, lưu snapshot. Gọi trong transaction ordering đã kiểm Order; `operation_id` đã có thì trả `payment_id` cũ |
 | `start_payment(payment_id, operation_id) -> PaymentStartDTO` | Điều phối HTTP **ngoài** transaction bên gọi; kết quả `ready` / `initializing` / `terminal`, lease và khôi phục trên cùng Payment ([06](../06-integrations.md) mục 3.1, [ADR 0013](../../adr/0013-recoverable-payment-initiation.md)) |
 | `start_cod_payment(reference, amount) -> UUID` | Trả `payment_id` |
 | `record_cod_collected(reference)`, `cancel_cod_payment(reference)` | Không phát sự kiện, vì `ordering` là bên gọi |
-| `request_refund(payment_id, amount, reason, channel, request_key) -> UUID` | Trả `refund_id`. Chỉ ghi Hoàn tiền `requested` để Staff xử lý tay, không gọi Cổng thanh toán, nên gọi trong transaction (kể cả trong handler) là an toàn |
+| `request_refund(payment_id, amount, reason, channel, request_key) -> UUID` | Trả `refund_id`. Chỉ ghi Hoàn tiền `requested` cho Staff xử lý tay, không gọi cổng, nên gọi trong transaction (kể cả handler) an toàn |
 | `has_pending_refunds(references) -> bool` | Điều kiện của Yêu cầu xoá dữ liệu |
 | `redact_provider_payloads(reference)` | Ẩn danh dữ liệu IPN gốc |
 
@@ -79,14 +79,15 @@ graph LR
 
 ### 5.1. Hoàn tiền
 
-- Hoàn tiền luôn gắn đúng Thanh toán: khoá Payment, kiểm `request_key` ổn định và tổng hoàn `requested` + `completed` không vượt `amount_received`. Gọi lại cùng key, cùng tham số trả cùng `refund_id`.
-- MVP không gọi API hoàn tiền của cổng (BR-REF-03). `record_refund(refund_id, provider_refund_ref, completed_at, recorded_by)`: Staff ghi nhận đã hoàn thủ công trên trang quản trị của cổng hoặc bằng chuyển khoản (BR-REF-03, BR-REF-04, US-605); Hoàn tiền chuyển `completed` và phát `RefundRecordedV1`. Gọi lại cùng dữ liệu không phát thêm sự kiện; khác dữ liệu đã ghi thì từ chối.
+- Hoàn tiền gắn đúng Thanh toán: khoá Payment, kiểm `request_key` ổn định, tổng `requested` + `completed` không vượt `amount_received`. Gọi lại cùng key, cùng tham số trả cùng `refund_id`.
+- MVP không gọi API hoàn tiền của cổng (BR-REF-03).
+- `record_refund(refund_id, provider_refund_ref, completed_at, recorded_by)`: Staff ghi nhận đã hoàn tay trên trang quản trị cổng hoặc chuyển khoản (BR-REF-03, BR-REF-04, US-605) → Hoàn tiền `completed`, phát `RefundRecordedV1`. Gọi lại cùng dữ liệu không phát thêm; khác dữ liệu đã ghi thì từ chối.
 - Quy tắc và constraint chi tiết: [03 mục 6](../03-data-model.md#6-payments).
 
 ### 5.2. IPN và link thanh toán
 
-- Return URL (trình duyệt quay về) không bao giờ được dùng để xác nhận thanh toán ([ADR 0005](../../adr/0005-provider-adapters-fake-gateways.md)).
-- Link thanh toán hết hạn theo `expires_at` do `ordering` truyền vào (phút thứ 10 kể từ lúc đặt đơn, `PAYMENT_LINK_TTL`).
+- Return URL (trình duyệt quay về) không bao giờ dùng để xác nhận thanh toán ([ADR 0005](../../adr/0005-provider-adapters-fake-gateways.md)).
+- Link thanh toán hết hạn theo `expires_at` do `ordering` truyền (phút thứ 10 từ lúc đặt, `PAYMENT_LINK_TTL`).
 
 ### 5.3. Job
 

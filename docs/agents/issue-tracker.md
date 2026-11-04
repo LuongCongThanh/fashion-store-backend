@@ -7,9 +7,15 @@ Spec và ticket của repo này là file Markdown trong `.scratch/`, được co
 - Mỗi feature một thư mục: `.scratch/<feature-slug>/`
 - Spec nằm ở `.scratch/<feature-slug>/spec.md`
 - Mỗi ticket là một thư mục `.scratch/<feature-slug>/issues/<NN>-<slug>/`, đánh số từ `01`, gồm:
-  - `spec.md`: tiêu đề, dòng `Status:` (xem `triage-labels.md`), `Blocked by:`, `**PR:**`, các mục `## Việc cần làm`, `## Quyết định`, `## Acceptance criteria`. Có từ khi tạo ticket.
+  - `spec.md`: tiêu đề, dòng `Status: … · Ưu tiên: N · Blocked by: … · **PR:**`, các mục `## Mục tiêu`, `## Việc cần làm`, `## Quyết định`, `## Acceptance criteria`, `## Ghi chú`. Viết ngắn, đọc là làm được ngay; phần trùng `docs/` thì thay bằng link. Có từ khi tạo ticket.
   - `plan.md`: kế hoạch làm (slice, test, commit), có khi bắt đầu làm ticket.
   - `report.md`: báo cáo kết quả, trao đổi và bình luận, có khi đã làm xong.
+
+## Thứ tự ưu tiên
+
+- Mỗi ticket mở có `Ưu tiên: N`. N đánh liên tục qua mọi feature trong `.scratch/`, số nhỏ làm trước; ticket làm song song được có thể cạnh nhau.
+- Thêm hoặc đổi chỗ một ticket thì đánh lại `Ưu tiên:` của mọi ticket mở đứng sau trong cùng PR, và cập nhật bảng **Tiến độ** trong `.scratch/mvp-roadmap/map.md`.
+- Ticket `resolved` bỏ dòng `Ưu tiên:`.
 
 ## Ngôn ngữ
 

@@ -4,9 +4,8 @@
 
 ## 1. Sở hữu
 
-Voucher và Lượt dùng Voucher. Giá khuyến mãi gắn vào Biến thể **không** nằm ở đây mà ở [`catalog`](./catalog.md).
-
-`promotions` ở lớp 4: có FK tới `Account` và nghe sự kiện của `identity`. Chỉ `ordering` gọi vào nó.
+- Voucher và Lượt dùng Voucher. Giá khuyến mãi của Biến thể **không** ở đây mà ở [`catalog`](./catalog.md).
+- Lớp 4: FK tới `Account`, nghe sự kiện `identity`. Chỉ `ordering` gọi vào.
 
 ## 2. Cây thư mục
 

@@ -17,7 +17,7 @@ Lớp API dùng chung tách sang ticket [16](../16-shared-api-layer/spec.md), đ
 - `shared/phones.py`: `normalize_vn_phone` bằng `phonenumbers` theo [03 mục 0.6](../../../../docs/architecture/03-data-model.md#06-chuẩn-hoá-số-điện-thoại).
 - `shared/privacy.py`: `pii_hmac(value) -> "<kid>:<hex>"` với keyring `PII_HMAC_KEYS` ([ADR 0016](../../../../docs/adr/0016-erasure-evidence-phone-hmac.md)).
 - `shared/exceptions.py`: `DomainError(code, message, details)`, `RetryLater`.
-- `shared/logging.py`: cấu hình structlog JSON, processor `redact_pii` ([02 mục 9.6](../../../../docs/architecture/02-backend-structure.md#96-logging)).
+- `shared/logging.py`: cấu hình structlog JSON, processor `redact_pii` ([13 mục 10](../../../../docs/architecture/13-python-django-coding-style.md#10-logging-exception-và-dữ-liệu-nhạy-cảm)).
 - Migration `shared` bật `unaccent`, `pg_trgm`, `btree_gist` và tạo hàm `immutable_unaccent` ([03 mục 0.7](../../../../docs/architecture/03-data-model.md#07-khởi-tạo-và-seed)).
 
 ## Quyết định

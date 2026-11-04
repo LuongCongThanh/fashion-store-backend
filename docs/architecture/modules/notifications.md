@@ -4,9 +4,9 @@
 
 ## 1. Sở hữu
 
-Email gửi theo sự kiện, với hàng đợi bền vững trong PostgreSQL (`EmailLog`).
-
-`notifications` ở lớp trên cùng (6): chỉ nghe sự kiện và đọc dữ liệu qua `contracts` của module khác; không module nào phụ thuộc vào nó. Gửi email đi qua `EMAIL_BACKEND` của Django (Mailpit ở local, SES trên AWS), không có adapter riêng.
+- Email gửi theo sự kiện, hàng đợi bền vững trong PostgreSQL (`EmailLog`).
+- Lớp 6 (trên cùng): chỉ nghe sự kiện và đọc qua `contracts` của module khác; không module nào phụ thuộc vào nó.
+- Gửi qua `EMAIL_BACKEND` của Django (Mailpit ở local, SES trên AWS), không có adapter riêng.
 
 ## 2. Cây thư mục
 
@@ -39,15 +39,16 @@ graph LR
 
 ## 4. Public API
 
-Không có `contracts.py` và không phát sự kiện: không module nào gọi vào `notifications`.
+Không có `contracts.py`, không phát sự kiện: không module nào gọi vào.
 
 ## 5. Quy tắc riêng
 
 ### 5.1. Hàng đợi email
 
 - `EmailLog` lưu sự kiện, ID nguồn để dựng nội dung, template, ngôn ngữ, người nhận; trạng thái `queued` / `sending` / `sent` / `failed` / `cancelled`, số lần thử, lịch retry và lease. `UNIQUE(event_id, template)`.
-- Handler tạo EmailLog `queued` cùng transaction với việc chuyển delivery sang `completed`, rồi đẩy `send_email(email_log_id)` qua `enqueue_on_commit`. Cấp link và gửi chỉ chạy trong task, ngoài transaction của consumer.
-- Service claim EmailLog bằng khoá dòng và lease trong transaction ngắn; lấy dữ liệu, cấp link, render và gửi ngoài transaction; chỉ ghi kết quả nếu lease token còn khớp ([07 mục 4](../07-async-events-jobs.md#4-email-hàng-đợi-bền-vững-trong-postgresql)).
+- Handler tạo EmailLog `queued` cùng transaction chuyển delivery sang `completed`, rồi đẩy `send_email(email_log_id)` qua `enqueue_on_commit`.
+- Cấp link và gửi chỉ chạy trong task, ngoài transaction của consumer.
+- Service claim bằng khoá dòng + lease trong transaction ngắn; lấy dữ liệu, cấp link, render, gửi ngoài transaction; chỉ ghi kết quả nếu lease token còn khớp ([07 mục 4](../07-async-events-jobs.md#4-email-hàng-đợi-bền-vững-trong-postgresql)).
 
 ### 5.2. Handler
 
@@ -77,6 +78,6 @@ Lệnh `retry_failed_emails` mở lại email lỗi được chọn; không gử
 ## 6. Tài liệu liên quan
 
 - Schema: [03 mục 9](../03-data-model.md#9-notifications)
-- Danh mục sự kiện và hàng đợi email: [07](../07-async-events-jobs.md) mục 2, 4
+- Sự kiện, hàng đợi email: [07](../07-async-events-jobs.md) mục 2, 4
 - Email (Mailpit, SES): [06](../06-integrations.md) mục 6
 - Quy tắc gửi BR-NTF: [business/04](../../business/04-business-rules.md)

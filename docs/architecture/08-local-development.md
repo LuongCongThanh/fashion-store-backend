@@ -1,43 +1,21 @@
 # 08. Môi trường phát triển local (macOS, Windows và Linux)
 
 > Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)).
-> **PostgreSQL cài trên máy** (macOS: Homebrew bằng `scripts/setup/postgres.sh`; Windows: bộ cài EDB rồi `scripts/setup/postgres.ps1`), theo [ADR 0015](../adr/0015-local-postgres-on-host.md) và [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md); Linux (Docker Engine, PostgreSQL cài bằng apt) có hướng dẫn ở mục 2.1 và 2.2 nhưng nằm ngoài phạm vi hỗ trợ chính thức. **Django API chạy trên máy** bằng `uv run`. Worker, beat, relay, Redis, Mailpit chạy bằng **Docker Compose**. Trên máy cần Docker, `uv` ≥ 0.13 (uv tự tải Python 3.14 theo `backend/.python-version`), `git`, `make`. Windows không dùng WSL2.
+> - **PostgreSQL cài trên máy**: macOS dùng Homebrew qua `scripts/setup/postgres.sh`; Windows dùng bộ cài EDB rồi `scripts/setup/postgres.ps1` ([ADR 0015](../adr/0015-local-postgres-on-host.md), [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)).
+> - Linux (Docker Engine, PostgreSQL cài bằng apt) có hướng dẫn ở mục 2.1, 2.2 nhưng ngoài phạm vi hỗ trợ chính thức.
+> - **Django API chạy trên máy** bằng `uv run`; worker, beat, relay, Redis, Mailpit chạy bằng **Docker Compose**.
+> - Trên máy cần Docker, `uv` ≥ 0.13 (tự tải Python 3.14 theo `.python-version`), `git`, `make`. Windows không dùng WSL2.
 
 ## 1. Tổng quan
-
-```mermaid
-graph LR
-    subgraph host [macOS / Windows]
-        pg[(PostgreSQL bản mới nhất · :5432<br/>cài trên máy)]
-        api[api · :8000<br/>uv run runserver]
-        subgraph docker [Docker Compose]
-            worker[worker]
-            beat[beat]
-            relay[relay]
-            redis[(redis · :6380 trên máy)]
-            mailpit[mailpit · :1025 / :8025]
-        end
-    end
-    api -- localhost --> pg
-    api -- localhost:6380 --> redis
-    api -- localhost:1025 --> mailpit
-    worker -- host.docker.internal --> pg
-    beat --> pg
-    relay --> pg
-    worker --> redis
-    beat --> redis
-    relay --> redis
-    worker --> mailpit
-```
 
 | Thành phần | Chạy ở đâu | Cổng |
 |---|---|---|
 | PostgreSQL (bản major mới nhất) | Cài trên máy: Homebrew (macOS), bộ cài EDB (Windows). Container gọi qua `host.docker.internal` | macOS: 5432, hoặc cổng trống kế tiếp nếu 5432 đang bận; Windows: cổng chọn lúc cài EDB (mặc định 5432). Ghi vào `PG_PORT` |
-| Django API | Trên máy, `uv run python manage.py runserver`; sửa code tự reload | 8000 |
-| Celery worker, Celery Beat, Outbox relay | Docker, bind mount `backend/`; sửa code xong chạy `make restart-worker` | — |
+| Django API | Trên máy (`make run`), gọi các thành phần khác qua `localhost`; sửa code tự reload | 8000 |
+| Celery worker, Celery Beat, Outbox relay | Docker, bind mount gốc repo, gọi Redis/Mailpit theo tên service; sửa code xong chạy `make restart-worker` | — |
 | Redis (Valkey 8, cùng bản với ElastiCache) | Docker | 6380 trên máy (`REDIS_PORT`), 6379 trong mạng Compose |
 | Mailpit | Docker | 1025 (SMTP), 8025 (giao diện xem mail) |
-| Ảnh Sản phẩm | Ổ đĩa, thư mục `backend/media/` | — |
+| Ảnh Sản phẩm | Ổ đĩa, thư mục `media/` | — |
 | VNPay, MoMo | Fake Gateway trong Django | — |
 | GHN | Fake, hoặc sandbox thật (gọi ra được từ local) | — |
 
@@ -47,27 +25,18 @@ graph LR
 
 #### macOS
 
-```bash
-brew install uv
-# Docker Desktop (hoặc OrbStack) cài riêng
-```
-
-PostgreSQL: xem mục 2.2.
+`brew install uv`; Docker Desktop (hoặc OrbStack) cài riêng. PostgreSQL: mục 2.2.
 
 #### Windows
 
-Trên Windows làm thẳng trên Windows, **không dùng WSL2** ([ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). Lệnh `make`, `uv run` và `docker compose` trong tài liệu này chạy được trong PowerShell 7 hoặc Git Bash; lệnh shell thuần (ví dụ `bash scripts/...`) chạy trong Git Bash.
+Làm thẳng trên Windows, **không dùng WSL2** ([ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). `make`, `uv run`, `docker compose` chạy trong PowerShell 7 hoặc Git Bash; lệnh shell thuần (`bash scripts/...`) chạy trong Git Bash.
 
-1. **Công cụ**, cài bằng winget (PowerShell):
-   ```powershell
-   winget install Git.Git astral-sh.uv ezwinports.make Docker.DockerDesktop
-   git config --global core.autocrlf false   # .gitattributes đã quy định LF/CRLF cho từng loại file
-   ```
-2. **PostgreSQL**: xem mục 2.2.
+```powershell
+winget install Git.Git astral-sh.uv ezwinports.make Docker.DockerDesktop
+git config --global core.autocrlf false   # .gitattributes đã quy định LF/CRLF cho từng loại file
+```
 
-3. **Clone repo** vào bất kỳ thư mục nào trên ổ Windows. Nên chọn đường dẫn không có dấu cách.
-
-4. **IDE**: xem mục 6.
+Clone repo vào thư mục bất kỳ trên ổ Windows, nên tránh đường dẫn có dấu cách. PostgreSQL: mục 2.2; IDE: mục 6.
 
 | Lỗi hay gặp trên Windows | Cách xử lý |
 |---|---|
@@ -77,59 +46,36 @@ Trên Windows làm thẳng trên Windows, **không dùng WSL2** ([ADR 0017](../a
 
 #### Linux
 
-Ngoài phạm vi hỗ trợ chính thức ([ADR 0015](../adr/0015-local-postgres-on-host.md) chỉ chốt macOS và Windows). Đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS, Docker Engine 29.9.2, PostgreSQL 18 cài bằng apt. Áp dụng cho Ubuntu/Debian dùng Docker Engine (không phải Docker Desktop).
+Ngoài phạm vi hỗ trợ chính thức ([ADR 0015](../adr/0015-local-postgres-on-host.md) chỉ chốt macOS và Windows). Áp dụng cho Ubuntu/Debian dùng Docker Engine (không phải Docker Desktop); đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS, Docker Engine 29.9.2, PostgreSQL 18 cài bằng apt.
 
-Mỗi lệnh dưới đây phải in ra số phiên bản; lệnh nào báo `command not found` thì cài công cụ đó trước:
-
-```bash
-git --version
-make --version
-docker --version
-docker compose version
-uv --version
-```
-
-Chạy được `docker` mà không cần `sudo`: `docker ps` không báo `permission denied`. Nếu có báo, chạy `sudo usermod -aG docker $USER`, đăng xuất rồi đăng nhập lại.
-
-PostgreSQL: xem mục 2.2.
+- `git --version`, `make --version`, `docker --version`, `docker compose version`, `uv --version` đều phải in số phiên bản; báo `command not found` thì cài công cụ đó trước.
+- `docker ps` không được báo `permission denied`; nếu có, chạy `sudo usermod -aG docker $USER`, đăng xuất rồi đăng nhập lại.
+- PostgreSQL: mục 2.2.
 
 ### 2.2. Database
 
-PostgreSQL cài trên máy, không chạy trong Docker ([ADR 0015](../adr/0015-local-postgres-on-host.md), [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). Dù cài cách nào, kết quả cuối cùng phải giống nhau:
+PostgreSQL cài trên máy, không chạy trong Docker. Cài cách nào cũng phải ra cùng kết quả:
 
-- Role `fashion` (mật khẩu `fashion`, quyền `LOGIN CREATEDB`) và database `fashion` do `fashion` sở hữu. Nhờ `CREATEDB`, pytest-django tự tạo và xoá database test (`test_fashion`, và `test_fashion_gw0`, `test_fashion_gw1`… khi chạy song song).
-- Extension `unaccent`, `pg_trgm`, `btree_gist` **có sẵn để cài** (nằm trong `pg_available_extensions`). Extension do **migration** tạo, giống CI và RDS. Cả ba là trusted extension (từ PostgreSQL 13), nên chủ database tự tạo được, không cần superuser.
-- `DATABASE_URL` và `PG_PORT` chép vào `backend/.env` (mục 2.3).
+- Role `fashion` (mật khẩu `fashion`, `LOGIN CREATEDB`) sở hữu database `fashion`. `CREATEDB` để pytest-django tự tạo/xoá database test (`test_fashion`, `test_fashion_gw0`, `test_fashion_gw1`… khi chạy song song).
+- `unaccent`, `pg_trgm`, `btree_gist` **có sẵn để cài** (có trong `pg_available_extensions`). **Migration** tạo extension, giống CI và RDS; cả ba là trusted extension (từ PostgreSQL 13) nên chủ database tự tạo được, không cần superuser.
+- `DATABASE_URL` và `PG_PORT` chép vào `.env` (mục 2.3).
 
 #### macOS
 
-Từ gốc repo:
-
-```bash
-bash scripts/setup/postgres.sh
-```
-
-Script làm các việc sau, chạy lại nhiều lần vẫn an toàn:
+Từ gốc repo chạy `bash scripts/setup/postgres.sh` (chạy lại nhiều lần vẫn an toàn). Script:
 
 1. Kiểm tra `git`, `make`, `docker`, `uv` (chỉ báo thiếu, không tự cài).
-2. Tìm bản major mới nhất `postgresql@<major>` trên Homebrew. Máy đã có bản đó thì dùng luôn, chưa có thì cài. (Script cũng chạy được trên Ubuntu/Debian bằng apt PGDG, ngoài phạm vi hỗ trợ chính thức.)
-3. Không đụng tới cluster PostgreSQL khác đang có. Nếu cổng 5432 đã bị cluster khác giữ, cluster mới chạy ở cổng trống kế tiếp (5433…).
-4. Tạo hoặc cập nhật role và database `fashion`, kiểm tra extension.
+2. Dùng hoặc cài bản major mới nhất `postgresql@<major>` trên Homebrew (cũng chạy được trên Ubuntu/Debian bằng apt PGDG, ngoài phạm vi hỗ trợ).
+3. Không đụng cluster khác; 5432 bận thì cluster mới chạy ở cổng trống kế tiếp (5433…).
+4. Tạo/cập nhật role và database `fashion`, kiểm tra extension.
 5. Thử đăng nhập bằng `fashion` qua `localhost`, rồi in `DATABASE_URL` và `PG_PORT`.
 
 #### Windows
 
-1. **Cài PostgreSQL một lần**, bằng quyền Administrator, lấy bản major mới nhất:
-   ```powershell
-   winget install PostgreSQL.PostgreSQL.18
-   ```
-   Hoặc tải bộ cài EDB từ postgresql.org. Bộ cài hỏi mật khẩu cho superuser `postgres` (tự đặt và tự giữ, không ghi vào repo) và cổng (để mặc định 5432 nếu trống). Kèm theo có pgAdmin 4; extension `unaccent`, `pg_trgm`, `btree_gist` có sẵn trong bản cài. PostgreSQL chạy thành Windows service `postgresql-x64-<major>`, tự bật cùng máy.
-
-2. **Tạo role và database**, từ gốc repo trong PowerShell:
-   ```powershell
-   pwsh scripts/setup/postgres.ps1
-   ```
-   Script hỏi mật khẩu `postgres` (nhập ẩn, không lưu), rồi làm các việc sau, chạy lại nhiều lần vẫn an toàn: kiểm tra `git`, `make`, `docker`, `uv`; tìm service `postgresql-x64-*` có major cao nhất và đọc cổng của nó (chưa cài thì in lệnh winget ở bước 1 rồi dừng); tạo hoặc cập nhật role và database `fashion`; kiểm tra extension; thử đăng nhập bằng `fashion` rồi in `DATABASE_URL` và `PG_PORT`.
+1. **Cài PostgreSQL một lần** (Administrator, bản major mới nhất): `winget install PostgreSQL.PostgreSQL.18`, hoặc bộ cài EDB từ postgresql.org.
+   - Mật khẩu superuser `postgres` tự đặt, tự giữ, không ghi vào repo; cổng để mặc định 5432 nếu trống.
+   - Kèm pgAdmin 4; `unaccent`, `pg_trgm`, `btree_gist` có sẵn. Chạy thành service `postgresql-x64-<major>`, tự bật cùng máy.
+2. **Tạo role và database**: từ gốc repo chạy `pwsh scripts/setup/postgres.ps1` (chạy lại vẫn an toàn). Script hỏi mật khẩu `postgres` (nhập ẩn, không lưu), kiểm tra `git`, `make`, `docker`, `uv`, tìm service `postgresql-x64-*` major cao nhất và đọc cổng (chưa cài thì in lệnh winget ở bước 1 rồi dừng), tạo/cập nhật role và database `fashion`, kiểm tra extension, thử đăng nhập bằng `fashion` rồi in `DATABASE_URL` và `PG_PORT`.
 
    Chưa có script thì làm tay trong Query Tool của pgAdmin, đăng nhập bằng `postgres`:
    ```sql
@@ -139,58 +85,34 @@ Script làm các việc sau, chạy lại nhiều lần vẫn an toàn:
 
 #### Linux
 
-Công cụ: xem mục 2.1. Làm đúng thứ tự dưới đây, mỗi máy một lần, trong cùng một terminal (bước 1 đặt biến `PGMAJOR` mà các bước sau dùng).
+Công cụ: mục 2.1. Làm đúng thứ tự, mỗi máy một lần, trong cùng một terminal (bước 1 đặt `PGMAJOR` cho các bước sau).
 
-**Bước 1. Kiểm tra PostgreSQL đã cài và đang chạy.**
+**Bước 1. Kiểm tra PostgreSQL đã cài và đang chạy.** Chạy `pg_lsclusters`. Đúng: một dòng `Status` là `online`, ví dụ `18  main  5432  online`. Không có lệnh nghĩa là chưa cài: cài bản major mới nhất từ apt PGDG hoặc chạy `bash scripts/setup/postgres.sh` từ gốc repo (mục macOS bước 2), rồi làm lại. Ghi lại **cổng** để kiểm `.env` (mục 2.3) và đặt **major**: `PGMAJOR=18` (thay bằng số ở cột Ver).
 
-```bash
-pg_lsclusters
-```
-
-Kết quả đúng là một dòng có `Status` là `online`, ví dụ `18  main  5432  online`. Lệnh không tồn tại nghĩa là chưa cài PostgreSQL: cài bản major mới nhất từ apt PGDG hoặc chạy `bash scripts/setup/postgres.sh` từ gốc repo (mục macOS bước 2), rồi làm lại bước này. Ghi lại **cổng** (`5432`) để kiểm `.env` ở mục 2.3, và đặt **major** vào biến:
-
-```bash
-PGMAJOR=18   # thay bằng số ở cột Ver của pg_lsclusters
-```
-
-**Bước 2. Tạo role và database `fashion`.** Chạy lại nhiều lần vẫn an toàn. Bỏ qua bước này nếu đã chạy `scripts/setup/postgres.sh`.
+**Bước 2. Tạo role và database `fashion`.** Chạy lại vẫn an toàn; bỏ qua nếu đã chạy `scripts/setup/postgres.sh`.
 
 ```bash
 sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'fashion') THEN CREATE ROLE fashion LOGIN CREATEDB PASSWORD 'fashion'; END IF; END \$\$;"
 sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'fashion'" | grep -q 1 || sudo -u postgres createdb -O fashion fashion
-sudo -u postgres psql -d fashion -tc "SELECT name FROM pg_available_extensions WHERE name IN ('unaccent', 'pg_trgm', 'btree_gist')"
+sudo -u postgres psql -d fashion -tc "SELECT name FROM pg_available_extensions WHERE name IN ('unaccent', 'pg_trgm', 'btree_gist')"   # phải in đủ ba extension
+psql "postgres://fashion:fashion@localhost:5432/fashion" -c "SELECT current_user"   # thử đăng nhập, đúng thì in fashion
 ```
 
-Lệnh cuối phải in đủ ba tên `unaccent`, `pg_trgm`, `btree_gist`. Thử đăng nhập bằng role mới (mật khẩu `fashion`):
+**Bước 3. Cho container trong Docker gọi được PostgreSQL.** Trên Linux `host.docker.internal` là IP của `docker0`, còn PostgreSQL mặc định chỉ nghe `127.0.0.1`. Bỏ bước này thì `make up` (mục 2.4) dừng ở `migrate` với `couldn't get a connection after 3.00 sec`.
 
 ```bash
-psql "postgres://fashion:fashion@localhost:5432/fashion" -c "SELECT current_user"
-```
-
-Kết quả đúng: in `fashion`.
-
-**Bước 3. Cho container trong Docker gọi được PostgreSQL.** Container gọi `host.docker.internal`, trên Linux là IP của `docker0`, còn PostgreSQL mặc định chỉ nghe ở `127.0.0.1`. Bỏ bước này thì `make up` (mục 2.4) dừng ở service `migrate` với lỗi `couldn't get a connection after 3.00 sec`.
-
-```bash
-# 3.1. Xem IP của docker0, thường là 172.17.0.1
-ip -4 addr show docker0 | grep inet
-
-# 3.2. Cho PostgreSQL nghe thêm ở IP đó (thay IP nếu khác)
+ip -4 addr show docker0 | grep inet   # 3.1. IP của docker0, thường là 172.17.0.1
+# 3.2. Nghe thêm ở IP đó (thay IP nếu khác)
 sudo sed -i "s/^#\?listen_addresses.*/listen_addresses = 'localhost,172.17.0.1'/" /etc/postgresql/$PGMAJOR/main/postgresql.conf
-
 # 3.3. Cho mạng Docker (172.16.0.0/12) đăng nhập role fashion bằng mật khẩu
 echo "host  fashion  fashion  172.16.0.0/12  scram-sha-256" | sudo tee -a /etc/postgresql/$PGMAJOR/main/pg_hba.conf
-
-# 3.4. Khởi động lại để nhận cấu hình mới
-sudo systemctl restart postgresql
-
-# 3.5. Kiểm tra
-ss -ltn | grep 5432
+sudo systemctl restart postgresql   # 3.4. Nhận cấu hình mới
+ss -ltn | grep 5432                 # 3.5. Kiểm tra
 ```
 
-Kết quả đúng của 3.5 là **hai** dòng: `127.0.0.1:5432` và `172.17.0.1:5432`. Chỉ có một dòng thì xem lỗi bằng `sudo tail -20 /var/log/postgresql/postgresql-$PGMAJOR-main.log`. Lệnh 3.3 chạy hai lần chỉ thêm một dòng trùng, vô hại.
+3.5 đúng khi in **hai** dòng `127.0.0.1:5432` và `172.17.0.1:5432`; chỉ một dòng thì xem `sudo tail -20 /var/log/postgresql/postgresql-$PGMAJOR-main.log`. Chạy 3.3 hai lần chỉ thêm dòng trùng, vô hại.
 
-**Bước 4. Cho PostgreSQL khởi động sau Docker.** `docker0` chỉ có sau khi Docker khởi động. Khi bật máy, nếu PostgreSQL khởi động trước Docker thì không bind được `172.17.0.1`, log ghi `could not bind IPv4 address "172.17.0.1": Cannot assign requested address`, và PostgreSQL chỉ nghe ở `127.0.0.1`. Không có thông báo lỗi nào khác; `make up` dừng ở service `migrate` dù bước 3 đã làm đúng. Thêm drop-in systemd để PostgreSQL luôn chờ Docker:
+**Bước 4. Cho PostgreSQL khởi động sau Docker.** `docker0` chỉ có sau khi Docker chạy. Nếu lúc bật máy PostgreSQL lên trước, nó không bind được `172.17.0.1` (log: `could not bind IPv4 address "172.17.0.1": Cannot assign requested address`) và chỉ nghe `127.0.0.1`, không báo lỗi gì khác; `make up` dừng ở `migrate` dù bước 3 đúng. Thêm drop-in systemd:
 
 ```bash
 sudo mkdir -p /etc/systemd/system/postgresql@$PGMAJOR-main.service.d
@@ -199,15 +121,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart postgresql
 ```
 
-Kiểm tra lại bằng lệnh 3.5. Lần bật máy sau vẫn phải thấy hai dòng.
-
-Máy bật tường lửa `ufw` (`sudo ufw status` in `Status: active`) thì mở thêm cổng cho mạng Docker:
-
-```bash
-sudo ufw allow from 172.16.0.0/12 to any port 5432
-```
-
-Tiếp theo: tạo `.env` (mục 2.3), rồi chạy app (mục 2.4).
+Kiểm lại bằng 3.5; lần bật máy sau vẫn phải thấy hai dòng. Nếu `sudo ufw status` in `Status: active` thì chạy thêm `sudo ufw allow from 172.16.0.0/12 to any port 5432`. Tiếp theo: mục 2.3, rồi 2.4.
 
 **Lỗi thường gặp trên Linux**
 
@@ -221,26 +135,24 @@ Tiếp theo: tạo `.env` (mục 2.3), rồi chạy app (mục 2.4).
 | `port is already allocated` (6380, 1025, 8025) | `ss -ltn \| grep <cổng>` | Cổng đang bị chương trình khác giữ; tắt chương trình đó hoặc đổi `REDIS_PORT` trong `.env` |
 | `permission denied ... docker.sock` | `docker ps` | User chưa thuộc nhóm `docker`: xem mục 2.1 → Linux |
 
-Production (RDS) và CI (`postgres:18`) có thể chạy bản major cũ hơn local: không dùng tính năng chỉ có ở bản mới; CI sẽ bắt lỗi này. Trên Windows, PostgreSQL là bản build cho Windows, còn CI và production chạy Linux: khác biệt về collation và locale có thể chỉ lộ ra trên CI.
+#### Khác biệt với CI/production, kết nối và reset
 
-Kết nối:
-
-- API, IDE, `psql`, pytest chạy trên máy: `localhost:<PG_PORT>`.
-- Container trong Compose (worker, beat, relay, migrate): `host.docker.internal:<PG_PORT>`, vì Compose đặt `DATABASE_HOST` thay host của `DATABASE_URL` (mục 7).
-  - Windows (Docker Desktop, PostgreSQL 18 bản EDB): đã xác minh ngày 2026-10-29, không cần sửa cấu hình. Docker Desktop chuyển kết nối qua localhost của máy, nên PostgreSQL thấy client là `127.0.0.1`, và dòng `host all all 127.0.0.1/32` mặc định trong `pg_hba.conf` của EDB đã cho phép.
-  - macOS **[Cần xác minh]**. Nếu container không kết nối được thì cách sửa (`listen_addresses`, `pg_hba.conf`) sẽ được ghi ở đây (ticket `.scratch/backend-bootstrap/issues/13-local-postgres-installer-macos/spec.md`).
-  - Linux (Docker Engine, PostgreSQL 18 cài bằng apt): đã xác minh ngày 2026-11-03 trên Ubuntu 26.04.1 LTS. PostgreSQL mặc định chỉ nghe ở `127.0.0.1`, container không gọi tới được; phải làm bước 3 của mục 2.2 → *Linux* ở trên.
-
-Dữ liệu nằm trên máy, nên `make down` không làm mất dữ liệu. Thường không cần xoá; chỉ xoá khi migration bị rối (đổi qua lại giữa các nhánh có migration xung đột) hoặc muốn seed lại từ đầu: `make db-reset` (drop và tạo lại database `fashion`, giữ role, rồi migrate).
+- RDS và CI (`postgres:18`) có thể chạy major cũ hơn local: không dùng tính năng chỉ có ở bản mới; CI sẽ bắt.
+- Windows chạy bản build cho Windows, CI và production chạy Linux: khác biệt collation/locale có thể chỉ lộ ra trên CI.
+- Tiến trình trên máy (API, IDE, `psql`, pytest) gọi `localhost:<PG_PORT>`.
+- Container Compose (worker, beat, relay, migrate) gọi `host.docker.internal:<PG_PORT>`, vì Compose đặt `DATABASE_HOST` thay host của `DATABASE_URL` (mục 7):
+  - Windows (Docker Desktop, PostgreSQL 18 EDB): xác minh 2026-10-29, không cần sửa cấu hình. PostgreSQL thấy client là `127.0.0.1`, đã được dòng `host all all 127.0.0.1/32` mặc định của EDB cho phép.
+  - macOS **[Cần xác minh]**: nếu container không kết nối được, cách sửa (`listen_addresses`, `pg_hba.conf`) sẽ ghi ở đây (ticket `.scratch/backend-bootstrap/issues/13-local-postgres-installer-macos/spec.md`).
+  - Linux (Docker Engine, PostgreSQL 18 apt): xác minh 2026-11-03 trên Ubuntu 26.04.1 LTS; bắt buộc làm bước 3 ở trên.
+- Dữ liệu nằm trên máy nên `make down` không mất dữ liệu. Chỉ chạy `make db-reset` (drop và tạo lại database `fashion`, giữ role, rồi migrate) khi migration bị rối do đổi nhánh có migration xung đột, hoặc muốn seed lại từ đầu.
 
 ### 2.3. Biến môi trường
 
-```bash
-cd backend
-cp .env.example .env
-```
+Từ gốc repo: `cp .env.example .env`.
 
-Các biến chính trong `.env`. Mỗi biến được khai báo trong `config/env.py` ở mốc đầu tiên dùng tới nó ([roadmap](../../.scratch/mvp-roadmap/map.md)); `.env.example` chỉ chứa biến đã khai báo. Thiếu biến bắt buộc thì Django dừng ngay khi khởi động và báo tên biến. `DATABASE_URL` thiếu user, thiếu host hoặc có tên database rỗng hay chứa `/`, `@`, `:` cũng dừng như vậy, thông báo nêu phần sai mà không in giá trị URL; password có ký tự `/`, `@`, `:`, `?`, `#` phải mã hoá phần trăm (`%2F`, `%40`…).
+- Mỗi biến được khai báo trong `config/env.py` ở mốc đầu tiên dùng tới nó ([roadmap](../../.scratch/mvp-roadmap/map.md)); `.env.example` chỉ chứa biến đã khai báo.
+- Thiếu biến bắt buộc thì Django dừng ngay lúc khởi động và báo tên biến.
+- `DATABASE_URL` thiếu user, thiếu host, tên database rỗng hoặc chứa `/`, `@`, `:` cũng dừng như vậy; thông báo nêu phần sai, không in giá trị URL. Password có `/`, `@`, `:`, `?`, `#` phải mã hoá phần trăm (`%2F`, `%40`…).
 
 ```dotenv
 # Từ M0
@@ -257,7 +169,7 @@ STOREFRONT_ORIGIN=http://localhost:3000
 BFF_SHARED_SECRET=local-bff-secret
 
 # Từ M1 (đăng nhập, JWT, refresh)
-JWT_SIGNING_KEYS=                                         # kid|private-key-base64|public-key-base64, nhiều khoá cách nhau bằng dấu phẩy; khoá đầu (phải có private) ký token mới, mọi public key dùng verify; key Ed25519 tạo riêng cho máy, không commit. `check --deploy` từ chối keyring rỗng (shared.E002)
+JWT_SIGNING_KEYS=                                         # kid|private-key-base64|public-key-base64, nhiều khoá cách nhau bằng dấu phẩy; khoá đầu (phải có private) ký token mới, mọi public key dùng verify; key Ed25519 tạo riêng cho máy, không commit. `check --deploy` từ chối keyring rỗng (common.E002)
 JWT_ISSUER=fashion-store
 JWT_AUDIENCE_BACKOFFICE=backoffice
 JWT_ACCESS_TTL_SECONDS=600                                # số dương
@@ -279,50 +191,42 @@ PAYMENT_PROVIDER_MOMO=fake
 GOOGLE_OAUTH_CLIENT_ID=
 ```
 
-`.env` viết cho tiến trình chạy trên máy (API, pytest, IDE): mọi địa chỉ đều là `localhost`. Container trong Compose ghi đè `REDIS_URL`, `EMAIL_HOST` và đặt `DATABASE_HOST` (thay host của `DATABASE_URL`, giữ user, mật khẩu, cổng, tên DB) trong khối `environment:` (mục 7), nên không cần sửa `.env` cho container và `docker-compose.yml` không chứa mật khẩu.
+- `.env` viết cho tiến trình trên máy (API, pytest, IDE): mọi địa chỉ là `localhost`. Container ghi đè `REDIS_URL`, `EMAIL_HOST` và đặt `DATABASE_HOST` (chỉ thay host, giữ user, mật khẩu, cổng, tên DB) trong `environment:` (mục 7), nên không sửa `.env` cho container và `docker-compose.yml` không chứa mật khẩu.
+- `DJANGO_SETTINGS_MODULE` trong `.env` chỉ có tác dụng trong Compose (nạp vào env của container); trên máy, `.env` được đọc sau khi settings đã chọn. Trên máy thì `export` biến này hoặc dùng mặc định `config.settings.local` của `manage.py`. `wsgi.py` và Celery không có mặc định: process deploy thiếu biến thì dừng ngay.
+- `BFF_SHARED_SECRET` phải trùng giá trị ở Next.js local. Next.js gửi nó trong `X-BFF-Secret` kèm `X-Client-IP`; Django chỉ tin `X-Client-IP` khi secret đúng và IP là IPv4/IPv6 hợp lệ ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)). Nhận 1 hoặc 2 secret cách nhau dấu phẩy (2 khi đang xoay, [05 mục 5](./05-auth-security.md)); rỗng hoặc hơn 2 thì Django dừng lúc khởi động. Gọi thẳng `localhost:8000` (Swagger UI, `curl`) vẫn chạy, chỉ là throttle tính theo IP máy gọi.
+- `STOREFRONT_ORIGIN` chỉ là origin tin cậy, không kèm path/query/userinfo; payment return path do backend cố định.
 
-`DJANGO_SETTINGS_MODULE` trong `.env` chỉ có tác dụng trong Compose, vì Compose nạp `.env` vào biến môi trường của container; khi `.env` được đọc thì settings đã được chọn rồi. Chạy trên máy thì `export` biến này, hoặc dùng mặc định `config.settings.local` của `manage.py`. `wsgi.py` và Celery không có giá trị mặc định: process deploy thiếu biến này thì dừng ngay.
-
-`BFF_SHARED_SECRET` phải trùng với giá trị cấu hình ở Next.js local. Next.js gửi secret này trong header `X-BFF-Secret` kèm `X-Client-IP`, và Django chỉ tin `X-Client-IP` khi secret đúng và IP là IPv4/IPv6 hợp lệ ([ADR 0009](../adr/0009-nextjs-bff-django-private.md)). Biến nhận 1 hoặc 2 secret cách nhau bằng dấu phẩy (2 khi đang xoay, [05 mục 5](./05-auth-security.md)); rỗng hoặc hơn 2 thì Django dừng lúc khởi động. Gọi thẳng `localhost:8000` từ Swagger UI hay `curl` vẫn chạy được, chỉ là throttle tính theo IP của máy gọi.
-
-Từ M1, sinh khoá JWT cho local, chạy từ `backend/` (dùng `cryptography`, dependency có từ M1; chạy được trên mọi shell):
+Từ M1, sinh khoá JWT và khoá RefreshReplay (độc lập JWT) cho local, chạy từ gốc repo, mọi shell đều được (`cryptography` có từ M1):
 
 ```bash
 uv run python -c "from pathlib import Path; from cryptography.hazmat.primitives import serialization as s; from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey; Path('.secrets').mkdir(exist_ok=True); Path('.secrets/jwt_ed25519.pem').open('xb').write(Ed25519PrivateKey.generate().private_bytes(s.Encoding.PEM, s.PrivateFormat.PKCS8, s.NoEncryption()))"
-```
-
-Khoá RefreshReplay độc lập JWT, tạo một lần cho local và không commit. Chạy từ `backend/`:
-
-```bash
 uv run python -c "from pathlib import Path; import secrets; Path('.secrets').mkdir(exist_ok=True); Path('.secrets/refresh_replay.key').open('xb').write(secrets.token_bytes(32))"
 ```
 
-Hai lệnh từ chối ghi đè key đã có; không tạo lại mỗi lần khởi động. Key có ID để xoay và các API replica phải cùng đọc được key còn hiệu lực trong cửa sổ replay. STOREFRONT_ORIGIN chỉ là origin tin cậy, không kèm path/query/userinfo; payment return path do backend cố định.
+- Tạo một lần, không commit; hai lệnh từ chối ghi đè key đã có, không tạo lại mỗi lần khởi động.
+- Key RefreshReplay có ID để xoay; các API replica phải cùng đọc được key còn hiệu lực trong cửa sổ replay.
 
 ### 2.4. Chạy
 
-Lần đầu, sau khi đã có PostgreSQL (mục 2.2) và `.env` (mục 2.3). Mọi lệnh chạy từ `backend/`; cột "Có từ" giống mục 3, lệnh chưa tới mốc thì chưa dùng được.
+Lần đầu, sau mục 2.2 và 2.3, chạy từ gốc repo. Cột "Có từ" như mục 3: chưa tới mốc thì chưa dùng được.
 
 | Bước | Lệnh | Làm gì | Có từ |
 |---|---|---|---|
-| 1 | `uv sync` | Tạo `backend/.venv` với Python 3.14 và dependency (cả nhóm dev) | M0 (ticket 07) |
+| 1 | `uv sync` | Tạo `.venv` với Python 3.14 và dependency (cả nhóm dev) | M0 (ticket 07) |
 | 2 | `uv run pre-commit install` | Cài hook `pre-commit` và `commit-msg` vào `.git/hooks`, một lần cho mỗi bản clone ([11](./11-git-workflow.md) mục 3.4) | M0 (ticket 07) |
 | 3 | `make up` | `docker compose up -d --build`; service `migrate` chạy migration và `sync_beat_schedule` trước khi worker, beat, relay khởi động (mục 7) | M0 (ticket 15) |
-| 4 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
-| 5 | `make create-admin` | Tạo Tài khoản Admin: hỏi email, nhập mật khẩu hai lần (không có cờ `--password`), mật khẩu tối thiểu 8 ký tự theo [05](./05-auth-security.md) mục 3 | M0 (ticket 12) |
-| 6 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu; Voucher mẫu từ M2 | M1 |
-| 7 | `make run` | Chạy API trên máy (`uv run python manage.py runserver`), tự reload khi sửa code | M0 (ticket 15) |
+| 4 | `make load-geo` | Xem mục 3 | M0 (ticket 17) |
+| 5 | `make create-admin` | Hỏi email, nhập mật khẩu hai lần (không có cờ `--password`), tối thiểu 8 ký tự theo [05](./05-auth-security.md) mục 3 | M0 (ticket 12) |
+| 6 | `make seed` | Xem mục 3 | M1 |
+| 7 | `make run` | Chạy API trên máy, tự reload khi sửa code | M0 (ticket 15) |
 
-`make migrate` chỉ cần khi đã có migration mới mà không muốn khởi động lại container.
-
-Kiểm tra sau lần chạy đầu:
+`make migrate` chỉ cần khi có migration mới mà không muốn khởi động lại container. Kiểm tra sau lần chạy đầu:
 
 | Lệnh | Kết quả đúng |
 |---|---|
 | `uv run python manage.py check --database default` (sau bước 1) | `System check identified no issues`; lỗi kết nối thì xem lại mục 2.2 và `DATABASE_URL` ở mục 2.3 |
 | `docker compose ps` (sau bước 3) | `migrate` là `exited (0)`, `worker`, `beat`, `relay`, `redis`, `mailpit` là `running` |
-| `curl -s http://localhost:8000/healthz` (sau bước 7) | Tiến trình API sống |
-| `curl -s http://localhost:8000/readyz` (sau bước 7) | API kết nối được PostgreSQL |
+| `curl -s http://localhost:8000/healthz` / `readyz` (sau bước 7) | API sống / kết nối được PostgreSQL (`readyz` không kiểm tra Redis) |
 
 | Địa chỉ | Dùng để |
 |---|---|
@@ -334,7 +238,8 @@ Không có Django Admin ([ADR 0004](../adr/0004-custom-nextjs-admin.md)). Xem d�
 
 ## 3. Lệnh hằng ngày (`Makefile`)
 
-Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó gọi, nên cột "Có từ" cho biết lệnh nào đã dùng được. `Makefile` đặt `PYTHONUTF8=1`, nên trên Windows các lệnh Python trong recipe vẫn ghi UTF-8 khi output chuyển hướng ra file hay pipe; hook `lint-imports` của pre-commit cũng đặt biến này.
+- Mỗi target được thêm cùng ticket tạo ra lệnh nó gọi; cột "Có từ" cho biết lệnh nào đã dùng được.
+- `Makefile` (và hook `lint-imports` của pre-commit) đặt `PYTHONUTF8=1`, để trên Windows lệnh Python vẫn ghi UTF-8 khi output chuyển ra file hay pipe.
 
 | Lệnh | Làm gì | Có từ |
 |---|---|---|
@@ -345,84 +250,79 @@ Mỗi lệnh được thêm vào `Makefile` cùng ticket tạo ra lệnh mà nó
 | `make shell` | `manage.py shell` chạy trên máy | M0 (ticket 15) |
 | `make makemigrations` / `make migrate` | Tạo / chạy migration; `make migrate` chạy thêm `manage.py sync_beat_schedule` để ghi lịch job vào DB ([07](./07-async-events-jobs.md) mục 3.2) | M0 (ticket 15) |
 | `make db-reset` | Xoá và tạo lại database `fashion` (`manage.py reset_db`, chỉ chạy khi `DEBUG` bật, host là `localhost` và server nghe ở loopback) rồi `make migrate` (mục 2.2) | M0 (ticket 15) |
-| `make test` | `pytest -n auto --cov=modules --cov=shared --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
+| `make test` | `pytest -n auto --cov=apps --cov=common --cov=infrastructure --cov-report=` rồi `python scripts/check_module_coverage.py`, cùng lệnh với job `backend` của CI ([12](./12-testing-strategy.md) mục 8) | M0 (ticket 07; cổng coverage từ ticket 01) |
 | `make lint` | `ruff check`, `ruff format --check`, `mypy`, `scripts/gen_importlinter.py --check` (contract `forbidden` trong `pyproject.toml` không lệch với generator), `lint-imports`, `scripts/gen_openapi.py --check` (`openapi.yaml` không lệch với code, operation đủ chú thích theo [04](./04-api-contract.md) mục 5.6); cùng thứ tự với bước Lint của job `backend` trong CI | M0 (ticket 07; `gen_importlinter.py --check` từ ticket 04; `gen_openapi.py --check` từ ticket 03) |
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
-| `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`) | M0 (ticket 12) |
-| `make openapi` | Sinh lại `backend/openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
+| `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`; cách nhập ở mục 2.4) | M0 (ticket 12) |
+| `make openapi` | Sinh lại `openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
 | `make br-report` | Liệt kê các mã `BR-xxx` trong `docs/business/04-business-rules.md` chưa có test gắn marker `br` ([12](./12-testing-strategy.md) mục 3) | M0 (ticket 02) |
 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu, Voucher mẫu | M1 (Voucher mẫu từ M2) |
 | `make tunnel` | Mở Cloudflare Tunnel để nghiệm thu với sandbox ([06](./06-integrations.md) mục 8) | M7 |
 
 ### 3.1. Lệnh không qua `make`
 
-Chạy từ `backend/`, trừ khi ghi khác. Đều dùng được từ M0 (ticket 07).
+Chạy từ gốc repo, dùng được từ M0 (ticket 07). `pre-commit install`, `healthz`/`readyz`: mục 2.4; script PostgreSQL: mục 2.2.
 
 | Lệnh | Làm gì |
 |---|---|
 | `uv sync` | Cập nhật `.venv` theo `uv.lock`, ví dụ sau khi `git pull` có đổi dependency |
 | `uv sync --locked` | Như CI: báo lỗi nếu `uv.lock` lệch `pyproject.toml` |
 | `uv run pytest <file>` / `uv run pytest <file>::<tên_test>` | Chạy một file hoặc một test; thêm `-x` để dừng ở test lỗi đầu tiên |
-| `uv run python manage.py check` | System check của Django và của dự án (`shared/checks.py`) |
-| `uv run python manage.py check --deploy --settings=config.settings.production` | Kiểm tra cấu hình bảo mật của production; với giá trị local sẽ có cảnh báo (secret ngắn, `ALLOWED_HOSTS` rỗng) |
-| `uv run python manage.py <lệnh>` | Lệnh quản trị khác: `showmigrations`, `sqlmigrate`, `dbshell`… |
+| `uv run python manage.py check` | System check của Django và dự án (`common/checks.py`); thêm `--deploy --settings=config.settings.production` để kiểm cấu hình bảo mật production (giá trị local sẽ có cảnh báo: secret ngắn, `ALLOWED_HOSTS` rỗng) |
+| `uv run python manage.py <lệnh>` | `showmigrations`, `sqlmigrate`, `dbshell`… |
 | `uv run pip-audit --strict` | Quét lỗ hổng dependency như job `backend` của CI; gọi mạng nên không gộp vào `make lint` |
-| `uv run pre-commit install` | Cài hook vào `.git/hooks`, một lần cho mỗi bản clone (mục 2.4) |
 | `uv run pre-commit run --all-files` | Chạy mọi hook trên toàn repo, ví dụ sau khi đổi `.pre-commit-config.yaml` |
-| `curl http://localhost:8000/healthz` / `curl http://localhost:8000/readyz` | API đang chạy / API kết nối được PostgreSQL (`readyz` không kiểm tra Redis) |
-| Từ gốc repo: `bash scripts/setup/postgres.sh` (macOS) hoặc `pwsh scripts/setup/postgres.ps1` (Windows) | Tạo hoặc sửa role và database `fashion` (mục 2.2); chạy lại nhiều lần vẫn an toàn |
 
 Lệnh release (`cz bump`, `cz changelog`) xem [11 mục 5.3](./11-git-workflow.md#53-release).
 
 ## 4. Debug
 
-- API chạy trên máy, nên debug bằng debugger của IDE như một chương trình Python thường (run configuration "Django (local)", mục 6). Không có cổng `debugpy` trong container.
-- Debug Celery task: đặt `CELERY_TASK_ALWAYS_EAGER=True` tạm thời để task chạy ngay trong tiến trình api.
-- Cách cấu hình theo từng IDE: xem mục 6.
+- API chạy trên máy: debug bằng debugger của IDE như chương trình Python thường (mục 6). Không có cổng `debugpy` trong container.
+- Debug Celery task: tạm đặt `CELERY_TASK_ALWAYS_EAGER=True` để task chạy ngay trong tiến trình api.
 
 ## 5. Chạy test
 
-- Test dùng database `test_fashion` do pytest-django tự tạo trên PostgreSQL cài trên máy, mỗi worker `pytest-xdist` một database riêng (không dùng SQLite, để giống production: `select_for_update`, `EXCLUDE`, `unaccent`).
-- Celery chạy đồng bộ; API bên ngoài dùng Fake hoặc `respx`; thời gian cố định bằng `time-machine`.
-- Test chạy trên máy bằng `make test`. `.env` đã trỏ mọi địa chỉ về `localhost` (mục 2.3), nên không cần ghi đè biến nào.
-- `make test` đo branch coverage (`[tool.coverage.run] branch = true` trong `pyproject.toml`), ghi `.coverage` rồi chạy cổng branch coverage riêng từng module: dưới 80% ở `services/` + `handlers.py` của một module, hoặc ở nhóm hạ tầng `shared`, thì lệnh lỗi ([12](./12-testing-strategy.md) mục 8). Chạy một file hay một test bằng `uv run pytest <file>` không đo coverage và không qua cổng này.
+- Database `test_fashion` do pytest-django tạo trên PostgreSQL của máy, mỗi worker `pytest-xdist` một database. Không dùng SQLite, để giống production (`select_for_update`, `EXCLUDE`, `unaccent`).
+- Celery chạy đồng bộ; API bên ngoài dùng Fake hoặc `respx`; cố định thời gian bằng `time-machine`.
+- Chạy trên máy bằng `make test`, không cần ghi đè biến nào (`.env` đã trỏ về `localhost`).
+- `make test` đo branch coverage (`[tool.coverage.run] branch = true`) rồi chạy cổng riêng từng module: dưới 80% ở `services/` + `handlers.py` của một module, hoặc ở nhóm hạ tầng `common`, thì lỗi ([12](./12-testing-strategy.md) mục 8). `uv run pytest <file>` không đo coverage, không qua cổng.
 
 ## 6. Cấu hình IDE dùng chung
 
-Team dùng cả **VS Code** và **PyCharm**. Repo commit sẵn cấu hình chung để ai clone về cũng chạy và debug được ngay; cấu hình cá nhân không được commit (xem [11-git-workflow.md](./11-git-workflow.md) mục 8).
+Team dùng **VS Code** và **PyCharm**. Repo commit cấu hình chung để clone về là chạy và debug được; cấu hình cá nhân không commit ([11](./11-git-workflow.md) mục 8).
 
 | IDE | File được commit | Nội dung |
 |---|---|---|
 | VS Code | `.vscode/launch.json` | "Django (local)": chạy `manage.py runserver` bằng interpreter `.venv`; "Pytest (local)": chạy test bằng interpreter `.venv` |
 | VS Code | `.vscode/extensions.json` | Extension khuyến nghị: Python, Pylance, Python Debugger, Ruff, Mypy Type Checker, Docker, EditorConfig, Mermaid preview |
 | PyCharm | `.run/*.run.xml` | Run configuration lưu dạng file dự án: "Pytest" (đã có), "Django server" (thêm ở ticket 15) |
-| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `backend/.venv` và coi `backend/` là gốc import (`config`, `shared`, `modules`), không cần chọn interpreter tay |
+| VS Code | `pyrightconfig.json` (gốc repo) | Pylance dùng `.venv` và coi gốc repo là gốc import (`config`, `common`, `infrastructure`, `apps`), không cần chọn interpreter tay |
 | Cả hai | `.editorconfig` | Thụt lề 4 dấu cách cho Python, 2 cho YAML/JSON/TOML; LF; UTF-8; xoá khoảng trắng cuối dòng |
 
-Interpreter của cả hai IDE là `backend/.venv`, tạo bằng `uv sync`. Trên Windows đường dẫn là `backend/.venv/Scripts/python.exe`, trên macOS là `backend/.venv/bin/python`. Repo chỉ có venv này: chạy `uv` trong `backend/`, không chạy ở gốc repo, để không sinh `.venv` thứ hai mà Pylance có thể chọn nhầm (lỗi `reportMissingImports` cho mọi thư viện).
+Interpreter của cả hai IDE là `.venv` (tạo bằng `uv sync`; Windows: `.venv/Scripts/python.exe`, macOS: `.venv/bin/python`). Chỉ chạy `uv` ở gốc repo, không ở thư mục con, để không sinh `.venv` thứ hai khiến Pylance chọn nhầm (`reportMissingImports` cho mọi thư viện).
 
 ### 6.1. VS Code
 
-- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `backend/.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `backend/.venv`, rồi *Python: Restart Language Server*.
-- Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong `backend/` sẽ dừng đúng chỗ.
+- `pyrightconfig.json` ở gốc repo đã trỏ Pylance tới `.venv`. Còn báo `reportMissingImports` thì chạy *Python: Select Interpreter* chọn `.venv`, rồi *Python: Restart Language Server*.
+- Debug: `make up` để bật worker, Redis, Mailpit, rồi chọn "Django (local)" và nhấn F5. Breakpoint đặt trong code sẽ dừng đúng chỗ.
 
 ### 6.2. PyCharm
 
-- Interpreter: `backend/.venv` (Add Interpreter → Existing). Chạy và debug Django bằng run configuration "Django server". Không cần PyCharm Professional.
-- Đánh dấu `backend/` là Sources Root để import `config`, `shared`, `modules` không bị báo lỗi. Đánh dấu `backend/tests` là Test Sources Root.
+- Interpreter: `.venv` (Add Interpreter → Existing). Chạy/debug Django bằng "Django server". Không cần PyCharm Professional.
+- Gốc repo là Sources Root (để import `config`, `common`, `infrastructure`, `apps`), `tests` là Test Sources Root.
 
-Các cấu hình dưới đây nằm trong `.idea/` nên không được commit; mỗi máy làm một lần sau khi clone:
+Cấu hình sau nằm trong `.idea/` nên không commit; mỗi máy làm một lần:
 
-- Django support (Settings → Languages & Frameworks → Django): bật Enable Django Support, Django project root là `backend`, Settings là `config/settings/local.py`, Manage script là `backend/manage.py`. Tick "Do not use Django test runner" vì test chạy bằng pytest-django. Sau đó dùng được Run manage.py Task (`Ctrl+Alt+R`), tool window Endpoints và gợi ý cho `settings.*`, model, tên URL.
-- Database (tool window Database → + → Data Source → PostgreSQL): host `localhost`, cổng `PG_PORT`, database, user, mật khẩu lấy từ `DATABASE_URL` trong `.env` (mục 2.3). Mật khẩu chỉ lưu trong `.idea/` của máy.
-- Ruff (Settings → Python → Tools → Ruff): bật Enable, tick Formatting và Sort imports. PyCharm dùng `ruff` trong `backend/.venv` và đọc cấu hình `[tool.ruff]` trong `pyproject.toml`.
-- Plugin Makefile Language (Settings → Plugins → Marketplace) để chạy target trong `backend/Makefile` từ editor. Các plugin khác cần cho repo (Docker, .env, Markdown, Mermaid, TOML, YAML) có sẵn trong PyCharm.
+- Django support (Settings → Languages & Frameworks → Django): Enable, project root là gốc repo, Settings `config/settings/local.py`, Manage script `manage.py`; tick "Do not use Django test runner" (test dùng pytest-django). Có thêm Run manage.py Task (`Ctrl+Alt+R`), Endpoints, gợi ý `settings.*`, model, tên URL.
+- Database (Database → + → Data Source → PostgreSQL): host `localhost`, cổng `PG_PORT`, còn lại lấy từ `DATABASE_URL` (mục 2.3). Mật khẩu chỉ lưu trong `.idea/`.
+- Ruff (Settings → Python → Tools → Ruff): Enable, tick Formatting và Sort imports; dùng `ruff` của `.venv` và `[tool.ruff]` trong `pyproject.toml`.
+- Plugin Makefile Language (Marketplace) để chạy target của `Makefile`; plugin khác cần (Docker, .env, Markdown, Mermaid, TOML, YAML) có sẵn.
 
 ## 7. `docker-compose.yml` (rút gọn)
 
 ```yaml
-name: fashion   # tên project cố định; mặc định là tên thư mục (backend), dễ trùng container của project khác
+name: fashion   # tên project cố định; mặc định là tên thư mục repo, dễ trùng container của project khác
 
 x-container-env: &container-env
   # .env viết cho máy (mục 2.3); trong container, localhost là chính container
@@ -466,4 +366,9 @@ services:
     ports: ["1025:1025", "8025:8025"]
 ```
 
-Image ghim tới bản vá, chỉ chọn bản đã phát hành ít nhất 7 ngày (như cooldown của Dependabot). `Dockerfile` dựng một image cho `migrate`, `worker`, `beat`, `relay` từ `python:3.14.<vá>-slim`, `uv` chép từ `ghcr.io/astral-sh/uv`, cài bằng `uv sync --locked --no-build --no-dev` vào `/opt/venv` (ngoài `/app`, để bind mount `backend/` không đè `.venv` của máy lên venv của container), chạy bằng user `app` không phải root. Image chép tường minh `manage.py`, `config/`, `shared/`, `modules/` (không `COPY . .`) để chạy được khi không bind mount mà không lọt file nhạy cảm; `.dockerignore` giữ `.env`, `.venv` ngoài build context. Compose không có service `postgres` ([ADR 0015](../adr/0015-local-postgres-on-host.md)) và không có service `api`: API chạy trên máy bằng `make run` ([ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). `REDIS_PORT` đọc từ `.env`. Service `migrate` chạy một lần rồi thoát; `worker`, `beat`, `relay` chỉ khởi động khi nó thoát thành công, nên DB trống không làm `beat` hay `relay` lỗi liên tục. Migration lỗi thì `make up` dừng ở bước này, xem bằng `make logs s=migrate`. Service `relay` có từ ticket 10 của M0, cùng lúc với lệnh `run_outbox_relay`.
+- Image ghim tới bản vá, chỉ chọn bản đã phát hành ít nhất 7 ngày (như cooldown của Dependabot).
+- `Dockerfile` dựng một image cho `migrate`, `worker`, `beat`, `relay`: từ `python:3.14.<vá>-slim`, `uv` chép từ `ghcr.io/astral-sh/uv`, `uv sync --locked --no-build --no-dev` vào `/opt/venv` (ngoài `/app`, để bind mount gốc repo không đè `.venv` của máy lên venv container), chạy bằng user `app` không phải root.
+- Image chép tường minh `manage.py`, `config/`, `common/`, `infrastructure/`, `apps/` (không `COPY . .`) để chạy được khi không bind mount mà không lọt file nhạy cảm; `.dockerignore` giữ `.env`, `.venv` ngoài build context.
+- Không có service `postgres` ([ADR 0015](../adr/0015-local-postgres-on-host.md)) hay `api` (API chạy bằng `make run`, [ADR 0017](../adr/0017-windows-native-dev-api-on-host.md)). `REDIS_PORT` đọc từ `.env`.
+- `migrate` chạy một lần rồi thoát; `worker`, `beat`, `relay` chỉ khởi động khi nó thoát thành công, nên DB trống không làm `beat`/`relay` lỗi liên tục. Migration lỗi thì `make up` dừng ở đây; xem bằng `make logs s=migrate`.
+- Service `relay` có từ ticket 10 của M0, cùng lúc với lệnh `run_outbox_relay`.
