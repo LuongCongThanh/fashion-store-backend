@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import copy
+import importlib.util
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 import pytest
 
+from shared.api.schema import ERROR_DESCRIPTIONS
 from tests.helpers import BACKEND, isolated_env
 
 GENERATOR = BACKEND / "scripts/gen_openapi.py"
 GENERATION_FAILED = "drf-spectacular failed to generate a valid schema"
 PREVIOUS_SCHEMA = "openapi: 3.0.3\n"
+OPERATION_ID = "v1_store_catalog_products_create"
+PRODUCTS_PATH = "/api/v1/store/catalog/products"
 
 
 def _generate(
@@ -116,3 +124,203 @@ def test_check_rejects_non_utf8_schema(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "ERROR" in result.stderr
+
+
+def _load_generator() -> ModuleType:
+    """Nạp script như module để gọi thẳng hàm luật, không khởi động Django lần nữa."""
+    spec = importlib.util.spec_from_file_location("gen_openapi", GENERATOR)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _json_body(examples: dict[str, Any] | None = None, *, description: str = "") -> dict[str, Any]:
+    media: dict[str, Any] = {"schema": {"type": "object"}}
+    if examples is not None:
+        media["examples"] = examples
+    return {"content": {"application/json": media}, "description": description}
+
+
+def _error_example(code: str, message: str = "Product code is already taken.") -> dict[str, Any]:
+    return {
+        "value": {"error": {"code": code, "message": message, "details": {}, "request_id": "req-1"}}
+    }
+
+
+def _annotated_schema() -> dict[str, Any]:
+    """Schema một operation đủ chú thích: 400 mặc định không ví dụ, 409 view tự khai có ví dụ."""
+    operation = {
+        "operationId": OPERATION_ID,
+        "summary": "Create a product",
+        "tags": ["store · catalog"],
+        "requestBody": _json_body({"LinenShirt": {"value": {"name": "Linen shirt"}}}),
+        "responses": {
+            "201": _json_body({"Product": {"value": {"code": "SKU-1", "name": "Linen shirt"}}}),
+            "400": _json_body(description=ERROR_DESCRIPTIONS["400"]),
+            "409": _json_body(
+                {"ProductCodeTaken": _error_example("PRODUCT_CODE_TAKEN")},
+                description="Product code already exists (`PRODUCT_CODE_TAKEN`).",
+            ),
+        },
+    }
+    return {"openapi": "3.0.3", "paths": {PRODUCTS_PATH: {"post": operation}}}
+
+
+def _operation(openapi: dict[str, Any]) -> dict[str, Any]:
+    operation: dict[str, Any] = openapi["paths"][PRODUCTS_PATH]["post"]
+    return operation
+
+
+def _drop_summary(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["summary"]
+
+
+def _drop_request_example(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["requestBody"]["content"]["application/json"]["examples"]
+
+
+def _drop_success_example(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["responses"]["201"]["content"]["application/json"]["examples"]
+
+
+def _drop_declared_error_example(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"]
+
+
+def _mismatch_declared_error_code(openapi: dict[str, Any]) -> None:
+    examples = {"Conflict": _error_example("CONFLICT")}
+    _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
+
+
+def _redeclare_default_error(openapi: dict[str, Any]) -> None:
+    # View khai lại 400 với mô tả riêng thì không còn là lỗi mặc định của `AutoSchema`
+    _operation(openapi)["responses"]["400"]["description"] = "Size is not available (`BAD_SIZE`)."
+
+
+def _untag_module(openapi: dict[str, Any]) -> None:
+    _operation(openapi)["tags"] = ["catalog"]
+
+
+def _tag_other_app(openapi: dict[str, Any]) -> None:
+    _operation(openapi)["tags"] = ["backoffice · catalog"]
+
+
+def _vietnamese_summary(openapi: dict[str, Any]) -> None:
+    _operation(openapi)["summary"] = "Tạo sản phẩm"
+
+
+def _vietnamese_example(openapi: dict[str, Any]) -> None:
+    examples = {"LinenShirt": {"value": {"name": "Áo sơ mi linen"}}}
+    _operation(openapi)["requestBody"]["content"]["application/json"]["examples"] = examples
+
+
+@pytest.mark.parametrize(
+    ("mutate", "violation"),
+    [
+        pytest.param(_drop_summary, "missing summary", id="1-summary"),
+        pytest.param(_drop_request_example, "missing request example", id="2-request-example"),
+        pytest.param(_drop_success_example, "missing example for 201 response", id="3-2xx-example"),
+        pytest.param(
+            _drop_declared_error_example,
+            "missing ErrorDTO example for 409 response",
+            id="4-declared-error-example",
+        ),
+        pytest.param(
+            _mismatch_declared_error_code,
+            "409 example code CONFLICT is not in the response description",
+            id="4-declared-error-code",
+        ),
+        pytest.param(
+            _redeclare_default_error,
+            "missing ErrorDTO example for 400 response",
+            id="5-redeclared-default-error",
+        ),
+        pytest.param(_untag_module, "tag 'catalog' is not 'store · <module>'", id="6-tag-format"),
+        pytest.param(
+            _tag_other_app,
+            "tag 'backoffice · catalog' is not 'store · <module>'",
+            id="6-tag-app",
+        ),
+        pytest.param(_vietnamese_summary, "Vietnamese text in summary", id="7-summary"),
+        pytest.param(_vietnamese_example, "Vietnamese text in request example", id="7-example"),
+    ],
+)
+def test_quality_rule_reports_violation(
+    mutate: Callable[[dict[str, Any]], None], violation: str
+) -> None:
+    openapi = copy.deepcopy(_annotated_schema())
+    mutate(openapi)
+
+    violations = _load_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+
+    assert violations == [f"{OPERATION_ID}: {violation}"]
+
+
+def _keep_annotated(openapi: dict[str, Any]) -> None:
+    """Operation đủ chú thích, lỗi 400 mặc định không có ví dụ riêng."""
+
+
+def _drop_request_body(openapi: dict[str, Any]) -> None:
+    del _operation(openapi)["requestBody"]
+
+
+def _respond_without_content(openapi: dict[str, Any]) -> None:
+    responses = _operation(openapi)["responses"]
+    del responses["201"]
+    responses["204"] = {"description": "No response body"}
+
+
+def _move_outside_api(openapi: dict[str, Any]) -> None:
+    operation = openapi["paths"].pop(PRODUCTS_PATH)
+    operation["post"]["tags"] = ["schema"]
+    openapi["paths"]["/api/schema/"] = operation
+
+
+def _vietnamese_error_message(openapi: dict[str, Any]) -> None:
+    # `message` của ErrorDTO dịch theo `Accept-Language`, mặc định `vi`
+    examples = {"ProductCodeTaken": _error_example("PRODUCT_CODE_TAKEN", "Mã sản phẩm đã tồn tại.")}
+    _operation(openapi)["responses"]["409"]["content"]["application/json"]["examples"] = examples
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(_keep_annotated, id="1-4-5-annotated"),
+        pytest.param(_drop_request_body, id="2-no-request-body"),
+        pytest.param(_respond_without_content, id="3-2xx-without-body"),
+        pytest.param(_move_outside_api, id="6-outside-api-v1"),
+        pytest.param(_vietnamese_error_message, id="7-error-message"),
+    ],
+)
+def test_quality_rule_passes_annotated_operation(mutate: Callable[[dict[str, Any]], None]) -> None:
+    openapi = copy.deepcopy(_annotated_schema())
+    mutate(openapi)
+
+    violations = _load_generator().quality_violations(openapi, ERROR_DESCRIPTIONS)
+
+    assert violations == []
+
+
+def test_check_reports_quality_violation_from_rendered_schema(tmp_path: Path) -> None:
+    # View hợp lệ với drf-spectacular (không warning) nhưng thiếu `summary`
+    (tmp_path / "quality_urls.py").write_text(
+        "from django.urls import path\n"
+        "from drf_spectacular.utils import extend_schema\n"
+        "from rest_framework.permissions import AllowAny\n"
+        "from rest_framework.views import APIView\n\n\n"
+        "class PingView(APIView):\n"
+        "    permission_classes = [AllowAny]\n\n"
+        "    @extend_schema(responses={204: None})\n"
+        "    def get(self, request):\n"
+        "        return None\n\n\n"
+        'urlpatterns = [path("api/v1/store/ping", PingView.as_view())]\n',
+        encoding="utf-8",
+    )
+    settings = _write_settings(tmp_path, 'ROOT_URLCONF = "quality_urls"\n')
+
+    result = _generate(tmp_path, "--check", settings=settings, pythonpath=str(tmp_path))
+
+    assert result.returncode == 1
+    assert "api_v1_store_ping_retrieve: missing summary" in result.stdout.splitlines()
