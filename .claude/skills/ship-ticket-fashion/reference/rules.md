@@ -9,18 +9,18 @@
   - Slices, `next`, AC → test → state; the human-readable print is `plan.md`.
   - Code the ticket touches → `.git/ship-ticket-fashion/<K>-map.md`; review findings → `<K>-review.md`.
   - Outcome (done, not done, gaps) → `report.md`. Anything a machine can check → a test, a script in `S/scripts/`, lint or a hook.
-- **Needs user** is a decision outside the gates: out-of-scope change; touching `backend/shared/` when the ticket does not mention it; a red test outside the ticket and not in the baseline; a hook block not fixable within scope; missing or contradictory docs, or code forced to break an ADR (`docs/agents/domain.md`); environment errors (DB, Redis, `.env`). The main session asks at once with `AskUserQuestion`; sub-agents follow `reference/sub-agent.md`.
+- **Needs user** is a decision outside the gates: out-of-scope change; touching `shared/` when the ticket does not mention it; a red test outside the ticket and not in the baseline; a hook block not fixable within scope; missing or contradictory docs, or code forced to break an ADR (`docs/agents/domain.md`); environment errors (DB, Redis, `.env`). The main session asks at once with `AskUserQuestion`; sub-agents follow `reference/sub-agent.md`.
 - **Design vocabulary**: *module* means a business module under `modules/` (ADR 0006). In code design talk use *seam*, *interface*, *depth*, *adapter*, *deletion test* from `mattpocock-skills:codebase-design`; what that skill calls a module, name concretely (function, class, package).
 - **Talking to the user**: codes the user did not write come with their meaning: `AC2 (fail-open khi Redis tắt)`, `ticket 15 (Docker Compose local)`.
 
 ## Machine checks
 
-Invoking this skill is consent to run tests. Commands run in `backend/`, always through `run_logged.py`: log at `.git/ship-ticket-fashion/logs/<label>.log`, green prints one line, red prints the tail; need more → `grep -n` the log. Without `make`, the script runs the `Makefile` recipe itself.
+Invoking this skill is consent to run tests. Commands run at the repo root, always through `run_logged.py`: log at `.git/ship-ticket-fashion/logs/<label>.log`, green prints one line, red prints the tail; need more → `grep -n` the log. Without `make`, the script runs the `Makefile` recipe itself.
 
 ```bash
-python3 S/scripts/run_logged.py --label fmt  --cwd backend -- make fmt
-python3 S/scripts/run_logged.py --label lint --cwd backend --keep-going -- make lint
-python3 S/scripts/run_logged.py --label test --cwd backend -- make test
+python3 S/scripts/run_logged.py --label fmt  -- make fmt
+python3 S/scripts/run_logged.py --label lint --keep-going -- make lint
+python3 S/scripts/run_logged.py --label test -- make test
 ```
 
 - **Lint**: `fmt` then `lint`; `--keep-going` prints every tool's errors in one run; fix them all before rerunning. Trust mypy only through `make lint`.

@@ -57,7 +57,7 @@ class Report:
 
 
 def transcript_dirs(repo: Path) -> list[Path]:
-    """Thư mục transcript của repo và thư mục con của nó (phiên mở trong `backend/`…)."""
+    """Thư mục transcript của repo và thư mục con của nó (phiên mở trong thư mục con…)."""
     config = os.environ.get("CLAUDE_CONFIG_DIR")
     projects = (Path(config) if config else Path.home() / ".claude") / "projects"
     slug = re.sub(r"[^A-Za-z0-9]", "-", str(repo))

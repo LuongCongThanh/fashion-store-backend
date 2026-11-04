@@ -21,7 +21,7 @@ Windows: read `gotchas/windows-shell.md`, use `python` instead of `python3`.
    - `NO STATE` + `FRONTIER` → `reference/pick-ticket.md`.
    - Module or milestone without tickets (`catalog`, `M1`) → `phases/0-plan.md`.
    - `retro #<PR>` → skip `start`, run `phases/8-retro.md` section *PR retro*.
-2. **Preflight** (phases `grill` → `ship`): `python3 S/scripts/preflight.py --fix` checks Docker services, PostgreSQL, migrations, seed data, Redis, API and Mailpit URLs, and runs `make up` / `make migrate` / `make load-geo` when needed. Then `FAIL api` → start `make run` in `backend/` as a background process (Bash `run_in_background`) and rerun until it passes; any other `FAIL` left → *Needs user* with its `fix:` command. Ticket work starts only after `PREFLIGHT OK`.
+2. **Preflight** (phases `grill` → `ship`): `python3 S/scripts/preflight.py --fix` checks Docker services, PostgreSQL, migrations, seed data, Redis, API and Mailpit URLs, and runs `make up` / `make migrate` / `make load-geo` when needed. Then `FAIL api` → start `make run` at the repo root as a background process (Bash `run_in_background`) and rerun until it passes; any other `FAIL` left → *Needs user* with its `fix:` command. Ticket work starts only after `PREFLIGHT OK`.
 3. Read every file listed after `READ`.
 4. Continue from `next`. A `[phase]` argument overrides the phase unless a gate is still unapproved.
 

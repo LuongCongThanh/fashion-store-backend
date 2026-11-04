@@ -20,7 +20,7 @@ from typing import Any
 
 import yaml
 
-BACKEND = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_NAME = "openapi.yaml"
 _API_PREFIX = "/api/v1/"
 # Chữ tiếng Việt có dấu: chữ hiển thị trên Swagger viết tiếng Anh (04 mục 5.6)
@@ -55,14 +55,14 @@ def _render(target: Path) -> int:
     env.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
     # S603: Python, manage.py và tham số cố định, không qua shell. Lý do ghi ở dòng riêng vì
     # SonarCloud cũng đọc chỉ thị noqa và coi phần chữ phía sau là sai cú pháp
-    return subprocess.run(command, cwd=BACKEND, env=env, check=False).returncode  # noqa: S603
+    return subprocess.run(command, cwd=ROOT, env=env, check=False).returncode  # noqa: S603
 
 
 def _default_error_descriptions() -> dict[str, str]:
     """Mô tả lỗi mặc định lấy từ `shared.api.schema`, với cùng settings như `_render`."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
-    if str(BACKEND) not in sys.path:
-        sys.path.insert(0, str(BACKEND))
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
     # Import muộn: `shared.api.schema` cần Django đã setup, còn chế độ sinh file không cần
     import django
 
@@ -280,7 +280,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        # Luôn dùng `openapi.yaml` của thư mục hiện tại (`backend/` ở Make và CI), như
+        # Luôn dùng `openapi.yaml` của thư mục hiện tại (gốc repo ở Make và CI), như
         # gen_importlinter.py: không nhận đường dẫn từ CLI
         return _run(Path.cwd() / SCHEMA_NAME, check=args.check)
     except (GeneratorError, OSError) as exc:

@@ -158,7 +158,7 @@ def main() -> int:
 
     feature, ticket = resolve(args.ticket)
     state = load_state(feature.slug, ticket.num)
-    blockers = close_blockers(state, args.pr, ticket.ac_total, repo_root() / "backend")
+    blockers = close_blockers(state, args.pr, ticket.ac_total, repo_root())
     if blockers:
         print("TỪ CHỐI: bằng chứng AC chưa đầy đủ")
         for blocker in blockers:

@@ -1,4 +1,4 @@
-# Cài một lần, chạy trong backend/: uv run pre-commit install (pre-commit nằm trong nhóm dev)
+# Cài một lần, chạy ở gốc repo: uv run pre-commit install (pre-commit nằm trong nhóm dev)
 # Xem docs/architecture/11-git-workflow.md mục 3.4 và 8.
 default_install_hook_types: [pre-commit, commit-msg]
 
@@ -17,34 +17,31 @@ repos:
       - id: check-toml
       # File sinh: hook sửa nó thì `gen_openapi.py --check` lệch mãi (12 mục 5)
       - id: end-of-file-fixer
-        exclude: ^backend/openapi\.yaml$
+        exclude: ^openapi\.yaml$
       - id: trailing-whitespace
-        exclude: ^backend/openapi\.yaml$
+        exclude: ^openapi\.yaml$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.2
     hooks:
       - id: ruff-check
         args: [--fix]
-        files: ^backend/
       - id: ruff-format
-        files: ^backend/
 
-  # mypy và import-linter cần môi trường của backend, nên chạy bằng uv trong backend/.
-  # Khi chưa có backend/pyproject.toml (trước ticket 07) thì bỏ qua êm.
+  # mypy và import-linter cần môi trường của project, nên chạy bằng uv ở gốc repo.
   - repo: local
     hooks:
       - id: mypy
-        name: mypy (backend)
-        entry: bash -c 'cd backend 2>/dev/null && [ -f pyproject.toml ] || exit 0; uv run mypy .'
+        name: mypy
+        entry: uv run mypy .
         language: system
-        files: ^backend/.*\.py$
+        files: \.py$
         pass_filenames: false
       - id: lint-imports
-        name: import-linter (backend)
-        entry: bash -c 'cd backend 2>/dev/null && [ -f pyproject.toml ] || exit 0; PYTHONUTF8=1 uv run lint-imports'
+        name: import-linter
+        entry: bash -c 'PYTHONUTF8=1 uv run lint-imports'
         language: system
-        files: ^backend/.*\.py$
+        files: \.py$
         pass_filenames: false
 
   # Commit message không được nhắc tới Claude (kể cả trailer `Co-Authored-By`), không phân biệt hoa thường.

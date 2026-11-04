@@ -94,7 +94,7 @@ def evaluate(
             "database",
             db == "ok",
             "" if db == "ok" else db,
-            "bật PostgreSQL và kiểm DATABASE_URL trong backend/.env (08 mục 2.2, 2.3)",
+            "bật PostgreSQL và kiểm DATABASE_URL trong .env (08 mục 2.2, 2.3)",
         )
     )
     if db == "ok":
@@ -134,7 +134,7 @@ def evaluate(
             "redis",
             redis_state == "ok",
             "" if redis_state == "ok" else redis_state,
-            "make up; REDIS_URL=redis://localhost:6380/0 trong backend/.env",
+            "make up; REDIS_URL=redis://localhost:6380/0 trong .env",
         )
     )
 
@@ -223,7 +223,7 @@ def main() -> int:
     )
     parser.add_argument("--api-url", default="http://localhost:8000")
     args = parser.parse_args()
-    backend = repo_root() / "backend"
+    backend = repo_root()
     checks = probe(backend, args.api_url)
     tried: set[str] = set()
     while args.fix and (command := next_fix(checks, tried)):

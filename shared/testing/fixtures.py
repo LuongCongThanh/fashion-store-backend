@@ -1,4 +1,4 @@
-"""Fixture pytest không cần nghiệp vụ; `backend/conftest.py` nạp qua `pytest_plugins`."""
+"""Fixture pytest không cần nghiệp vụ; `conftest.py` ở gốc repo nạp qua `pytest_plugins`."""
 
 import logging
 from collections.abc import Iterator

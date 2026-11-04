@@ -240,7 +240,7 @@ main() {
 
 PostgreSQL $PG_MAJOR đang chạy ở cổng $PG_PORT, database '$DB_NAME' sẵn sàng.
 
-Ghi vào backend/.env:
+Ghi vào .env ở gốc repo:
   DATABASE_URL=postgres://$DB_USER:$DB_PASSWORD@localhost:$PG_PORT/$DB_NAME
   PG_PORT=$PG_PORT
 

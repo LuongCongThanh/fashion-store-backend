@@ -183,7 +183,7 @@ Test-Login
 
 PostgreSQL $PgMajor đang chạy ở cổng $PgPort, database '$DbName' sẵn sàng.
 
-Ghi vào backend/.env:
+Ghi vào .env ở gốc repo:
   DATABASE_URL=postgres://${DbUser}:${DbPassword}@localhost:$PgPort/$DbName
   PG_PORT=$PgPort
 

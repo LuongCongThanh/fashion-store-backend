@@ -6,9 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tests.helpers import BACKEND, importlinter_section, isolated_env, write_tree
+from tests.tooling.helpers import ROOT, importlinter_section, isolated_env, write_tree
 
-GENERATOR = BACKEND / "scripts/gen_importlinter.py"
+GENERATOR = ROOT / "scripts/gen_importlinter.py"
 
 
 def _generate(root: Path, *options: str) -> subprocess.CompletedProcess[str]:
@@ -59,7 +59,7 @@ def test_check_rejects_missing_markers(tmp_path: Path) -> None:
 
 
 def test_committed_pyproject_is_up_to_date() -> None:
-    result = _generate(BACKEND, "--check")
+    result = _generate(ROOT, "--check")
 
     assert result.returncode == 0, result.stdout + result.stderr
 

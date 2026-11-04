@@ -1,4 +1,4 @@
-"""Fixture `staff_client`, `admin_client` của `backend/conftest.py` qua đúng permission."""
+"""Fixture `staff_client`, `admin_client` của `conftest.py` ở gốc repo qua đúng permission."""
 
 import pytest
 from django.urls import path

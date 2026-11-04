@@ -47,7 +47,7 @@ def run_test(test_id: str) -> tuple[int, str]:
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.run(  # noqa: S603 -- test id thuộc plan, argv trực tiếp, không qua shell.
         ["uv", "run", "pytest", test_id, "-x", "-q"],  # noqa: S607 -- uv từ PATH dự án.
-        cwd=repo_root() / "backend",
+        cwd=repo_root(),
         capture_output=True,
         text=True,
         encoding="utf-8",

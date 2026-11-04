@@ -1,4 +1,4 @@
-"""Dựng project tạm cho test chạy script của backend bằng subprocess."""
+"""Dựng project tạm cho test chạy script của project bằng subprocess."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from types import ModuleType
 
-BACKEND = Path(__file__).resolve().parents[1]
-OPENAPI_GENERATOR = BACKEND / "scripts/gen_openapi.py"
+ROOT = Path(__file__).resolve().parents[2]
+OPENAPI_GENERATOR = ROOT / "scripts/gen_openapi.py"
 
 
 def isolated_env() -> dict[str, str]:
@@ -47,8 +47,8 @@ def write_tree(root: Path, files: dict[str, str]) -> None:
 
 
 def importlinter_section() -> str:
-    """Phần `[tool.importlinter]` thật của backend, để test kiểm đúng cấu hình đang commit."""
-    lines = (BACKEND / "pyproject.toml").read_text(encoding="utf-8").splitlines(keepends=True)
+    """Phần `[tool.importlinter]` thật của project, để test kiểm đúng cấu hình đang commit."""
+    lines = (ROOT / "pyproject.toml").read_text(encoding="utf-8").splitlines(keepends=True)
     start = lines.index("[tool.importlinter]\n")
     end = next(
         (

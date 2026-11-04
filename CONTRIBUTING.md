@@ -15,11 +15,9 @@ git switch dev
 git pull --ff-only origin dev
 git switch -c feat/<mo-ta-ngan>
 # code + test
-cd backend
 make fmt
 make lint
 make test
-cd ..
 git push -u origin feat/<mo-ta-ngan>
 # mở PR vào dev, tiêu đề theo Conventional Commits
 ```

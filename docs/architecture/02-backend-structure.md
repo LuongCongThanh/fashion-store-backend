@@ -2,7 +2,7 @@
 
 > Trạng thái: **Đã chốt cho MVP** ([quy ước](../../README.md#trạng-thái-tài-liệu)). Quyết định nền tảng: [ADR 0018](../adr/0018-one-django-app-per-module.md) (mỗi module một Django app), [ADR 0007](../adr/0007-events-outbox-celery-no-kafka.md) (sự kiện).
 > Thuật ngữ nghiệp vụ theo [GLOSSARY.md](../../GLOSSARY.md).
-> **Cấu trúc đích.** Code hiện vẫn ở bố cục cũ (`backend/`, `backend/shared/`, `backend/modules/`) cho tới khi ticket chuyển cấu trúc theo ADR 0018 hoàn tất.
+> **Cấu trúc đích.** Code hiện vẫn ở bố cục cũ (`shared/`, `modules/`) cho tới khi ticket chuyển cấu trúc theo ADR 0018 hoàn tất.
 
 File này là **bản đồ** của repo: code đặt ở đâu, file nào import được gì, module giao tiếp ra sao. Chi tiết ở nơi sở hữu:
 

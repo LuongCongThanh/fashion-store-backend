@@ -9,10 +9,10 @@ from pathlib import Path
 
 from coverage import Coverage
 
-from tests.helpers import BACKEND, isolated_env, write_tree
+from tests.tooling.helpers import ROOT, isolated_env, write_tree
 
-GATE = BACKEND / "scripts/check_module_coverage.py"
-# Cùng cờ với `make test` và job backend của CI (12 mục 8)
+GATE = ROOT / "scripts/check_module_coverage.py"
+# Cùng cờ với `make test` và job `backend` của CI (12 mục 8)
 PYTEST_COV = ["--cov=modules", "--cov=shared", "--cov-report="]
 SERVICE = "def choose(flag):\n    if flag:\n        return 1\n    return 2\n"
 
@@ -56,7 +56,7 @@ def _measure(
 
 
 def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedProcess[str]:
-    """Chạy pytest với pytest-cov và cấu hình coverage của backend, như `make test`."""
+    """Chạy pytest với pytest-cov và cấu hình coverage của project, như `make test`."""
     result = subprocess.run(  # noqa: S603 -- Python cố định, chỉ chạy test do fixture tạo.
         [
             sys.executable,
@@ -64,7 +64,7 @@ def _collect(root: Path, data_file: str, *options: str) -> subprocess.CompletedP
             "pytest",
             *options,
             *PYTEST_COV,
-            f"--cov-config={BACKEND / 'pyproject.toml'}",
+            f"--cov-config={ROOT / 'pyproject.toml'}",
             "-p",
             "no:cacheprovider",
         ],
@@ -292,14 +292,14 @@ def test_gate_applies_project_coverage_config(tmp_path: Path) -> None:
 
 
 def test_gate_resolves_data_file_option_from_working_directory(tmp_path: Path) -> None:
-    root = tmp_path / "backend"
+    root = tmp_path / "project"
     _measure(
         root,
         {"modules/catalog/services/product.py": SERVICE},
         "from modules.catalog.services.product import choose\nchoose(True)\n",
     )
 
-    result = _gate(root, "backend/.coverage", cwd=tmp_path)
+    result = _gate(root, "project/.coverage", cwd=tmp_path)
 
     assert result.returncode == 1
     assert "catalog: 1/2 branches (50.00%) FAIL" in result.stdout

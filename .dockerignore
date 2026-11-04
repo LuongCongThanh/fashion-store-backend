@@ -13,3 +13,10 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+# Gốc repo là build context: bỏ tài liệu và cấu hình công cụ
+docs/
+.scratch/
+.claude/
+.agents/
+.github/
+.git/

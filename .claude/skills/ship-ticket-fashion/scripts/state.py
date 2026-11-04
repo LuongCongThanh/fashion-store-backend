@@ -366,7 +366,7 @@ def cmd_transition(args: argparse.Namespace) -> int:
     if error is None and (state["phase"], args.to) == ("grill", "code"):
         folder = repo_root() / state["ticket"]
         plan = folder / PLAN
-        # -C: đường dẫn ticket tính từ gốc repo, dù lệnh chạy ở backend/
+        # -C: đường dẫn ticket tính từ gốc repo
         dirty = bool(git("-C", str(repo_root()), "status", "--porcelain", "--", state["ticket"]))
         error = plan_ready(
             (folder / SPEC).read_text(encoding="utf-8"),

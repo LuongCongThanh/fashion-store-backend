@@ -8,10 +8,10 @@ Goal: every acceptance criterion has a seam and test names, every open choice ha
    - `git fetch origin`, create `<type>/<short-description>` from `origin/dev` (`docs/architecture/11-git-workflow.md` section 2).
 
    Done when `git branch --show-current` is the new branch and the working tree holds only ticket files.
-2. **Baseline.** Flag `NO HOOKS` → ask, then run `uv run pre-commit install` in `backend/`. Preflight is already green (`SKILL.md` → *Start*). Run `make test` with `--label baseline` (*Machine checks*). A red test is pre-existing on `origin/dev`: record the test id (or step name) in `notes.baselineRed` at step 3. Done when the baseline is green or every red is in `notes.baselineRed`.
+2. **Baseline.** Flag `NO HOOKS` → ask, then run `uv run pre-commit install` at the repo root. Preflight is already green (`SKILL.md` → *Start*). Run `make test` with `--label baseline` (*Machine checks*). A red test is pre-existing on `origin/dev`: record the test id (or step name) in `notes.baselineRed` at step 3. Done when the baseline is green or every red is in `notes.baselineRed`.
 3. **State.** `python3 S/scripts/state.py init <T> --branch <branch> --mode full` (provisional mode, G1 decides). Read `reference/state.md`.
 4. **Sources.** Read the ticket, the feature `spec.md`, the docs and ADRs the ticket points to, `GLOSSARY.md`. Ticket touches business rules → also `docs/business/04-business-rules.md`, `05-order-lifecycle.md`. Tests: look up `docs/architecture/12-testing-strategy.md` by both test type and the topics the ticket touches (logs, DB, cache, fixtures).
-5. **Code map** (`Explore` sub-agent). Brief: code the ticket changes or calls (file, signature, line), callers, reusable tests and fixtures, tickets blocked by this one (`Blocked by` pointing here) so the API fits their later use. Ticket wraps something a library already does (calendar sync, migration, auth…) → `mattpocock-skills:research` on the primary docs for the exact version in `backend/uv.lock`, written to `.scratch/<feature>/research/<topic>.md`.
+5. **Code map** (`Explore` sub-agent). Brief: code the ticket changes or calls (file, signature, line), callers, reusable tests and fixtures, tickets blocked by this one (`Blocked by` pointing here) so the API fits their later use. Ticket wraps something a library already does (calendar sync, migration, auth…) → `mattpocock-skills:research` on the primary docs for the exact version in `uv.lock`, written to `.scratch/<feature>/research/<topic>.md`.
    The main session writes the result to `.git/ship-ticket-fashion/<K>-map.md` (≤ 150 lines: file → signature / line → role; reusable tests, fixtures, library functions), then looks up `docs/architecture/README.md` for the *governing docs* of each file to change and reads exactly those sections. Done when the map has every file to change.
 6. **Grilling.** `mattpocock-skills:grilling` within the ticket's scope: settle open choices and the _seams_ to test. Lite: ask only what the ticket and docs leave open.
    - Code moving out of a broad `except` (a handler's, a transaction's): list every exception it used to catch there and decide where each lands after the move.
@@ -27,7 +27,7 @@ Goal: every acceptance criterion has a seam and test names, every open choice ha
 
    Done when every AC belongs to exactly one slice or is in `untestable`.
 9. **Plan.** Push the slices in one go, then run `state.py check <T>`, `check_ac_trace.py <T> --planned`, `plan.py <T>`. Slices changed after G1 → update state and regenerate the plan before coding. Done when all three are green.
-10. **⛔G1** (format in `SKILL.md` → *Gate*). Summary: `plan.md`; governing docs; new decisions; files to change (flag `backend/shared/`); mode; `untestable` ACs; tests in `notes.baselineRed`. Ask to approve slices and mode together with remaining open decisions.
+10. **⛔G1** (format in `SKILL.md` → *Gate*). Summary: `plan.md`; governing docs; new decisions; files to change (flag `shared/`); mode; `untestable` ACs; tests in `notes.baselineRed`. Ask to approve slices and mode together with remaining open decisions.
 11. **Approved.** Commit *spec* + *plan* (and any triaged `Status:` lines), change phase, print the clear point:
 
     ```bash
