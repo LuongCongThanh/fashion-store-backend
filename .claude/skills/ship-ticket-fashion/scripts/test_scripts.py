@@ -279,6 +279,14 @@ class StateMachine(unittest.TestCase):
         done["tdd"] = {test_id: {"redAt": "r", "greenAt": "g"}}
         self.assertEqual(validate(make_state(slices=[done]), 1), [])
 
+    def test_validate_rejects_file_level_test_ids(self):
+        file_id = "tests/test_x.py"
+        slice_ = complete_slice(
+            tests=[file_id], tddTests=[], verificationTests=[file_id], expectedRed={}
+        )
+        errors = validate(make_state(slices=[slice_]), 1)
+        self.assertTrue(any("cấp hàm" in e and file_id in e for e in errors))
+
     def test_validate_splits_tdd_and_verification_tests(self):
         test_id = "tests/test_x.py::test_x"
         slice_ = complete_slice(tddTests=[], verificationTests=[test_id], expectedRed={})
@@ -461,10 +469,10 @@ class Checks(unittest.TestCase):
             [py, "-c", "import sys; print('mypy: attr-defined'); sys.exit(2)"],
         ]
         results = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=True)
-        self.assertEqual([code for _, code, _ in results], [1, 0, 2])
-        self.assertIn("mypy: attr-defined", results[2][2])
+        self.assertEqual([r.code for r in results], [1, 0, 2])
+        self.assertIn("mypy: attr-defined", results[2].output)
         stop_first = run_steps(steps, Path.cwd(), dict(os.environ), keep_going=False)
-        self.assertEqual([code for _, code, _ in stop_first], [1])
+        self.assertEqual([r.code for r in stop_first], [1])
 
 
 REF = ".scratch/f/issues/01-x"

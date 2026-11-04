@@ -2,7 +2,7 @@
 
 Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắt buộc ở mọi mode.
 
-1. **Check máy trước** (rẻ hơn reviewer; output đưa cho reviewer). `make lint` / `make test` đã xanh ở cuối phase 2, không chạy lại:
+1. **Script trước** (rẻ hơn reviewer; output đưa cho reviewer):
 
    ```bash
    python3 S/scripts/state.py check <T>
@@ -11,7 +11,7 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
    ```
 
    Lỗi → sửa trước khi review. `WARN ticket chưa commit` là đúng: `report.md` commit ở task `sync`.
-2. **Review.** `.git/ship-ticket-fashion/<K>-review.md` đã có đủ trục (làm tiếp sau `/clear` hoặc bị ngắt) → bỏ qua bước này, đọc file đó. Mỗi báo cáo nhận về được ghi ngay vào file dưới heading `## Spec`, `## Standards`, `## Bug`. Xong khi file có đủ ba heading.
+2. **Review.** `.git/ship-ticket-fashion/<K>-review.md` đã có đủ trục (làm tiếp sau `/clear` hoặc bị ngắt) → bỏ qua bước này, đọc file đó. Phiên chính ghi ngay mỗi báo cáo nhận về vào file đó, dưới heading `## Spec`, `## Standards`, `## Bug`; reviewer chỉ trả báo cáo. Xong khi file có đủ ba heading.
 
    Full: trong cùng một lượt, gọi song song 2a và 2b, brief riêng. Lite: một agent `general-purpose` làm cả ba trục với brief của 2a và 2b.
 
@@ -29,11 +29,11 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
    - *chỉ báo*: smell, lỗi có từ trước, điểm cần người dùng quyết. Mục ngoài phạm vi còn đáng làm → backlog (`reference/rules.md`, *Phạm vi*).
 
    Trình bảng finding (mã, `file:line`, phân loại, cách sửa) và hỏi bằng `AskUserQuestion` (multi-select) mục nào sửa ngay; mục *sửa* để sẵn là khuyên dùng. Chỉ liệt kê nhóm sửa, không thêm lựa chọn "Không sửa gì": người dùng bỏ hết thì ghi ở Other. Mục trong `userRequested` hỏi trước khi hoàn tác. Ghi lựa chọn vào cuối `<K>-review.md`.
-5. **Vòng sửa, tối đa 2 vòng.** Full: gửi cho implementer của phase 2 bằng `SendMessage` (agent đã có context code), kèm đường dẫn `<K>-review.md` và mã finding đã chọn; `ListAgents` không còn agent đó thì tạo mới theo `SKILL.md` → *Sub-agent*. Lite: phiên chính.
+5. **Vòng sửa, tối đa 2 vòng.** Full: gửi implementer (`SKILL.md` → *Sub-agent*) đường dẫn `<K>-review.md` và mã finding đã chọn. Lite: phiên chính.
    - Vòng 1 làm hết mục đã chọn thành một lô; vòng 2 chỉ xử lý thứ vòng 1 để lại đỏ hoặc làm hỏng.
    - Mục đổi hành vi: test red trước khi sửa.
    - Mỗi vòng một commit: `commit.py <T> --task R1` (vòng 2: `R2`), subject `fix(<scope>): address review findings on <chủ đề>`, thân liệt kê mã finding đã sửa (`B1`, `S2`…).
-   - Cuối vòng: `make fmt`, `make lint` (qua `run_logged.py --keep-going --`, `reference/rules.md` → *Check máy*), `make test`, `check_ac_trace.py`.
+   - Cuối vòng: full check (*Check máy*) và `check_ac_trace.py`.
 
    Còn mở sau vòng 2 → đưa lên G2.
 6. **Ghi** bảng kết luận vào `report.md` (mục *Review*): mỗi finding một dòng (mã, `file:line`, đã sửa / chỉ báo / hoàn tác / bác, lý do vài chữ); gom smell vào một dòng. Cập nhật bảng AC → bằng chứng nếu test đổi.
@@ -41,4 +41,4 @@ Mục tiêu: code **và test** đúng ticket và đúng chuẩn của repo. Bắ
 
 ## Xong khi
 
-Check máy xanh; `<K>-review.md` có đủ ba trục; mọi finding có kết luận trong báo cáo; tối đa 2 vòng sửa đã chạy và vòng cuối xanh; `phase` là `sync`.
+Script ở bước 1 xanh; `<K>-review.md` có đủ ba trục; mọi finding có kết luận trong báo cáo; tối đa 2 vòng sửa đã chạy và vòng cuối xanh; `phase` là `sync`.

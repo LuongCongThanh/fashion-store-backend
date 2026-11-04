@@ -1,6 +1,6 @@
 # State
 
-`.git/ship-ticket-fashion/<feature>-<NN>.json`, tạo ở phase 1 bằng `state.py init`. Đọc file này ở phase 1 và khi ghi một field lần đầu.
+`.git/ship-ticket-fashion/<K>.json`, tạo ở phase 1 bằng `state.py init`. Đọc file này ở phase 1 và khi ghi một field lần đầu.
 
 ```json
 {
@@ -38,7 +38,7 @@
 ```
 
 - `acs`: số thứ tự của AC trong mục `## Acceptance criteria` của `spec.md`, đếm từ 1.
-- `tests`: hợp không trùng của `tddTests` và `verificationTests`; id pytest tính từ `backend/`.
+- `tests`: hợp không trùng của `tddTests` và `verificationTests`; id pytest cấp hàm (`file.py::test_x`), tính từ `backend/`.
 - `tddTests`: test mới cho hành vi, cần `expectedRed`, red rồi green. `verificationTests`: test sẵn có chỉ cần verify green.
 - `files`: file slice sẽ đổi, ghi ở phase 1 cho `plan.md`; một slice là một commit gồm đúng các file này.
 - `governingDocs`: mỗi key là file trong `files`, value là reference `path.md::số-mục`; script kiểm file và heading tồn tại, đồng thời reference phải xuất hiện trong `## Quyết định`.

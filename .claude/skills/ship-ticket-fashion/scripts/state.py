@@ -135,6 +135,12 @@ def validate(state: dict, ac_total: int | None = None) -> list[str]:
             )
         if len(tests) != len(set(tests)):
             errors.append(f"slice {slice_id}: tests bị trùng")
+        file_level = [t for t in tests if "::" not in t]
+        if file_level:
+            errors.append(
+                f"slice {slice_id}: test id phải ở cấp hàm (file.py::test_x): "
+                + ", ".join(file_level)
+            )
         expected_red = s.get("expectedRed")
         if not isinstance(expected_red, dict):
             errors.append(f"slice {slice_id}: expectedRed phải là object test → exception")

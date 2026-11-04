@@ -8,7 +8,7 @@ Mục tiêu: mỗi acceptance criterion có seam và tên test, mỗi lựa ch�
    - `git fetch origin`, từ `origin/dev` tạo `<type>/<mô-tả-ngắn>` (`docs/architecture/11-git-workflow.md` mục 2).
 
    Xong khi `git branch --show-current` là nhánh mới và working tree chỉ còn file của ticket.
-2. **Baseline.** Cờ `NO HOOKS` → hỏi rồi chạy `uv run pre-commit install` trong `backend/`. Chạy `make test` với `--label baseline` (`reference/rules.md` → *Check máy*); không dùng `manage.py check` thay, vì lệnh đó xanh cả khi DB hỏng. Lỗi kết nối DB, Redis hoặc thiếu biến môi trường → *Cần người dùng*: nhờ sửa `backend/.env` theo `.env.example` (agent không đọc `.env`) hoặc bật service (`make up`), rồi chạy lại. Test đỏ vì lý do khác là đỏ sẵn trên `origin/dev`: ghi id vào `notes.baselineRed` ở bước 3. Xong khi baseline xanh hoặc mọi test đỏ đã có trong `notes.baselineRed`.
+2. **Baseline.** Cờ `NO HOOKS` → hỏi rồi chạy `uv run pre-commit install` trong `backend/`. Chạy `make test` với `--label baseline` (`reference/rules.md` → *Check máy*); không dùng `manage.py check` thay, vì lệnh đó xanh cả khi DB hỏng. Lỗi kết nối DB, Redis hoặc thiếu biến môi trường → *Cần người dùng*: nhờ sửa `backend/.env` theo `.env.example` (agent không đọc `.env`) hoặc bật service (`make up`), rồi chạy lại. Đỏ vì lý do khác là đỏ sẵn trên `origin/dev`: ghi id test (hoặc tên bước) vào `notes.baselineRed` ở bước 3. Xong khi baseline xanh hoặc mọi test đỏ đã có trong `notes.baselineRed`.
 3. **State.** `python3 S/scripts/state.py init <T> --branch <nhánh> --mode full` (mode tạm, G1 chốt). Read `reference/state.md`.
 4. **Nguồn.** Read ticket, `spec.md` của feature, tài liệu và ADR ticket trỏ tới, `GLOSSARY.md`. Ticket chạm quy tắc nghiệp vụ → thêm `docs/business/04-business-rules.md`, `05-order-lifecycle.md`. Test: tra `docs/architecture/12-testing-strategy.md` theo cả loại test lẫn chủ đề ticket chạm (log, DB, cache, fixture).
 5. **Bản đồ code** (sub-agent `Explore`). Brief: code ticket sửa hoặc gọi (file, chữ ký, số dòng), caller, test và fixture dùng lại được, ticket bị ticket này chặn (`Blocked by` trỏ về nó) để chốt API khớp chỗ dùng sau. Ticket bọc việc một thư viện đã làm (đồng bộ lịch, migrate, xác thực…) → `mattpocock-skills:research` tra tài liệu gốc đúng phiên bản trong `backend/uv.lock`, ghi `.scratch/<feature>/research/<chủ-đề>.md`.
@@ -20,8 +20,8 @@ Mục tiêu: mỗi acceptance criterion có seam và tên test, mỗi lựa ch�
 8. **Slice** (schema ở `reference/state.md`). Chia AC thành slice dọc (lite: một slice), mỗi slice một commit:
    - `acs`, `seam`, `dependsOn`.
    - `files`: chỉ file thật sự sửa; `commit.py` từ chối commit khi thiếu hoặc thừa file. Hành vi đổi → `rg -n "<trạng thái / field bị ảnh hưởng>" docs`, đưa code, test, sơ đồ, kịch bản liên quan vào.
-   - `tddTests` + `expectedRed`: `AssertionError` hoặc exception nghiệp vụ; lỗi setup / hạ tầng không hợp lệ. Method chưa tồn tại → khai chữ ký raise `NotImplementedError` trước, để red không thành `AttributeError`. I/O phá huỷ được test ở seam bằng kết nối giả.
-   - `verificationTests`: test sẵn có chỉ cần green; id luôn ở cấp hàm (`file.py::test_x`).
+   - `tddTests` + `expectedRed`: `AssertionError` hoặc exception nghiệp vụ; lỗi setup / hạ tầng không hợp lệ. I/O phá huỷ được test ở seam bằng kết nối giả.
+   - `verificationTests`: test sẵn có chỉ cần green.
    - `governingDocs`: file → `đường/dẫn.md::số-mục` (ADR áp dụng cả file bỏ được `::`); cùng reference phải có trong dòng `Tài liệu chi phối`.
    - AC không test tự động được → `untestable` kèm cách kiểm tay.
 

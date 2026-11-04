@@ -15,7 +15,7 @@
 
 ## Check máy
 
-Gọi skill này là đồng ý chạy test. Lệnh chạy trong `backend/`, luôn qua `run_logged.py`: log ghi vào `.git/ship-ticket-fashion/logs/<label>.log`, xanh chỉ in một dòng, đỏ in đoạn cuối. Cần thêm thì `grep -n` hoặc Read có `offset` trên log. Máy không có `make` thì script tự chạy recipe của `Makefile`.
+Gọi skill này là đồng ý chạy test. Lệnh chạy trong `backend/`, luôn qua `run_logged.py`: log ở `.git/ship-ticket-fashion/logs/<label>.log`, xanh in một dòng, đỏ in đoạn cuối; cần thêm thì `grep -n` trên log. Máy không có `make` thì script tự chạy recipe của `Makefile`.
 
 ```bash
 python3 S/scripts/run_logged.py --label fmt  --cwd backend -- make fmt
@@ -23,8 +23,8 @@ python3 S/scripts/run_logged.py --label lint --cwd backend --keep-going -- make 
 python3 S/scripts/run_logged.py --label test --cwd backend -- make test
 ```
 
-- **Lint một lượt**: `make fmt` trước, rồi `make lint` với `--keep-going` để in lỗi của mọi công cụ (ruff, format, mypy, import-linter, OpenAPI) trong một lần. Sửa hết lỗi đã in rồi mới chạy lại. mypy chỉ tin kết quả của `make lint`; gọi `mypy` cách khác có thể báo lỗi không có thật.
-- **Full check chạy đúng các mốc**: baseline phase 1; `make lint` cuối mỗi slice; `make lint` + `make test` cuối phase 2, cuối mỗi vòng sửa, check cuối phase 5, và sau rebase ở phase 6 khi rebase kéo về commit mới. Giữa các mốc chỉ chạy test của slice. Mốc không có commit đổi code kể từ lần xanh gần nhất thì dùng lại kết quả đó.
-- **Test đỏ ngoài ticket**: có trong `notes.baselineRed` (đỏ sẵn trên `origin/dev`, ghi ở phase 1) → một dòng trong báo cáo, làm tiếp. Không có → do nhánh này gây ra: sửa; không sửa được trong phạm vi → *Cần người dùng*.
+- **Lint**: `fmt` rồi `lint`; `--keep-going` in lỗi của mọi công cụ trong một lần, sửa hết rồi mới chạy lại. mypy chỉ tin kết quả của `make lint`.
+- **Full check** (`fmt`, `lint`, `test`) chạy ở: cuối phase 2, cuối mỗi vòng sửa, phase 5 khi code đổi sau lần xanh gần nhất, phase 6 khi rebase kéo về commit mới. Cuối mỗi slice: `fmt`, `lint` và test của slice. Mốc không có commit đổi code kể từ lần xanh gần nhất thì dùng lại kết quả đó.
+- **Test đọc log** (`caplog`, fixture `json_logging`): chạy thêm file test đó với `uv run pytest -p no:xdist <file>`.
+- **Đỏ ngoài ticket**: có trong `notes.baselineRed` (đỏ sẵn trên `origin/dev`, ghi ở phase 1) → một dòng trong báo cáo, làm tiếp. Không có → do nhánh này: sửa; không sửa được trong phạm vi → *Cần người dùng*. Bước đỏ không có test id (cổng coverage) thì ghi tên bước, ví dụ `check_module_coverage`.
 - Ghi nhiều field state trong một lần `state.py set` / `push`. Giữ nội dung `.env`, secret, token ngoài output.
-- Gặp lỗi đường dẫn, quoting hoặc lệnh trên Windows → đọc lại `gotchas/windows-shell.md`.

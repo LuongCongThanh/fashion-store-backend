@@ -20,6 +20,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from common import repo_root, state_dir
@@ -113,11 +114,18 @@ def expand(command: list[str], cwd: Path, *, keep_going: bool = False) -> list[l
         raise
 
 
+@dataclass(frozen=True)
+class StepResult:
+    command: list[str]
+    code: int
+    output: str
+
+
 def run_steps(
     steps: list[list[str]], cwd: Path, env: dict[str, str], *, keep_going: bool
-) -> list[tuple[list[str], int, str]]:
-    """(lệnh, exit code, output) của từng bước đã chạy; không keep_going thì dừng ở bước đỏ."""
-    results: list[tuple[list[str], int, str]] = []
+) -> list[StepResult]:
+    """Kết quả từng bước đã chạy; không keep_going thì dừng ở bước đỏ."""
+    results: list[StepResult] = []
     for step in steps:
         proc = subprocess.run(
             step,
@@ -128,7 +136,7 @@ def run_steps(
             encoding="utf-8",
             errors="replace",
         )
-        results.append((step, proc.returncode, proc.stdout + proc.stderr))
+        results.append(StepResult(step, proc.returncode, proc.stdout + proc.stderr))
         if proc.returncode != 0 and not keep_going:
             break
     return results
@@ -162,20 +170,20 @@ def main() -> int:
     logs.mkdir(exist_ok=True)
     log = logs / f"{args.label}.log"
     results = run_steps(steps, cwd, env, keep_going=args.keep_going)
-    failed = [(step, code, out) for step, code, out in results if code != 0]
-    returncode = failed[0][1] if failed else 0
-    transcript = [f"$ {' '.join(step)}\n{out}" for step, _, out in results]
+    failed = [result for result in results if result.code != 0]
+    returncode = failed[0].code if failed else 0
+    transcript = [f"$ {' '.join(r.command)}\n{r.output}" for r in results]
     log.write_text("\n".join(transcript) + f"\nexit {returncode}\n", encoding="utf-8")
 
     if not failed:
-        lines = [line for _, _, out in results for line in out.splitlines() if line.strip()]
+        lines = [line for r in results for line in r.output.splitlines() if line.strip()]
         print(f"OK {args.label} · {lines[-1] if lines else '(không có output)'} · log {log}")
         return 0
     print(f"RED {args.label} (exit {returncode}, {len(failed)}/{len(results)} bước đỏ) · log {log}")
     tail = max(10, args.tail // len(failed))
-    for step, code, out in failed:
-        lines = [line for line in out.splitlines() if line.strip()]
-        print(f"--- $ {' '.join(step)} (exit {code})")
+    for result in failed:
+        lines = [line for line in result.output.splitlines() if line.strip()]
+        print(f"--- $ {' '.join(result.command)} (exit {result.code})")
         print("\n".join(lines[-tail:]))
     return returncode
 

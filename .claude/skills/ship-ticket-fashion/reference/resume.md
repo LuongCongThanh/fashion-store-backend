@@ -7,7 +7,7 @@
 - `BRANCH RED` (nhánh hiện tại khác `branch` của state) → hỏi người dùng: chuyển sang nhánh của state (khuyên dùng), hay lấy nhánh hiện tại làm `branch` mới.
 - `DIRTY` → xem `git status --short`: file của ticket thì làm tiếp; file của việc khác thì hỏi người dùng giữ hay stash.
 - `BEHIND origin/dev` → `git fetch origin && git rebase origin/dev` trước phase 6; ở phase sớm hơn thì rebase khi tiện, chạy lại test sau rebase.
-- `SLICE OPEN` → `ListAgents` trước khi tạo agent mới; implementer đang chạy giữ phase 2 tới khi trả về. Agent đã mất → tạo implementer mới với prompt địa chỉ, nó đọc `handoff`, commit và `<K>-map.md` rồi làm tiếp từ slice đang mở.
+- `SLICE OPEN` → implementer theo `SKILL.md` → *Sub-agent*; agent đang chạy thì chờ nó trả về.
 - `NO PR` ở phase `done` → PR chưa mở được: quay lại phase 6 bước mở PR.
 
 ## Theo phase
