@@ -164,6 +164,7 @@ source_modules = [
     "modules.catalog",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -178,6 +179,7 @@ source_modules = [
     "modules.inventory",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -192,6 +194,7 @@ source_modules = [
     "modules.notifications",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -206,6 +209,7 @@ source_modules = [
     "modules.ordering",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -220,6 +224,7 @@ source_modules = [
     "modules.payments",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -234,6 +239,7 @@ source_modules = [
     "modules.promotions",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",
@@ -248,6 +254,7 @@ source_modules = [
     "modules.shipping",
 ]
 forbidden_modules = [
+    "modules.identity.api",
     "modules.identity.auth",
     "modules.identity.constants",
     "modules.identity.models",

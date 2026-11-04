@@ -30,3 +30,11 @@ class WeakPassword(DomainError):
     code = "WEAK_PASSWORD"
     http_status = 422
     message = _("Mật khẩu chưa đủ mạnh.")
+
+
+class InvalidCredentials(DomainError):
+    """Lỗi chung cho mọi nguyên nhân đăng nhập không hợp lệ."""
+
+    code = "INVALID_CREDENTIALS"
+    http_status = 401
+    message = _("Email hoặc mật khẩu không hợp lệ.")

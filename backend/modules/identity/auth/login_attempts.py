@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import structlog
+from django.conf import settings
+from redis import Redis
 from redis.exceptions import RedisError
 
 from shared.privacy import pii_hmac
@@ -67,7 +69,7 @@ return 1
 
 
 class Script(Protocol):
-    def __call__(self, *, keys: list[str], args: list[object]) -> object: ...
+    def __call__(self, *, keys: list[str], args: list[str | int | float]) -> object: ...
 
 
 class RedisClient(Protocol):
@@ -142,3 +144,7 @@ class LoginAttemptLedger:
             self._success(keys=reservation.keys, args=[reservation.request_id])
         except RedisError, ConnectionError, OSError, TimeoutError:
             logger.warning("login_failure_ledger_unavailable", metric=1)
+
+
+def get_login_ledger() -> LoginAttemptLedger:
+    return LoginAttemptLedger(Redis.from_url(settings.REDIS_URL, decode_responses=True))

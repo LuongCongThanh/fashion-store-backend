@@ -107,6 +107,7 @@ CACHES = {
         "LOCATION": env.REDIS_URL,
     }
 }
+REDIS_URL = env.REDIS_URL
 
 LANGUAGE_CODE = "vi"
 LANGUAGES = [("vi", "Tiếng Việt"), ("en", "English")]
