@@ -43,6 +43,7 @@ Quy trình riêng cho AI agent nằm ở `CLAUDE.md`, không thuộc coding conv
 | Tên trong code | Biến, hàm, class, bảng, field, enum và error code viết bằng tiếng Anh |
 | Comment/docstring | Viết tiếng Việt; giữ nguyên thuật ngữ kỹ thuật, tên package và identifier tiếng Anh |
 | Chuỗi hiển thị | Bọc `gettext` để hỗ trợ vi/en; không nhúng chuỗi hiển thị trực tiếp nếu cần dịch |
+| Chữ trên Swagger | `summary`, `description`, ví dụ trong `extend_schema` / `extend_schema_serializer` viết tiếng Anh, không bọc `gettext` (schema sinh giống nhau ở mọi máy); docstring của view và serializer không vào schema. Mỗi view mới có `summary` và ví dụ; xem [04](./04-api-contract.md) mục 5.6 |
 | Type hints | Mọi hàm trong `services`, `selectors`, `contracts` có type hints đầy đủ; dùng `list[X]`, `X \| None`, không dùng `List`, `Optional` |
 | Tiền | DB dùng `BigIntegerField` theo đồng VND; code dùng `shared.money.Money`; API trả object gồm `amount` và `currency` |
 | Thời gian | Lưu UTC với `USE_TZ = True`, lấy giờ bằng `django.utils.timezone.now()`; hiển thị theo `Asia/Ho_Chi_Minh` |
