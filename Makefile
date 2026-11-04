@@ -6,7 +6,7 @@
 # code page của máy (vd. cp1252) nên lint-imports dừng ở tên contract tiếng Việt.
 export PYTHONUTF8 := 1
 
-.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin db-reset br-report openapi
+.PHONY: test lint fmt up down run restart-worker logs shell makemigrations migrate load-geo create-admin seed db-reset br-report openapi
 
 # Cùng lệnh với job backend của CI: pytest-cov gom coverage từ các worker xdist, rồi cổng
 # branch coverage từng module (12 mục 8)
@@ -64,6 +64,11 @@ load-geo:
 # Tạo Tài khoản Admin (08 mục 2.4 bước 5); hỏi email nếu thiếu, mật khẩu nhập hai lần qua getpass
 create-admin:
 	uv run python manage.py create_staff --admin
+
+# Tạo Tài khoản Admin, Staff mẫu với mật khẩu dev cố định (08 mục 3); chỉ chạy khi DEBUG bật và
+# database ở localhost; chạy lại không tạo trùng
+seed:
+	uv run python manage.py seed_dev
 
 # Xoá và tạo lại database fashion rồi chạy target migrate (08 mục 2.2); reset_db chỉ chạy với
 # DEBUG bật và host localhost
