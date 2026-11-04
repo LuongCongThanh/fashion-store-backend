@@ -22,6 +22,10 @@ class InvalidToken(ValueError):
     """Token không đạt contract chữ ký/header/claims."""
 
 
+class ExpiredToken(InvalidToken):
+    """Chữ ký hợp lệ nhưng token đã hết hạn quá leeway; API trả `TOKEN_EXPIRED`."""
+
+
 @dataclass(frozen=True)
 class TokenPairDTO:
     access_token: str
@@ -149,5 +153,7 @@ def decode_access_token(
         )
     except InvalidToken:
         raise
+    except jwt.ExpiredSignatureError as exc:
+        raise ExpiredToken("Access token expired") from exc
     except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
         raise InvalidToken("Invalid access token") from exc
