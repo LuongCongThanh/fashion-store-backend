@@ -809,7 +809,7 @@ Mỗi dòng ghi phần hàng của một Biến thể trong một Đơn hàng; d
 
 Ràng buộc và index: `UNIQUE(reference, stock_item_id)`; index trên `reference`.
 
-Vòng đời: trừ Tồn kho khi bán (`decrement_stock` với COD, `commit_reservation` với online) tạo dòng `awaiting`. Vận đơn tạo xong (`dispatch_stock`) chuyển `dispatched`. Huỷ đơn trước khi hàng rời Kho (`release_dispatch_line`) chuyển `released` và trả số lượng về `on_hand`.
+Vòng đời: trừ Tồn kho khi bán (`decrement_stock` với COD, `commit_reservation` với online) tạo dòng `awaiting`. Vận đơn tạo xong (`dispatch_stock`) chuyển `dispatched`. Huỷ đơn trước khi Vận đơn tạo xong (`release_dispatch_line`) chuyển `released` và trả số lượng về `on_hand`.
 
 ### 4.5. `inventory_stock_movement`: Lịch sử thay đổi Tồn kho (BR-INV-09)
 
@@ -840,7 +840,7 @@ Index: `(stock_item_id, created_at)`, `reference`.
 | `receive_stock` | `inbound` | + | Staff nhập hàng mới về Kho (`POST stock/inbound`) |
 | `decrement_stock` | `sale` | − | Đặt đơn COD; tạo `DispatchLine` |
 | `commit_reservation` | `reservation_commit` | − | Thanh toán online thành công (T3); tạo `DispatchLine` |
-| `release_dispatch_line` | `dispatch_release` | + | Huỷ đơn trước Bàn giao |
+| `release_dispatch_line` | `dispatch_release` | + | Huỷ đơn trước khi Vận đơn tạo xong (T7, T9) |
 | `restock` | `restock` | + | Hoàn hàng đã về Kho, hoặc Đổi trả được nhập lại |
 | `adjust_stock` | `adjustment` | ± | Điều chỉnh tay, bắt buộc lý do |
 | `count_stock` | `stock_count` | ± | Kiểm kê: `delta` = số đếm − (`on_hand + awaiting_dispatch`); chênh lệch 0 thì không ghi |
@@ -1243,7 +1243,7 @@ Ràng buộc: `UNIQUE(cart_id, variant_id)`.
 | `delivered_at` | `timestamptz` | có | `NULL` | Mốc tính hạn Đổi trả 7 ngày (BR-RET-01) |
 | `completed_at` | `timestamptz` | có | `NULL` | Ngày ghi Doanh thu (BR-REV-01) |
 | `returned_to_warehouse_at` | `timestamptz` | có | `NULL` | Lúc Staff xác nhận nhập lại hàng của T12 hoặc T14; NULL khi chưa nhập lại hoặc không thuộc diện nhập lại |
-| `warehouse_return_required` | `boolean` | không | `false` | Bằng chứng cần xác nhận nhập lại: true ở T12, hoặc T14 khi Staff xác nhận hàng chưa rời Kho; giữ true sau khi nhập lại. Không suy ra chỉ từ CANCELLED vì phần lớn đơn huỷ đã trả allocation ngay hoặc hàng bị mất/hư |
+| `warehouse_return_required` | `boolean` | không | `false` | Bằng chứng cần xác nhận nhập lại: true ở T12, hoặc T14 khi Staff xác nhận hàng chưa rời Kho; giữ true sau khi nhập lại. Không suy ra chỉ từ CANCELLED vì phần lớn đơn huỷ đã trả Hàng chờ xuất ngay hoặc hàng bị mất/hư |
 | `cancel_reason` | `varchar(500)` | không | `''` | Bắt buộc khi Staff huỷ; Người mua tự huỷ thì để trống |
 
 Ràng buộc:

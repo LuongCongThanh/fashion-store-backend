@@ -1,6 +1,6 @@
-# Trừ Tồn kho khi bán, theo dõi Hàng chờ xuất tới lúc Bàn giao
+# Trừ Tồn kho khi bán, theo dõi Hàng chờ xuất tới lúc tạo Vận đơn
 
-Tồn kho bị trừ ngay khi hàng được bán: lúc đặt đơn COD, hoặc lúc Thanh toán online thành công (Giữ hàng chuyển thành trừ Tồn kho). Hàng đã bán nhưng chưa rời Kho (hàng rời Kho khi Vận đơn GHN tạo xong, sau Bàn giao) được `inventory` theo dõi riêng thành Hàng chờ xuất theo Mã đơn, mỗi dòng là một `DispatchLine`, nên hàng trên kệ = Tồn kho + Hàng chờ xuất. Lý do: Số lượng bán được chỉ cần trừ Giữ hàng khỏi Tồn kho, không phải trừ thêm các đơn chưa giao; mọi con số về hàng trong Kho nằm ở `inventory` và được cập nhật cùng transaction với Đơn hàng.
+Tồn kho bị trừ ngay khi hàng được bán: lúc đặt đơn COD, hoặc lúc Thanh toán online thành công (Giữ hàng chuyển thành trừ Tồn kho). Hàng đã bán nhưng đơn chưa có Vận đơn (Vận đơn GHN tạo xong sau Bàn giao; shipper lấy hàng sau đó) được `inventory` theo dõi riêng thành Hàng chờ xuất theo Mã đơn, mỗi dòng là một `DispatchLine`, nên trước khi tạo Vận đơn, hàng trên kệ = Tồn kho + Hàng chờ xuất. Lý do: Số lượng bán được chỉ cần trừ Giữ hàng khỏi Tồn kho, không phải trừ thêm các đơn chưa giao; mọi con số về hàng trong Kho nằm ở `inventory` và được cập nhật cùng transaction với Đơn hàng.
 
 ## Các phương án đã cân nhắc
 
@@ -10,5 +10,5 @@ Tồn kho bị trừ ngay khi hàng được bán: lúc đặt đơn COD, hoặc
 ## Hệ quả
 
 - Tồn kho **không** bằng số hàng trên kệ. Kiểm kê so số Staff đếm được với Tồn kho + Hàng chờ xuất, rồi điều chỉnh Tồn kho theo phần chênh lệch.
-- Khi Vận đơn tạo xong (T10), `ordering` gọi `inventory.contracts.dispatch_stock(reference)` để xoá Hàng chờ xuất của đơn. Huỷ đơn trước khi hàng rời Kho (T7, T9) gọi `release_dispatch_line(reference)`: giảm Hàng chờ xuất và trả lại Tồn kho trong cùng transaction.
+- Khi Vận đơn tạo xong (T10), `ordering` gọi `inventory.contracts.dispatch_stock(reference)` để xoá Hàng chờ xuất của đơn. Huỷ đơn trước khi Vận đơn tạo xong (T7, T9) gọi `release_dispatch_line(reference)`: giảm Hàng chờ xuất và trả lại Tồn kho trong cùng transaction.
 - Hàng Hoàn hàng và hàng Đổi trả được cộng lại Tồn kho khi về Kho; lúc này hàng đã rời Hàng chờ xuất từ T10.

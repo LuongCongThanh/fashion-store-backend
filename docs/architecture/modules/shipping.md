@@ -37,7 +37,7 @@ infrastructure/shipping/       # không phải module; chỉ shipping được i
 
 ```mermaid
 graph LR
-    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation<br/>get_shipment_status<br/>redact_provider_payloads"| shipping((shipping))
+    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation<br/>find_shipment_status<br/>redact_provider_payloads"| shipping((shipping))
     shipping -->|"FK GhnLocationMapping → Ward"| geo
     shipping -->|"ShippingProvider"| ghn[infrastructure.shipping]
 
@@ -53,7 +53,9 @@ Trừ `quote_fee`, mọi hàm chỉ đọc, ghi DB, đẩy task sau commit, nên
 DTO:
 
 - `ShippingQuoteDTO`: `fee: int` (Phí ship trước Ngưỡng miễn phí ship), `source: ghn | fallback`, `fallback_reason: str | None`, `config_revision: str` (revision cấu hình shop/dịch vụ/mapping đã dùng). `ordering` tự tính `shipping_fingerprint` của `quote_token` từ các field này và request ([04 mục 5.3](../04-api-contract.md#53-vòng-đời-quote_token)).
-- `ShipmentRequestDTO`: `reference: str`, `recipient {name, phone (E.164), street, ward_code}`, `items: list[{sku, name, quantity: int, weight_grams: int}]`, `declared_value: int`, `cod_amount: int` (bằng Tổng tiền đơn với COD, 0 với online). Cấu hình shop, dịch vụ, kích thước gói và mapping GHN do `shipping` tự thêm khi dựng `ShipmentCreationInputV1` ([03 mục 7.1](../03-data-model.md#71-shipping_shipment-vận-đơn)).
+- `ShipmentRecipientDTO`: `name: str`, `phone: str` (E.164), `street: str`, `ward_code: str`.
+- `ShipmentItemDTO`: `sku: str`, `name: str`, `quantity: int`, `weight_grams: int`.
+- `ShipmentRequestDTO`: `reference: str`, `recipient: ShipmentRecipientDTO`, `items: list[ShipmentItemDTO]`, `declared_value: int`, `cod_amount: int` (bằng Tổng tiền đơn với COD, 0 với online). Cấu hình shop, dịch vụ, kích thước gói và mapping GHN do `shipping` tự thêm khi dựng `ShipmentCreationInputV1` ([03 mục 7.1](../03-data-model.md#71-shipping_shipment-vận-đơn)).
 - `ShipmentStatusDTO`: `status: ShipmentStatus`, `provider_order_code: str | None`, `updated_at: datetime`.
 
 | Hàm | Ghi chú |
@@ -61,7 +63,7 @@ DTO:
 | `quote_fee(ward_code: str, weight_grams: int, declared_value: int) -> ShippingQuoteDTO` | Gọi GHN trực tiếp nên phải gọi **ngoài** transaction. Cache theo hash toàn bộ request đã chuẩn hoá (gồm cấu hình shop, service, kích thước, mapping); không cache Phí ship dự phòng chung với giá GHN thật. `ordering` tự áp Ngưỡng miễn phí ship |
 | `request_shipment(request: ShipmentRequestDTO) -> None` | Tạo Vận đơn `requested` với snapshot và mã shop ổn định, đẩy task sau commit. Dùng lại Vận đơn `failed` chỉ khi chắc chắn chưa có Vận đơn bên ngoài; `creation_unknown` thì không tạo lại |
 | `request_shipment_cancellation(reference: str) -> None` | Ghi `cancel_requested`, đẩy task `cancel_shipment` sau commit |
-| `get_shipment_status(reference: str) -> ShipmentStatusDTO \| None` | `ordering` kiểm trước khi Staff huỷ đơn `PACKING` (T9): `requested`/`creation_unknown` → `ShipmentInProgress` |
+| `find_shipment_status(reference: str) -> ShipmentStatusDTO \| None` | `ordering` kiểm trước khi Staff huỷ đơn `PACKING` (T9): `requested`/`creation_unknown` → `ShipmentInProgress`. `None` khi đơn chưa có Vận đơn |
 | `redact_provider_payloads(reference: str) -> None` | Ẩn danh dữ liệu webhook gốc |
 
 ### 4.2. `events.py`
@@ -69,7 +71,7 @@ DTO:
 | Sự kiện | `event_type` | Payload | Phát khi |
 |---|---|---|---|
 | `ShipmentCreatedV1` | `shipping.shipment-created` | `reference: str`, `provider_order_code: str` | Tạo Vận đơn thành công chắc chắn |
-| `ShipmentCreationFailedV1` | `shipping.shipment-creation-failed` | `reference: str`, `reason: str` | Tạo Vận đơn thất bại chắc chắn |
+| `ShipmentCreationFailedV1` | `shipping.shipment-creation-failed` | `reference: str`, `provider_message: str` | Tạo Vận đơn thất bại chắc chắn. `provider_message` là thông báo lỗi GHN trả về để Staff đọc, không chứa PII; `ordering` không rẽ nhánh theo nó |
 | `ShipmentDeliveredV1` | `shipping.shipment-delivered` | `reference: str`, `delivered_at: datetime` | GHN báo đã giao |
 | `ShipmentReturnedV1` | `shipping.shipment-returned` | `reference: str` | GHN báo Hoàn hàng |
 | `ShipmentExceptionV1` | `shipping.shipment-exception` | `reference: str`, `provider_status: str` | Sự cố Vận đơn: GHN báo mất hàng, hư hàng, sự cố, hoặc tự huỷ Vận đơn mà hệ thống không yêu cầu |

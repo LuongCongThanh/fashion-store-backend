@@ -66,7 +66,7 @@ Selector tìm Sản phẩm (BR-CAT-13, PostgreSQL thật):
 | Giới hạn lượt dùng Voucher mỗi người (BR-VCH-07) | Khách hàng đã dùng hết lượt rồi đặt tiếp như Khách vãng lai bằng cùng số điện thoại → Voucher bị từ chối |
 | Staff huỷ đơn PACKING khi Vận đơn requested hoặc creation_unknown (T9) | Ném SHIPMENT_IN_PROGRESS, giữ PACKING; không cho bàn giao lại để tạo mã mới |
 | Thanh toán của đơn COD | T2 tạo `pending`; T11 → `succeeded`; huỷ đơn hoặc Hoàn hàng → `cancelled`. Không ghi `payments.payment-succeeded` vào outbox, nên đơn COD giao xong không bị tạo Hoàn tiền |
-| Hàng chờ xuất (BR-INV-10) | Đặt đơn COD: Tồn kho giảm, Hàng chờ xuất tăng đúng số lượng; T10 xoá; huỷ trước Bàn giao (T7, T9) trả về Tồn kho |
+| Hàng chờ xuất (BR-INV-10) | Đặt đơn COD: Tồn kho giảm, Hàng chờ xuất tăng đúng số lượng; T10 xoá; huỷ trước khi Vận đơn tạo xong (T7, T9) trả về Tồn kho |
 | Kiểm kê (BR-INV-12) | Tồn kho 7, Hàng chờ xuất 3, số đếm 10 → không điều chỉnh; số đếm 9 → điều chỉnh −1 loại `stock_count` |
 | Điều chỉnh giảm vượt Số lượng bán được (BR-INV-11) | Ném `INSUFFICIENT_AVAILABLE`; Tồn kho không đổi |
 | Giữ hàng quá `expires_at` nhưng job chưa giải phóng | `reserve_stock` của Người mua khác thành công; Giữ hàng cũ `released`, `reserved` giảm tương ứng |

@@ -29,7 +29,7 @@ apps/ordering/
 ├── services/
 │   ├── cart.py           # add_item, update_quantity, merge_guest_cart
 │   ├── checkout.py       # place_order (mục 5.1)
-│   ├── payments.py       # start_online_payment (mục 5.2), handle_payment_amount_mismatch
+│   ├── payments.py       # start_online_payment (mục 5.2), refund_mismatched_payment
 │   ├── transitions.py    # mọi chuyển trạng thái của đơn đã tồn tại (mục 5.3)
 │   ├── flags.py          # raise_flag, resolve_flag
 │   ├── accounts.py       # attach_guest_orders, anonymize_orders, complete_erasure_request
@@ -71,7 +71,7 @@ graph LR
     ordering -->|"lock_stock_items, reserve_stock<br/>decrement_stock, commit_reservation<br/>dispatch_stock, release_*, restock"| inventory
     ordering -->|"evaluate_voucher<br/>redeem_voucher, release_voucher"| promotions
     ordering -->|"prepare_payment, start_payment<br/>start_cod_payment, record_cod_collected<br/>cancel_cod_payment, request_refund<br/>has_pending_refunds, redact_provider_payloads"| payments_c
-    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation<br/>get_shipment_status, redact_provider_payloads"| shipping_c
+    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation<br/>find_shipment_status, redact_provider_payloads"| shipping_c
     ordering -->|"find_verified_customer_id, record_consent<br/>issue/verify_order_lookup_token<br/>apply_erasure_request, get_erasure_subject<br/>log_customer_data_access"| identity_c
 
     payments_e[payments] -.->|"payment-succeeded<br/>payment-failed<br/>refund-recorded"| ordering
@@ -80,7 +80,7 @@ graph LR
     ordering -->|"FK địa chỉ giao → Ward"| geo
 
     ordering -.->|"order-placed, order-cancelled<br/>order-shipped, order-delivered<br/>unexpected-payment-received"| notifications
-    notifications -->|"get_order_for_notification"| ordering
+    notifications -->|"find_order_for_notification"| ordering
 ```
 
 Nét liền: gọi `contracts`. Nét đứt: sự kiện, chiều mũi tên là chiều phát → nghe.
@@ -93,7 +93,7 @@ Chỉ phục vụ `notifications` (đọc Đơn hàng để dựng email). Check
 
 | Hàm | Ai gọi | Ghi chú |
 |---|---|---|
-| `get_order_for_notification(order_code: str) -> OrderNotificationDTO \| None` | notifications | Chỉ đọc. `None` khi không có đơn. Dùng chung cho sự kiện mang `order_code` và sự kiện mang `reference` (Mã đơn) như `payments.refund-recorded` |
+| `find_order_for_notification(order_code: str) -> OrderNotificationDTO \| None` | notifications | Chỉ đọc. `None` khi không có đơn. Dùng chung cho sự kiện mang `order_code` và sự kiện mang `reference` (Mã đơn) như `payments.refund-recorded` |
 
 `OrderNotificationDTO`:
 
@@ -201,7 +201,8 @@ views.OrderPaymentView                                   # IsOrderOwner
        → payments.contracts.start_payment(payment_id, operation_id)   # PaymentStartDTO
        # 3. Kết quả cuối (ready, terminal, từ chối) lưu vào response idempotency
        #    dưới khoá Payment/key theo 06 mục 3.1; initializing thì chưa lưu
-  → 200 PaymentStartDTO (ready, terminal) hoặc 202 PAYMENT_INITIALIZING (initializing)
+  → 200 PaymentStartDTO (ready, terminal), 202 PAYMENT_INITIALIZING (initializing)
+    hoặc 422 PAYMENT_CREATION_REJECTED (cổng từ chối tạo chắc chắn; vẫn lưu làm kết quả idempotency theo 04 mục 5.2)
 ```
 
 - `ordering` không lưu `payment_id` ở bước này: mỗi lần thử là một Thanh toán mới; `Order.payment_id` chỉ ghi ở T3 từ `payments.payment-succeeded`.
@@ -261,7 +262,7 @@ Mỗi handler gọi **một** service; gọi `contracts` module khác nằm tron
 | Sự kiện | Service | Hành vi |
 |---|---|---|
 | `payments.payment-succeeded` | `mark_paid` | T3, lưu `payment_id`. Đơn còn `PENDING_PAYMENT` nhưng quá `expires_at` thì thử `commit_reservation`; gặp `ReservationExpired` mới chạy T4 rồi xử lý như đơn đã huỷ. Cùng `payment_id` đã gắn thì bỏ qua; khoản trả thêm hoặc tới sau huỷ thì Hoàn tiền + cờ `unexpected_payment` + phát `UnexpectedPaymentReceivedV1` (BR-PAY-05) |
-| `payments.payment-failed` | `handle_payment_amount_mismatch` | Chỉ xử lý `reason = amount_mismatch`: `request_refund` đúng `amount_received` (key `amount-mismatch`) + cờ `payment_amount_mismatch` cùng transaction (BR-PAY-04). Lý do khác: handler bỏ qua, Người mua thử lại được |
+| `payments.payment-failed` | `refund_mismatched_payment` | Chỉ xử lý `reason = amount_mismatch`: `request_refund` đúng `amount_received` (key `amount-mismatch`) + cờ `payment_amount_mismatch` cùng transaction (BR-PAY-04). Lý do khác: handler bỏ qua, Người mua thử lại được |
 | `payments.refund-recorded` | `mark_refunded` | Đổi trả có `refund_id` khớp → `refunded`; không khớp thì bỏ qua |
 | `shipping.shipment-created` | `mark_shipped` | T10, gọi `inventory.contracts.dispatch_stock`; đơn đã huỷ thì `request_shipment_cancellation` + cờ `shipment_after_cancel` |
 | `shipping.shipment-creation-failed` | `raise_flag` | Cờ `shipment_failed` |

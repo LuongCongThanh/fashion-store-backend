@@ -69,6 +69,7 @@ DTO:
 
 - `CustomerDTO`: `id: UUID`, `email: str`, `full_name: str`, `language: Language`, `email_verified: bool`, `is_active: bool`. Tài khoản đã ẩn danh trả `is_active = false` và email `erased+<id>@invalid`; bên gọi không gửi email tới địa chỉ này.
 - `LookupTokenClaimsDTO`: `order_code: str`, `expires_at: datetime`. Khác `OrderLookupDTO` của API ([04 mục 5.2](../04-api-contract.md#52-schema-dùng-chung-và-checkout)).
+- `DataSubjectDTO`: `account_id: UUID | None`, `phone: str` (E.164 của Khách vãng lai, `''` khi theo Tài khoản). Cần ít nhất một trong hai. Ghi vào cột `account_id`/`customer_id` và `subject_phone` ([03 mục 2.6](../03-data-model.md#26-identity_consent-đồng-ý-xử-lý-dữ-liệu), [2.8](../03-data-model.md#28-identity_customer_data_access_log-lượt-staff-xem-dữ-liệu-cá-nhân-cmp-07)).
 - `ErasureSubjectDTO`: `erasure_request_id: UUID`, `account_id: UUID | None`, `email: str` (email Tài khoản trước ẩn danh, `''` với Khách vãng lai), `phone: str` (E.164, `''` khi yêu cầu theo Tài khoản). Đọc được suốt `processing`, kể cả khi Tài khoản đã ẩn danh ([03 mục 10](../03-data-model.md#10-ẩn-danh-dữ-liệu-cmp-05)).
 
 | Hàm | Ai gọi | Ghi chú |
@@ -78,10 +79,10 @@ DTO:
 | `issue_order_lookup_token(order_code: str, now: datetime) -> str` | ordering | Mục 5.2 |
 | `verify_order_lookup_token(token: str, now: datetime) -> LookupTokenClaimsDTO` | ordering | Ném `InvalidLookupToken`; `ordering` tự kiểm Mã đơn khớp URL |
 | `issue_email_verification_link(account_id: UUID) -> str`, `issue_password_reset_link(account_id: UUID) -> str` | notifications | Sinh token lúc gửi email, không lúc phát sự kiện |
-| `record_consent(account_id: UUID \| None, subject_phone: str, purpose: ConsentPurpose, policy_version: str, channel: ConsentChannel, granted: bool) -> None` | ordering (checkout, cùng transaction tạo đơn); `identity` tự gọi khi đăng ký, sửa hồ sơ | Chỉ thêm dòng. Cần `account_id` hoặc `subject_phone` |
+| `record_consent(subject: DataSubjectDTO, purpose: ConsentPurpose, policy_version: str, channel: ConsentChannel, granted: bool) -> None` | ordering (checkout, cùng transaction tạo đơn); `identity` tự gọi khi đăng ký, sửa hồ sơ | Chỉ thêm dòng |
 | `get_erasure_subject(erasure_request_id: UUID) -> ErasureSubjectDTO` | service của ordering, promotions, notifications khi xử lý `customer-erased` | Lấy đối tượng cần ẩn danh |
 | `apply_erasure_request(erasure_request_id: UUID, staff_id: UUID) -> ErasureStatus` | chỉ ordering | Sau khi ordering kiểm CMP-05; ghi `processing` và phát sự kiện, chưa ghi `completed_at`. Gọi lại khi đã `processing`/`completed` trả trạng thái hiện tại |
-| `log_customer_data_access(staff_id: UUID, customer_id: UUID \| None, subject_phone: str, order_code: str, action: DataAccessAction) -> None` | ordering | CMP-07 |
+| `log_customer_data_access(staff_id: UUID, subject: DataSubjectDTO, order_code: str, action: DataAccessAction) -> None` | ordering | CMP-07 |
 
 ### 4.2. `events.py` _(kế hoạch)_
 

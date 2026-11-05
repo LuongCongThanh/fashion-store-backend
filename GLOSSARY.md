@@ -27,7 +27,7 @@ Một địa điểm vật lý nơi hàng được lưu trữ và xuất đi gia
 _Avoid_: Chi nhánh, store, location
 
 **Tồn kho (Stock)**:
-Số lượng của một Biến thể trong một Kho chưa bán cho Đơn hàng nào, gồm cả phần đang bị Giữ hàng. Hàng của đơn đã đặt nhưng chưa rời Kho vẫn nằm trên kệ nhưng không còn tính vào Tồn kho.
+Số lượng của một Biến thể trong một Kho chưa bán cho Đơn hàng nào, gồm cả phần đang bị Giữ hàng. Hàng của đơn đã đặt vẫn nằm trên kệ tới khi shipper lấy, nhưng không còn tính vào Tồn kho.
 _Avoid_: Inventory count, số lượng, tồn thực tế
 
 **Số lượng bán được (Available Quantity)**:
@@ -39,7 +39,7 @@ Phần Tồn kho bị tạm khoá cho một đơn chưa thanh toán online, có 
 _Avoid_: Hold, lock, tạm giữ
 
 **Hàng chờ xuất (Awaiting Dispatch)**:
-Phần hàng của một Biến thể trong Kho đã bán cho Đơn hàng nhưng chưa rời Kho. Hàng rời Kho (dispatch) khi Vận đơn của đơn được tạo xong. Hàng trên kệ bằng Tồn kho cộng Hàng chờ xuất.
+Phần hàng của một Biến thể trong Kho đã bán cho Đơn hàng nhưng đơn chưa có Vận đơn. Hàng chờ xuất kết thúc (dispatch) khi Vận đơn của đơn được tạo xong; hàng thực sự rời Kho khi shipper lấy hàng sau đó, hệ thống không theo dõi mốc này. Hàng trên kệ bằng Tồn kho cộng Hàng chờ xuất, cộng hàng của đơn đã có Vận đơn mà shipper chưa lấy.
 _Avoid_: Allocated, allocation, committed, hàng đã đặt
 
 **Nhập kho (Stock Inbound)**:
@@ -155,8 +155,8 @@ _Avoid_: Sync, polling, quyết toán, đối soát COD (việc đối chiếu t
 _Avoid_: Delivery, đơn GHN, tracking
 
 **Bàn giao (Hand-over)**:
-Việc Staff xác nhận một Đơn hàng đã đóng gói sẵn sàng giao, để hệ thống tạo Vận đơn ở hãng vận chuyển. Hàng chỉ rời Kho khi shipper lấy hàng sau khi Vận đơn tạo xong; lúc đó đơn mới Đang giao. Tạo Vận đơn thất bại thì hàng vẫn ở Kho và Staff Bàn giao lại.
-_Avoid_: Dispatch (dispatch là lúc hàng rời Kho, sau Bàn giao), xuất kho, giao hàng
+Việc Staff xác nhận một Đơn hàng đã đóng gói sẵn sàng giao, để hệ thống tạo Vận đơn ở hãng vận chuyển. Vận đơn tạo xong thì đơn Đang giao và hết Hàng chờ xuất; hàng thực sự rời Kho khi shipper lấy hàng sau đó. Tạo Vận đơn thất bại thì hàng vẫn là Hàng chờ xuất và Staff Bàn giao lại.
+_Avoid_: Dispatch (dispatch là lúc Vận đơn tạo xong, sau Bàn giao), xuất kho, giao hàng
 
 **Sự cố Vận đơn (Shipment Exception)**:
 Tình trạng hãng vận chuyển báo mất hàng, hư hàng, sự cố, hoặc tự huỷ một Vận đơn mà cửa hàng không yêu cầu huỷ. Đơn Đang giao chỉ được Staff huỷ khi Vận đơn gặp sự cố.

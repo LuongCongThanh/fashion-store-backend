@@ -29,7 +29,7 @@ apps/notifications/
 
 ```mermaid
 graph LR
-    notifications((notifications)) -->|"get_order_for_notification"| ordering
+    notifications((notifications)) -->|"find_order_for_notification"| ordering
     notifications -->|"get_customer, get_erasure_subject<br/>issue_*_link"| identity
 
     identity -.->|"customer-registered, verification-email-requested<br/>registration-attempted, password-reset-requested<br/>customer-erased"| notifications
@@ -64,7 +64,7 @@ Không có `contracts.py`, không phát sự kiện: không module nào gọi v�
 | `ordering.unexpected-payment-received` | Báo tiền sẽ được hoàn |
 | `payments.refund-recorded` | "Đã hoàn tiền" |
 
-Dữ liệu đơn lấy lúc gửi qua `ordering.contracts.get_order_for_notification`. Người nhận: email của Tài khoản (`identity.contracts.get_customer`) khi đơn có `customer_id`, ngược lại `contact_email`; rỗng hoặc Tài khoản đã ẩn danh thì EmailLog chuyển `cancelled`.
+Dữ liệu đơn lấy lúc gửi qua `ordering.contracts.find_order_for_notification`. Người nhận: email của Tài khoản (`identity.contracts.get_customer`) khi đơn có `customer_id`, ngược lại `contact_email`; rỗng hoặc Tài khoản đã ẩn danh thì EmailLog chuyển `cancelled`.
 
 ### 5.3. Job
 
