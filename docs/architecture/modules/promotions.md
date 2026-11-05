@@ -28,7 +28,7 @@ apps/promotions/
 ```mermaid
 graph LR
     ordering -->|"evaluate_voucher<br/>redeem_voucher<br/>release_voucher"| promotions((promotions))
-    promotions -->|"FK VoucherRedemption.customer → Account"| identity
+    promotions -->|"FK VoucherRedemption.customer → Account<br/>get_erasure_subject"| identity
     identity -.->|"customer-erased"| promotions
 ```
 
@@ -36,11 +36,13 @@ graph LR
 
 ### 4.1. `contracts.py`
 
+`VoucherQuoteDTO`: `voucher_id: UUID`, `code: str`, `subtotal: int`, `customer_id: UUID | None`, `phone: str` (E.164), `discount: int > 0`, `evaluated_at: datetime`. Mang đủ đầu vào để `redeem_voucher` kiểm lại đúng lần tính đó.
+
 | Hàm | Khi nào | Ghi chú |
 |---|---|---|
-| `evaluate_voucher(code, subtotal, customer_id, phone) -> VoucherQuoteDTO` | Tính thử, checkout (ngoài transaction) | Không khoá. DTO mang đủ đầu vào của lần tính và mức giảm |
-| `redeem_voucher(quote, reference)` | Trong transaction checkout | Khoá dòng Voucher, kiểm lại mọi điều kiện của `quote` (hạn dùng, giá trị tối thiểu, `usage_limit`, `per_customer_limit`, mức giảm). Đúng thì ghi `VoucherRedemption`, sai thì ném `VoucherNotApplicable` |
-| `release_voucher(reference)` | Huỷ đơn trước Đang giao | Trả lại Lượt dùng |
+| `evaluate_voucher(code: str, subtotal: int, customer_id: UUID \| None, phone: str, now: datetime) -> VoucherQuoteDTO` | Tính thử, checkout (ngoài transaction) | Không khoá. Không dùng được thì ném `VoucherNotApplicable` |
+| `redeem_voucher(quote: VoucherQuoteDTO, reference: str) -> None` | Trong transaction checkout | Khoá dòng Voucher, kiểm lại mọi điều kiện của `quote` (hạn dùng, giá trị tối thiểu, `usage_limit`, `per_customer_limit`, mức giảm). Đúng thì ghi `VoucherRedemption`, sai thì ném `VoucherNotApplicable` |
+| `release_voucher(reference: str) -> None` | Huỷ đơn trước Đang giao | Trả lại Lượt dùng; idempotent, đơn không dùng Voucher thì không làm gì |
 
 ### 4.2. `exceptions.py`
 

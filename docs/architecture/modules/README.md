@@ -14,6 +14,6 @@ Mỗi **module** là một vùng nghiệp vụ có ranh giới và là đúng m�
 | 3 | [`shipping`](./shipping.md) | Phí ship, Vận đơn, Đối soát | _(kế hoạch)_ |
 | 2 | [`geo`](./geo.md) | Tỉnh/thành, phường/xã | Có |
 
-Dàn ý chung: 1. **Sở hữu** · 2. **Cây thư mục** · 3. **Quan hệ với module khác** (gọi `contracts` nét liền; sự kiện nét đứt, chiều phát → nghe) · 4. **Public API** (`contracts.py`, `events.py`, `exceptions.py`) · 5. **Quy tắc riêng** (chỉ phần đặc thù) · 6. **Tài liệu liên quan**.
+Dàn ý chung: 1. **Sở hữu** · 2. **Cây thư mục** · 3. **Quan hệ với module khác** (gọi `contracts` nét liền; sự kiện nét đứt, chiều phát → nghe) · 4. **Public API**: `contracts.py` (chữ ký có kiểu và field của DTO), `events.py` (`event_type` và payload; module phát sở hữu payload, [07](../07-async-events-jobs.md) chỉ giữ danh mục và handler), `exceptions.py` · 5. **Quy tắc riêng** (chỉ phần đặc thù) · 6. **Tài liệu liên quan**.
 
-Field của model không chép ở đây; schema nằm ở [03](../03-data-model.md). Danh mục sự kiện đầy đủ và lịch job ở [07](../07-async-events-jobs.md).
+Chữ ký trong bảng `contracts` viết gọn; khi code, mọi tham số là keyword-only (`*`) và DTO là pydantic ([13 mục 5.2](../13-python-django-coding-style.md#52-khai-báo-hàm)). Field của model không chép ở đây; schema nằm ở [03](../03-data-model.md). Danh mục sự kiện đầy đủ và lịch job ở [07](../07-async-events-jobs.md).

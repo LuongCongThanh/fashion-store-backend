@@ -27,7 +27,7 @@ Một địa điểm vật lý nơi hàng được lưu trữ và xuất đi gia
 _Avoid_: Chi nhánh, store, location
 
 **Tồn kho (Stock)**:
-Số lượng của một Biến thể trong một Kho chưa bán cho Đơn hàng nào, gồm cả phần đang bị Giữ hàng. Hàng của đơn đã đặt nhưng chưa Bàn giao vẫn nằm trên kệ nhưng không còn tính vào Tồn kho.
+Số lượng của một Biến thể trong một Kho chưa bán cho Đơn hàng nào, gồm cả phần đang bị Giữ hàng. Hàng của đơn đã đặt nhưng chưa rời Kho vẫn nằm trên kệ nhưng không còn tính vào Tồn kho.
 _Avoid_: Inventory count, số lượng, tồn thực tế
 
 **Số lượng bán được (Available Quantity)**:
@@ -39,8 +39,8 @@ Phần Tồn kho bị tạm khoá cho một đơn chưa thanh toán online, có 
 _Avoid_: Hold, lock, tạm giữ
 
 **Hàng chờ xuất (Awaiting Dispatch)**:
-Phần hàng của một Biến thể trong Kho đã bán cho Đơn hàng nhưng chưa Bàn giao. Hàng trên kệ bằng Tồn kho cộng Hàng chờ xuất.
-_Avoid_: Allocated, committed, hàng đã đặt
+Phần hàng của một Biến thể trong Kho đã bán cho Đơn hàng nhưng chưa rời Kho. Hàng rời Kho (dispatch) khi Vận đơn của đơn được tạo xong. Hàng trên kệ bằng Tồn kho cộng Hàng chờ xuất.
+_Avoid_: Allocated, allocation, committed, hàng đã đặt
 
 **Nhập kho (Stock Inbound)**:
 Việc Staff ghi nhận hàng mới về Kho theo một phiếu nhập, làm tăng Tồn kho của Biến thể.
@@ -155,8 +155,8 @@ _Avoid_: Sync, polling, quyết toán, đối soát COD (việc đối chiếu t
 _Avoid_: Delivery, đơn GHN, tracking
 
 **Bàn giao (Hand-over)**:
-Việc Staff giao một Đơn hàng đã đóng gói cho hãng vận chuyển. Vận đơn được tạo khi Bàn giao, và đơn chỉ Đang giao khi Vận đơn tạo xong.
-_Avoid_: Dispatch, xuất kho, giao hàng
+Việc Staff xác nhận một Đơn hàng đã đóng gói sẵn sàng giao, để hệ thống tạo Vận đơn ở hãng vận chuyển. Hàng chỉ rời Kho khi shipper lấy hàng sau khi Vận đơn tạo xong; lúc đó đơn mới Đang giao. Tạo Vận đơn thất bại thì hàng vẫn ở Kho và Staff Bàn giao lại.
+_Avoid_: Dispatch (dispatch là lúc hàng rời Kho, sau Bàn giao), xuất kho, giao hàng
 
 **Sự cố Vận đơn (Shipment Exception)**:
 Tình trạng hãng vận chuyển báo mất hàng, hư hàng, sự cố, hoặc tự huỷ một Vận đơn mà cửa hàng không yêu cầu huỷ. Đơn Đang giao chỉ được Staff huỷ khi Vận đơn gặp sự cố.

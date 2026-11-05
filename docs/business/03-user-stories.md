@@ -206,7 +206,7 @@
 
 ### US-607 · Xử lý đơn Hoàn hàng · P1
 - AC1: Đơn Hoàn hàng hiện trong danh sách chờ Staff xác nhận nhận hàng về Kho; xác nhận xong thì cộng lại Tồn kho.
-- AC2: Danh sách cũng gồm đơn huỷ T14 đã xác nhận hàng chưa rời Kho và còn cần nhập lại; không gồm hàng mất/hư hoặc đơn đã trả allocation khi huỷ trước Bàn giao. Hai thao tác xác nhận đồng thời hoặc gọi lại chỉ cộng tồn một lần.
+- AC2: Danh sách cũng gồm đơn huỷ T14 đã xác nhận hàng chưa rời Kho và còn cần nhập lại; không gồm hàng mất/hư hoặc đơn đã trả Hàng chờ xuất khi huỷ trước Bàn giao. Hai thao tác xác nhận đồng thời hoặc gọi lại chỉ cộng tồn một lần.
 
 ### US-608 · Xử lý tiền về cho đơn không còn chờ thanh toán · P1
 - AC1: Có danh sách các yêu cầu Hoàn tiền do hệ thống tự tạo (BR-PAY-05) để Staff xử lý, gồm cả đơn đã huỷ và đơn được trả tiền hai lần.

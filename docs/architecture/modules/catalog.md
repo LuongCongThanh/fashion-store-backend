@@ -46,12 +46,17 @@ Không gọi module nào, chưa phát sự kiện.
 
 ### 4.1. `contracts.py`
 
+DTO:
+
+- `VariantForSaleDTO`: `variant_id: UUID`, `sku: str`, `product_name: str`, `size: str`, `color_name: str`, `list_price: int` (Giá bán), `unit_price: int` (Giá áp dụng tại `now`), `weight_grams: int`, `checkout_version: int`, `sellable: bool` (Biến thể và Sản phẩm còn bán; không xét tồn kho). Mức giảm của Giá khuyến mãi tính từ `list_price` và `unit_price` (BR-PRC-04), không thành field riêng.
+- `CheckoutSnapshotDTO`: `variant_id: UUID`, `checkout_version: int`, `unit_price: int`, lấy từ dòng của `quote_token`. `snapshot_hash` là HMAC do `ordering` tính bằng khoá của token ([04 mục 5.3](../04-api-contract.md#53-vòng-đời-quote_token)), `catalog` không tính và không nhận; mọi thay đổi snapshot đã làm tăng `checkout_version`.
+
 | Hàm | Ai gọi | Ghi chú |
 |---|---|---|
-| `get_variants_for_sale(ids) -> list[VariantForSaleDTO]` | ordering | Giá áp dụng, `checkout_version`, mức giảm, snapshot tên/SKU, cân nặng. Gọi ngoài transaction |
-| `validate_checkout_snapshot(snapshots)` | ordering | Trong transaction checkout: khoá mọi Variant theo id, kiểm lại phiên bản, giá, điều kiện bán; khác thì ném `CheckoutSnapshotChanged` (ordering chuyển thành `PriceChanged`) |
-| `set_variant_availability(variant_id, available)` | inventory | Chỉ gọi khi còn/hết hàng thực sự đổi; chỉ ghi khi cần (mục 5.3) |
-| `set_best_seller_counts(counts: dict[UUID, int])` | job hằng đêm của ordering | BR-CAT-12 |
+| `get_variants_for_sale(ids: list[UUID], now: datetime) -> list[VariantForSaleDTO]` | ordering | Gọi ngoài transaction. Id không tồn tại thì không có trong kết quả |
+| `validate_checkout_snapshot(snapshots: list[CheckoutSnapshotDTO], now: datetime) -> None` | ordering | Trong transaction checkout: khoá mọi Variant theo id, kiểm lại phiên bản, giá, điều kiện bán; khác thì ném `CheckoutSnapshotChanged` (ordering chuyển thành `PriceChanged`) |
+| `set_variant_availability(variant_id: UUID, available: bool) -> None` | inventory | Chỉ gọi khi còn/hết hàng thực sự đổi; chỉ ghi khi cần (mục 5.3) |
+| `set_best_seller_counts(counts: dict[UUID, int]) -> None` | job hằng đêm của ordering | BR-CAT-12 |
 
 ### 4.2. `exceptions.py`
 

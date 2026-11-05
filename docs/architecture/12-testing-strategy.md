@@ -75,7 +75,7 @@ Selector tìm Sản phẩm (BR-CAT-13, PostgreSQL thật):
 | `raise_flag` khi đơn đã có cờ cùng `kind` đang mở | Không tạo cờ thứ hai, `note` được nối thêm |
 | `placed_at`, `cancelled_at`, `completed_at` | Ghi đúng ở transition tương ứng (T2/T3, T4/T5/T7/T9/T14, T13); báo cáo Doanh thu lọc theo `completed_at` (BR-REV-01) |
 | Staff huỷ đơn `SHIPPING` (T14) | Chỉ khi có cờ `shipment_exception`, bắt buộc lý do; Hoàn tiền toàn bộ nếu đã thanh toán online; không trả lượt Voucher |
-| Nhập lại sau T12/T14 | T12 đặt `warehouse_return_required = true`; T14 thiếu xác nhận boolean bị từ chối, hàng chưa rời Kho → true nhưng chưa tăng tồn, hàng mất/hư → false. Endpoint nhập lại chỉ cho đơn có cờ; nhập kho và ghi mốc cùng transaction. Request đồng thời hoặc retry chỉ cộng tồn một lần; T7/T9 đã release allocation không nhập thêm; danh sách chờ nhập gồm đúng T12/T14 cần xử lý |
+| Nhập lại sau T12/T14 | T12 đặt `warehouse_return_required = true`; T14 thiếu xác nhận boolean bị từ chối, hàng chưa rời Kho → true nhưng chưa tăng tồn, hàng mất/hư → false. Endpoint nhập lại chỉ cho đơn có cờ; nhập kho và ghi mốc cùng transaction. Request đồng thời hoặc retry chỉ cộng tồn một lần; T7/T9 đã trả Hàng chờ xuất không nhập thêm; danh sách chờ nhập gồm đúng T12/T14 cần xử lý |
 | Chấp nhận Đổi trả một phần (BR-RET-08) | Chỉ `accepted_quantity` của dòng `restock = true` cộng lại Tồn kho; Hoàn tiền tính trên số được chấp nhận; không dòng nào được chấp nhận → `rejected` |
 | Doanh thu khi Người mua trả tiền hai lần (BR-REV-01) | Hoàn tiền theo BR-PAY-05 không bị trừ; Doanh thu của đơn bằng Tổng tiền đơn |
 | Đặt đơn vãng lai bằng email của Tài khoản đã xác thực (BR-ORD-08) | Đơn có `customer_id` ngay khi tạo |
