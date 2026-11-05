@@ -94,7 +94,7 @@ flowchart LR
     P -.->|reference khớp Order.code| O
     S[shipping_shipment] -.->|reference khớp Order.code| O
     R[inventory_stock_reservation] -.->|reference khớp Order.code| O
-    X[inventory_stock_allocation] -.->|reference khớp Order.code| O
+    X[inventory_dispatch_line] -.->|reference khớp Order.code| O
     D[promotions_voucher_redemption] -.->|reference khớp Order.code| O
     RR[ordering_return_request] -->|order_id| O
     RR -->|refund_id| RF[payments_refund]
@@ -730,7 +730,7 @@ erDiagram
     inventory_warehouse ||--o{ inventory_stock_item : "chứa"
     catalog_variant ||--o{ inventory_stock_item : "tồn theo Kho"
     inventory_stock_item ||--o{ inventory_stock_reservation : "Giữ hàng"
-    inventory_stock_item ||--o{ inventory_stock_allocation : "Hàng chờ xuất"
+    inventory_stock_item ||--o{ inventory_dispatch_line : "Hàng chờ xuất"
     inventory_stock_item ||--o{ inventory_stock_movement : "lịch sử"
     identity_account ||--o{ inventory_stock_movement : "thực hiện"
     inventory_warehouse {
@@ -746,7 +746,7 @@ erDiagram
         uuid id PK
         uuid stock_item_id FK
     }
-    inventory_stock_allocation {
+    inventory_dispatch_line {
         uuid id PK
         uuid stock_item_id FK
     }
@@ -781,7 +781,7 @@ Ràng buộc: `UNIQUE(warehouse_id, variant_id)`.
 Ghi chú:
 
 - Số lượng bán được = `on_hand − reserved` (BR-INV-02). `reserved` là cột tổng được cập nhật cùng transaction với `inventory_stock_reservation`. Đây là ngoại lệ có chủ đích của quy tắc không lặp dữ liệu: nhờ cột này, kiểm tra `CHECK(reserved <= on_hand)` chạy được trong DB, và lúc bán hàng không phải cộng dồn. Những lần đọc không khoá dòng (`get_available`, `catalog_variant.is_available`) có thể vẫn trừ Giữ hàng đã quá hạn cho tới khi T4 chạy hoặc có thao tác khoá dòng đó; lúc bán hàng luôn khoá dòng nên con số luôn đúng.
-- `awaiting_dispatch` là Hàng chờ xuất (BR-INV-10, [ADR 0010](../adr/0010-stock-decremented-at-order-awaiting-dispatch.md)), cập nhật cùng transaction với `inventory_stock_allocation`. Hàng trên kệ = `on_hand + awaiting_dispatch`.
+- `awaiting_dispatch` là Hàng chờ xuất (BR-INV-10, [ADR 0010](../adr/0010-stock-decremented-at-order-awaiting-dispatch.md)), cập nhật cùng transaction với `inventory_dispatch_line`. Hàng trên kệ = `on_hand + awaiting_dispatch`.
 - Giữ hàng đã quá `expires_at` bị coi là không hợp lệ ngay cả khi job chưa kịp giải phóng ([ADR 0003](../adr/0003-postgres-redis-celery.md)). `reserve_stock` và `decrement_stock`, sau khi khoá dòng, tự chuyển các Giữ hàng đã hết hạn của dòng đó sang `released` và giảm `reserved` trước khi kiểm tra. Job huỷ đơn (T4) vẫn gọi `release_reservation` sau đó; thao tác này idempotent. Ngoại lệ là T3 tới muộn: `commit_reservation` gặp Giữ hàng đã quá hạn hoặc đã bị giải phóng thì kiểm tra lại Số lượng bán được trong cùng khoá dòng, đủ thì giữ lại hàng ([`inventory`](./modules/inventory.md) mục 4.1).
 
 ### 4.3. `inventory_stock_reservation`: Giữ hàng
@@ -796,7 +796,9 @@ Ghi chú:
 
 Ràng buộc và index: `UNIQUE(reference, stock_item_id)`; partial index trên `(stock_item_id, expires_at) WHERE status = 'active'` để giải phóng Giữ hàng hết hạn khi khoá dòng.
 
-### 4.4. `inventory_stock_allocation`: Hàng chờ xuất của một đơn
+### 4.4. `inventory_dispatch_line`: Hàng chờ xuất của một đơn
+
+Mỗi dòng ghi phần hàng của một Biến thể trong một Đơn hàng; dòng là Hàng chờ xuất khi `status = awaiting`. Model là `DispatchLine`; GLOSSARY tránh từ "allocation".
 
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
@@ -807,7 +809,7 @@ Ràng buộc và index: `UNIQUE(reference, stock_item_id)`; partial index trên 
 
 Ràng buộc và index: `UNIQUE(reference, stock_item_id)`; index trên `reference`.
 
-Vòng đời: trừ Tồn kho khi bán (`decrement_stock` với COD, `commit_reservation` với online) tạo allocation `awaiting`. Vận đơn tạo xong (`dispatch_stock`) chuyển `dispatched`. Huỷ đơn trước Bàn giao (`release_allocation`) chuyển `released` và trả số lượng về `on_hand`.
+Vòng đời: trừ Tồn kho khi bán (`decrement_stock` với COD, `commit_reservation` với online) tạo dòng `awaiting`. Vận đơn tạo xong (`dispatch_stock`) chuyển `dispatched`. Huỷ đơn trước khi Vận đơn tạo xong (`release_dispatch_line`) chuyển `released` và trả số lượng về `on_hand`.
 
 ### 4.5. `inventory_stock_movement`: Lịch sử thay đổi Tồn kho (BR-INV-09)
 
@@ -816,7 +818,7 @@ Chỉ thêm dòng, không sửa. Chỉ ghi khi `on_hand` thay đổi; Giữ hàn
 | Cột | Kiểu | NULL | Mặc định | Ý nghĩa và ràng buộc |
 |---|---|---|---|---|
 | `stock_item_id` | `uuid` | không | — | FK → `inventory_stock_item`, `PROTECT` |
-| `kind` | `enum(inbound \| sale \| reservation_commit \| allocation_release \| restock \| adjustment \| stock_count)` | không | — | Xem bảng ánh xạ bên dưới |
+| `kind` | `enum(inbound \| sale \| reservation_commit \| dispatch_release \| restock \| adjustment \| stock_count)` | không | — | Xem bảng ánh xạ bên dưới |
 | `delta` | `integer` | không | — | Thay đổi của `on_hand`; `CHECK(delta <> 0)` |
 | `reference` | `varchar(64)` | không | `''` | Mã đơn, hoặc số phiếu nhập với `inbound` |
 | `reason` | `varchar(500)` | không | `''` | Lý do do Staff nhập |
@@ -827,7 +829,7 @@ Ràng buộc:
 - `CHECK(kind NOT IN ('inbound', 'adjustment', 'stock_count') OR actor_id IS NOT NULL)`.
 - `CHECK(kind <> 'adjustment' OR reason <> '')`: điều chỉnh tay bắt buộc có lý do.
 - `CHECK(kind <> 'inbound' OR reference <> '')`: nhập kho bắt buộc có số phiếu nhập.
-- `CHECK` dấu của `delta`: `inbound`, `allocation_release`, `restock` > 0; `sale`, `reservation_commit` < 0.
+- `CHECK` dấu của `delta`: `inbound`, `dispatch_release`, `restock` > 0; `sale`, `reservation_commit` < 0.
 
 Index: `(stock_item_id, created_at)`, `reference`.
 
@@ -836,9 +838,9 @@ Index: `(stock_item_id, created_at)`, `reference`.
 | Service | `kind` | `delta` | Ghi chú |
 |---|---|---|---|
 | `receive_stock` | `inbound` | + | Staff nhập hàng mới về Kho (`POST stock/inbound`) |
-| `decrement_stock` | `sale` | − | Đặt đơn COD; tạo allocation |
-| `commit_reservation` | `reservation_commit` | − | Thanh toán online thành công (T3); tạo allocation |
-| `release_allocation` | `allocation_release` | + | Huỷ đơn trước Bàn giao |
+| `decrement_stock` | `sale` | − | Đặt đơn COD; tạo `DispatchLine` |
+| `commit_reservation` | `reservation_commit` | − | Thanh toán online thành công (T3); tạo `DispatchLine` |
+| `release_dispatch_line` | `dispatch_release` | + | Huỷ đơn trước khi Vận đơn tạo xong (T7, T9) |
 | `restock` | `restock` | + | Hoàn hàng đã về Kho, hoặc Đổi trả được nhập lại |
 | `adjust_stock` | `adjustment` | ± | Điều chỉnh tay, bắt buộc lý do |
 | `count_stock` | `stock_count` | ± | Kiểm kê: `delta` = số đếm − (`on_hand + awaiting_dispatch`); chênh lệch 0 thì không ghi |
@@ -1241,7 +1243,7 @@ Ràng buộc: `UNIQUE(cart_id, variant_id)`.
 | `delivered_at` | `timestamptz` | có | `NULL` | Mốc tính hạn Đổi trả 7 ngày (BR-RET-01) |
 | `completed_at` | `timestamptz` | có | `NULL` | Ngày ghi Doanh thu (BR-REV-01) |
 | `returned_to_warehouse_at` | `timestamptz` | có | `NULL` | Lúc Staff xác nhận nhập lại hàng của T12 hoặc T14; NULL khi chưa nhập lại hoặc không thuộc diện nhập lại |
-| `warehouse_return_required` | `boolean` | không | `false` | Bằng chứng cần xác nhận nhập lại: true ở T12, hoặc T14 khi Staff xác nhận hàng chưa rời Kho; giữ true sau khi nhập lại. Không suy ra chỉ từ CANCELLED vì phần lớn đơn huỷ đã trả allocation ngay hoặc hàng bị mất/hư |
+| `warehouse_return_required` | `boolean` | không | `false` | Bằng chứng cần xác nhận nhập lại: true ở T12, hoặc T14 khi Staff xác nhận hàng chưa rời Kho; giữ true sau khi nhập lại. Không suy ra chỉ từ CANCELLED vì phần lớn đơn huỷ đã trả Hàng chờ xuất ngay hoặc hàng bị mất/hư |
 | `cancel_reason` | `varchar(500)` | không | `''` | Bắt buộc khi Staff huỷ; Người mua tự huỷ thì để trống |
 
 Ràng buộc:
@@ -1284,7 +1286,7 @@ Ghi chú:
 - `placed_at`, `cancelled_at`, `delivered_at`, `completed_at` được ghi trong cùng transition với trạng thái tương ứng. Báo cáo Doanh thu lọc theo `completed_at`; báo cáo đơn theo ngày dùng `placed_at`, không dùng `created_at`, vì `created_at` của đơn online là lúc vào `PENDING_PAYMENT`.
 - `payment_id`: T2 lưu Thanh toán COD vừa tạo; T3 khoá Order rồi lưu đúng Thanh toán online đã đưa đơn vào `PLACED`. Huỷ, Hoàn hàng và Đổi trả dùng ID này; khoản tiền trả thêm dùng `payment_id` từ sự kiện. Sự kiện thành công lặp lại của chính Thanh toán đã gắn thì không tạo Hoàn tiền. Payment được gắn phải có `reference` khớp Mã đơn, kiểm tra ở service.
 - Không có cột cho `CONFIRMED`/`PACKING`: thời điểm chuyển các trạng thái này lấy từ lịch sử của `status` (mục 10.1).
-- T12 đặt `warehouse_return_required = true` cùng transaction chuyển trạng thái. T14 chỉ đặt true theo xác nhận tường minh của Staff khi hàng chưa rời Kho; không đặt true cho hàng mất/hư hoặc các nhánh huỷ trả allocation ngay. Service nhận lại khoá Order, kiểm tra cờ và `returned_to_warehouse_at`, rồi restock và ghi mốc cùng transaction; gọi lặp không cộng tồn thêm. Cờ là snapshot quyết định nhập lại, không thể suy ra từ `status = CANCELLED`, nên là ngoại lệ có chủ đích của quy tắc không lặp dữ liệu.
+- T12 đặt `warehouse_return_required = true` cùng transaction chuyển trạng thái. T14 chỉ đặt true theo xác nhận tường minh của Staff khi hàng chưa rời Kho; không đặt true cho hàng mất/hư hoặc các nhánh huỷ trả Hàng chờ xuất ngay. Service nhận lại khoá Order, kiểm tra cờ và `returned_to_warehouse_at`, rồi restock và ghi mốc cùng transaction; gọi lặp không cộng tồn thêm. Cờ là snapshot quyết định nhập lại, không thể suy ra từ `status = CANCELLED`, nên là ngoại lệ có chủ đích của quy tắc không lặp dữ liệu.
 
 ### 8.4. `ordering_order_line`: Dòng đơn hàng
 

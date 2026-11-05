@@ -16,7 +16,7 @@ apps/payments/
 ├── contracts.py               # mục 4.1
 ├── events.py                  # mục 4.2
 ├── exceptions.py              # RefundRequestConflict, RefundAmountExceeded…
-├── constants.py               # PaymentMethod, PaymentStatus, RefundChannel…
+├── constants.py               # PaymentMethod (re-export qua contracts), Gateway, PaymentStatus, RefundChannel…
 ├── models.py                  # Payment, PaymentEvent (IPN gốc), Refund
 ├── services.py                # khởi tạo, ghi IPN, COD, Hoàn tiền; record_refund
 ├── tasks.py                   # mục 5.3
@@ -50,23 +50,27 @@ graph LR
 
 ### 4.1. `contracts.py`
 
+Xuất kèm enum `PaymentMethod` (`cod` / `online`) và `Gateway` (`vnpay` / `momo`); `ordering` dùng lại, không khai báo bản riêng. `reference` là Mã đơn, `amount` là `int` VND > 0.
+
+`PaymentStartDTO`: `payment_id: UUID`, `state: ready | initializing | terminal`, `payment_status: PaymentStatus`, `code: str | None`, `redirect_url: str | None`; ràng buộc theo trạng thái ở [04 mục 5.2](../04-api-contract.md#52-schema-dùng-chung-và-checkout).
+
 | Hàm | Ghi chú |
 |---|---|
-| `prepare_payment(reference, amount, gateway, expires_at, operation_id) -> UUID` | Chỉ ghi DB: dựng `return_url` từ cấu hình backend, lưu snapshot. Gọi trong transaction ordering đã kiểm Order; `operation_id` đã có thì trả `payment_id` cũ |
-| `start_payment(payment_id, operation_id) -> PaymentStartDTO` | Điều phối HTTP **ngoài** transaction bên gọi; kết quả `ready` / `initializing` / `terminal`, lease và khôi phục trên cùng Payment ([06](../06-integrations.md) mục 3.1, [ADR 0013](../../adr/0013-recoverable-payment-initiation.md)) |
-| `start_cod_payment(reference, amount) -> UUID` | Trả `payment_id` |
-| `record_cod_collected(reference)`, `cancel_cod_payment(reference)` | Không phát sự kiện, vì `ordering` là bên gọi |
-| `request_refund(payment_id, amount, reason, channel, request_key) -> UUID` | Trả `refund_id`. Chỉ ghi Hoàn tiền `requested` cho Staff xử lý tay, không gọi cổng, nên gọi trong transaction (kể cả handler) an toàn |
-| `has_pending_refunds(references) -> bool` | Điều kiện của Yêu cầu xoá dữ liệu |
-| `redact_provider_payloads(reference)` | Ẩn danh dữ liệu IPN gốc |
+| `prepare_payment(reference: str, amount: int, gateway: Gateway, expires_at: datetime, operation_id: UUID) -> UUID` | Chỉ ghi DB: dựng `return_url` từ cấu hình backend, lưu snapshot. Gọi trong transaction ordering đã kiểm Order; `operation_id` đã có thì trả `payment_id` cũ |
+| `start_payment(payment_id: UUID, operation_id: UUID) -> PaymentStartDTO` | Điều phối HTTP **ngoài** transaction bên gọi; kết quả `ready` / `initializing` / `terminal`, lease và khôi phục trên cùng Payment ([06](../06-integrations.md) mục 3.1, [ADR 0013](../../adr/0013-recoverable-payment-initiation.md)) |
+| `start_cod_payment(reference: str, amount: int) -> UUID` | Trả `payment_id`. Gọi trong transaction checkout |
+| `record_cod_collected(reference: str) -> None`, `cancel_cod_payment(reference: str) -> None` | Không phát sự kiện, vì `ordering` là bên gọi |
+| `request_refund(payment_id: UUID, amount: int, reason: str, channel: RefundChannel, request_key: str) -> UUID` | Trả `refund_id`. Chỉ ghi Hoàn tiền `requested` cho Staff xử lý tay, không gọi cổng, nên gọi trong transaction (kể cả handler) an toàn |
+| `has_pending_refunds(references: list[str]) -> bool` | Điều kiện của Yêu cầu xoá dữ liệu |
+| `redact_provider_payloads(reference: str) -> None` | Ẩn danh dữ liệu IPN gốc |
 
 ### 4.2. `events.py`
 
-| Sự kiện | Dữ liệu | Ghi chú |
-|---|---|---|
-| `PaymentSucceededV1` | `reference`, `payment_id`, `amount`, `gateway` | Chỉ phát cho Thanh toán online |
-| `PaymentFailedV1` | `reference`, `payment_id`, `reason`, `amount_received` | `reason = amount_mismatch` khi tiền về sai số |
-| `RefundRecordedV1` | `reference`, `refund_id`, `amount` | Staff đã ghi nhận hoàn xong |
+| Sự kiện | `event_type` | Payload | Ghi chú |
+|---|---|---|---|
+| `PaymentSucceededV1` | `payments.payment-succeeded` | `reference: str`, `payment_id: UUID`, `amount: int`, `gateway: Gateway` | Chỉ phát cho Thanh toán online |
+| `PaymentFailedV1` | `payments.payment-failed` | `reference: str`, `payment_id: UUID`, `reason: PaymentFailureReason`, `amount_received: int` | `reason = amount_mismatch` khi tiền về sai số |
+| `RefundRecordedV1` | `payments.refund-recorded` | `reference: str`, `refund_id: UUID`, `amount: int` | Staff đã ghi nhận hoàn xong |
 
 ### 4.3. `exceptions.py`
 

@@ -98,7 +98,7 @@ sequenceDiagram
 
 ### 1.2. Không bảo đảm
 
-**Thứ tự.** Handler không tự kiểm tra thứ tự. Với Đơn hàng, transition do sự kiện kích hoạt tự đối chiếu trạng thái hiện tại ([`ordering`](./modules/ordering.md#52-máy-trạng-thái-và-transition) mục 5.2, [05-order-lifecycle.md](../business/05-order-lifecycle.md) mục 4.2):
+**Thứ tự.** Handler không tự kiểm tra thứ tự. Với Đơn hàng, transition do sự kiện kích hoạt tự đối chiếu trạng thái hiện tại ([`ordering`](./modules/ordering.md#53-máy-trạng-thái-và-transition) mục 5.3, [05-order-lifecycle.md](../business/05-order-lifecycle.md) mục 4.2):
 
 - sự kiện cho bước đơn đã qua → không làm gì;
 - sự kiện tới sớm → báo consumer thử lại sau;
@@ -165,27 +165,29 @@ Tên dạng `<module>.<event>`, có `schema_version`. Class nằm trong `events.
 - Handler cần dữ liệu nhạy cảm thì hỏi `contracts` của module sở hữu lúc xử lý, ví dụ `identity.contracts.issue_password_reset_link(account_id)`.
 - Lý do: outbox giữ sự kiện 90 ngày, có thể phát lại, nằm trong mọi bản backup; token hay số điện thoại ở đây sống lâu hơn và lộ rộng hơn bản gốc.
 
-| Sự kiện | Phát bởi | Dữ liệu chính | Handler |
-|---|---|---|---|
-| `identity.customer-registered` v1 | identity | `account_id`, `language` | notifications: tạo EmailLog xác thực; task cấp link và gửi ngoài transaction |
-| `identity.verification-email-requested` v1 | identity | `account_id` | Phát khi gửi lại email xác thực, hoặc đăng ký lại bằng email của Khách hàng chưa xác thực. notifications: như `customer-registered` |
-| `identity.registration-attempted` v1 | identity | `account_id` | Phát khi đăng ký bằng email đã thuộc Tài khoản đã xác thực hoặc Tài khoản nội bộ (US-501 AC2). notifications: email báo chủ email có người vừa thử đăng ký, không kèm link hay mật khẩu |
-| `identity.email-verified` v1 | identity | `account_id` | Phát mỗi khi email chuyển sang đã xác thực, kể cả qua đăng nhập Google. ordering: gắn các Đơn hàng có `contact_email` khớp (không phân biệt hoa thường) và `customer_id` null vào Tài khoản (BR-ORD-08) |
-| `identity.password-reset-requested` v1 | identity | `account_id` | notifications: tạo EmailLog reset; task cấp link và gửi ngoài transaction |
-| `identity.customer-erased` v1 | identity | `erasure_request_id` | ordering: ẩn danh Đơn hàng, xoá Giỏ hàng, gọi `shipping.contracts.redact_provider_payloads` và `payments.contracts.redact_provider_payloads` theo `reference`; promotions: ẩn danh `phone` trong lượt dùng Voucher; notifications: ẩn danh `to_address`. Mọi handler lấy đối tượng cần ẩn danh qua `identity.contracts.get_erasure_subject` |
-| `ordering.order-placed` v1 | ordering | `order_code`, `payment_method`, `total` | Phát khi đơn **vào** `PLACED` (T2, T3). notifications: COD gửi "Đặt đơn thành công", online gửi "Thanh toán thành công" |
-| `ordering.order-cancelled` v1 | ordering | `order_code`, `reason`, `refund_required`, `previous_status` | notifications: email "Đơn đã huỷ", trừ khi `previous_status = PENDING_PAYMENT` (T4, T5: BR-NTF-01) |
-| `ordering.unexpected-payment-received` v1 | ordering | `order_code`, `amount` | Phát cùng lúc gắn cờ `unexpected_payment` (BR-PAY-05). notifications: email báo tiền sẽ được hoàn; đơn đã huỷ thì báo thêm đơn đã hết hạn ([05](../business/05-order-lifecycle.md) mục 4.1) |
-| `ordering.order-shipped` v1 | ordering | `order_code`, `tracking_code` | notifications: email "Đang giao" |
-| `ordering.order-delivered` v1 | ordering | `order_code` | notifications: email "Đã giao" |
-| `payments.payment-succeeded` v1 | payments | `reference`, `payment_id`, `amount`, `gateway` | Chỉ phát cho Thanh toán online. ordering: T3, lưu payment_id dưới khoá Order. Đơn còn `PENDING_PAYMENT` nhưng đã quá `expires_at` (job chưa kịp huỷ): thử giữ lại hàng nếu Số lượng bán được còn đủ; không đủ thì chạy T4 rồi xử lý như đơn đã huỷ. Cùng payment_id đã dùng cho đơn thì bỏ qua; khoản trả thêm hoặc tiền tới sau huỷ: request_refund với payment_id từ sự kiện và request_key ổn định, gắn cờ unexpected_payment và phát ordering.unexpected-payment-received (BR-PAY-05) |
-| `payments.payment-failed` v1 | payments | `reference`, `payment_id`, `reason`, `amount_received` | ordering: ghi nhận, cho phép thử lại; `reason = amount_mismatch` thì request_refund với payment_id từ sự kiện, amount_received và key ổn định, gắn cờ `payment_amount_mismatch` (BR-PAY-04) |
-| `payments.refund-recorded` v1 | payments | `reference`, `refund_id`, `amount` | notifications: email "Đã hoàn tiền"; ordering: chuyển Đổi trả có `refund_id` khớp sang `refunded`, không khớp thì bỏ qua |
-| `shipping.shipment-created` v1 | shipping | `reference`, `provider_order_code` | ordering: T10, gọi `inventory.contracts.dispatch_stock` để xoá Hàng chờ xuất. Đơn đã `CANCELLED`: gọi `shipping.contracts.request_shipment_cancellation` và gắn cờ `shipment_after_cancel` |
-| `shipping.shipment-creation-failed` v1 | shipping | `reference`, `reason` | ordering: gắn cờ `shipment_failed`, đơn giữ `PACKING` |
-| `shipping.shipment-delivered` v1 | shipping | `reference`, `delivered_at` | ordering: T11 |
-| `shipping.shipment-returned` v1 | shipping | `reference` | ordering: T12 |
-| `shipping.shipment-exception` v1 | shipping | `reference`, `provider_status` | ordering: gắn cờ `shipment_exception`, đơn giữ `SHIPPING` tới khi Staff xử lý (T14) |
+Payload của từng sự kiện do module phát sở hữu, ghi ở mục 4.2 của module: [`identity`](./modules/identity.md#42-eventspy-_kế-hoạch_), [`ordering`](./modules/ordering.md#42-eventspy), [`payments`](./modules/payments.md#42-eventspy), [`shipping`](./modules/shipping.md#42-eventspy). Bảng dưới chỉ giữ danh mục và handler; thời điểm phát cũng ghi ở mục 4.2 của module phát.
+
+| Sự kiện | Phát bởi | Handler |
+|---|---|---|
+| `identity.customer-registered` v1 | identity | notifications: tạo EmailLog xác thực; task cấp link và gửi ngoài transaction |
+| `identity.verification-email-requested` v1 | identity | notifications: như `customer-registered` |
+| `identity.registration-attempted` v1 | identity | notifications: email báo chủ email có người vừa thử đăng ký, không kèm link hay mật khẩu |
+| `identity.email-verified` v1 | identity | ordering: gắn các Đơn hàng có `contact_email` khớp (không phân biệt hoa thường) và `customer_id` null vào Tài khoản (BR-ORD-08) |
+| `identity.password-reset-requested` v1 | identity | notifications: tạo EmailLog reset; task cấp link và gửi ngoài transaction |
+| `identity.customer-erased` v1 | identity | ordering: ẩn danh Đơn hàng, xoá Giỏ hàng, gọi `shipping.contracts.redact_provider_payloads` và `payments.contracts.redact_provider_payloads` theo `reference`; promotions: ẩn danh `phone` trong lượt dùng Voucher; notifications: ẩn danh `to_address`. Mọi handler lấy đối tượng cần ẩn danh qua `identity.contracts.get_erasure_subject` |
+| `ordering.order-placed` v1 | ordering | notifications: COD gửi "Đặt đơn thành công", online gửi "Thanh toán thành công" |
+| `ordering.order-cancelled` v1 | ordering | notifications: email "Đơn đã huỷ", trừ khi `previous_status = PENDING_PAYMENT` (T4, T5: BR-NTF-01) |
+| `ordering.unexpected-payment-received` v1 | ordering | notifications: email báo tiền sẽ được hoàn; đơn đã huỷ thì báo thêm đơn đã hết hạn ([05](../business/05-order-lifecycle.md) mục 4.1) |
+| `ordering.order-shipped` v1 | ordering | notifications: email "Đang giao" |
+| `ordering.order-delivered` v1 | ordering | notifications: email "Đã giao" |
+| `payments.payment-succeeded` v1 | payments | ordering: T3, lưu payment_id dưới khoá Order. Đơn còn `PENDING_PAYMENT` nhưng đã quá `expires_at` (job chưa kịp huỷ): thử giữ lại hàng nếu Số lượng bán được còn đủ; không đủ thì chạy T4 rồi xử lý như đơn đã huỷ. Cùng payment_id đã dùng cho đơn thì bỏ qua; khoản trả thêm hoặc tiền tới sau huỷ: request_refund với payment_id từ sự kiện và request_key ổn định, gắn cờ unexpected_payment và phát ordering.unexpected-payment-received (BR-PAY-05) |
+| `payments.payment-failed` v1 | payments | ordering: chỉ xử lý `reason = amount_mismatch`: request_refund với payment_id từ sự kiện, amount_received và key ổn định, gắn cờ `payment_amount_mismatch` (BR-PAY-04). Lý do khác: bỏ qua, Người mua thử lại được |
+| `payments.refund-recorded` v1 | payments | notifications: email "Đã hoàn tiền"; ordering: chuyển Đổi trả có `refund_id` khớp sang `refunded`, không khớp thì bỏ qua |
+| `shipping.shipment-created` v1 | shipping | ordering: T10, gọi `inventory.contracts.dispatch_stock` để xoá Hàng chờ xuất. Đơn đã `CANCELLED`: gọi `shipping.contracts.request_shipment_cancellation` và gắn cờ `shipment_after_cancel` |
+| `shipping.shipment-creation-failed` v1 | shipping | ordering: gắn cờ `shipment_failed`, đơn giữ `PACKING` |
+| `shipping.shipment-delivered` v1 | shipping | ordering: T11 |
+| `shipping.shipment-returned` v1 | shipping | ordering: T12 |
+| `shipping.shipment-exception` v1 | shipping | ordering: gắn cờ `shipment_exception`, đơn giữ `SHIPPING` tới khi Staff xử lý (T14) |
 
 - T1 (đơn online vào `PENDING_PAYMENT`) không phát sự kiện; Người mua chỉ nhận email khi thanh toán thành công. Không còn `ordering.order-paid`: `order-placed` của đơn online đã mang ý nghĩa này.
 - Thanh toán COD (`start_cod_payment`, `record_cod_collected`, `cancel_cod_payment`) **không** phát sự kiện, vì `ordering` là bên gọi nên đã biết kết quả. Nếu `record_cod_collected` phát `payments.payment-succeeded`, handler của `ordering` sẽ thấy đơn `DELIVERED` không ở `PENDING_PAYMENT` và tạo Hoàn tiền nhầm theo BR-PAY-05.

@@ -17,8 +17,9 @@ apps/ordering/
 ├── contracts.py          # đọc dữ liệu Đơn hàng cho notifications
 ├── events.py             # OrderPlacedV1, OrderCancelledV1…
 ├── exceptions.py         # InvalidTransition, PriceChanged…
-├── constants.py          # OrderStatus, PaymentMethod, OrderFlagKind, CancelReason;
+├── constants.py          # OrderStatus, OrderFlagKind, CancelReason;
 │                         # RESERVATION_TTL, PAYMENT_LINK_TTL, PAYMENT_START_CUTOFF
+│                         # PaymentMethod không khai ở đây: dùng payments.contracts.PaymentMethod
 ├── models/
 │   ├── cart.py           # Cart, CartItem
 │   ├── order.py          # Order (máy trạng thái), OrderLine
@@ -28,15 +29,16 @@ apps/ordering/
 ├── services/
 │   ├── cart.py           # add_item, update_quantity, merge_guest_cart
 │   ├── checkout.py       # place_order (mục 5.1)
-│   ├── transitions.py    # mọi chuyển trạng thái của đơn đã tồn tại (mục 5.2)
+│   ├── payments.py       # start_online_payment (mục 5.2), refund_mismatched_payment
+│   ├── transitions.py    # mọi chuyển trạng thái của đơn đã tồn tại (mục 5.3)
 │   ├── flags.py          # raise_flag, resolve_flag
 │   ├── accounts.py       # attach_guest_orders, anonymize_orders, complete_erasure_request
 │   └── returns.py        # record_return, receive_return_items, accept, reject, mark_refunded
 ├── selectors/
 │   ├── cart.py           # get_cart_with_prices
 │   └── orders.py         # list_orders_for_customer, find_order_for_guest, list_orders_backoffice
-├── handlers.py           # nghe sự kiện của payments, shipping, identity (mục 5.6)
-├── tasks.py              # job định kỳ (mục 5.7)
+├── handlers.py           # nghe sự kiện của payments, shipping, identity (mục 5.7)
+├── tasks.py              # job định kỳ (mục 5.8)
 ├── api/
 │   ├── permissions.py    # IsOrderOwner
 │   ├── store/            # giỏ, checkout, đơn của Người mua
@@ -68,9 +70,9 @@ graph LR
     ordering -->|"get_variants_for_sale<br/>validate_checkout_snapshot<br/>set_best_seller_counts"| catalog
     ordering -->|"lock_stock_items, reserve_stock<br/>decrement_stock, commit_reservation<br/>dispatch_stock, release_*, restock"| inventory
     ordering -->|"evaluate_voucher<br/>redeem_voucher, release_voucher"| promotions
-    ordering -->|"prepare_payment, start_payment<br/>start_cod_payment, request_refund…"| payments_c
-    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation"| shipping_c
-    ordering -->|"find_verified_customer_id<br/>lookup token, apply_erasure_request<br/>log_customer_data_access"| identity_c
+    ordering -->|"prepare_payment, start_payment<br/>start_cod_payment, record_cod_collected<br/>cancel_cod_payment, request_refund<br/>has_pending_refunds, redact_provider_payloads"| payments_c
+    ordering -->|"quote_fee, request_shipment<br/>request_shipment_cancellation<br/>find_shipment_status, redact_provider_payloads"| shipping_c
+    ordering -->|"find_verified_customer_id, record_consent<br/>issue/verify_order_lookup_token<br/>apply_erasure_request, get_erasure_subject<br/>log_customer_data_access"| identity_c
 
     payments_e[payments] -.->|"payment-succeeded<br/>payment-failed<br/>refund-recorded"| ordering
     shipping_e[shipping] -.->|"shipment-created / -creation-failed<br/>-delivered / -returned / -exception"| ordering
@@ -78,7 +80,7 @@ graph LR
     ordering -->|"FK địa chỉ giao → Ward"| geo
 
     ordering -.->|"order-placed, order-cancelled<br/>order-shipped, order-delivered<br/>unexpected-payment-received"| notifications
-    notifications -->|"đọc Đơn hàng"| ordering
+    notifications -->|"find_order_for_notification"| ordering
 ```
 
 Nét liền: gọi `contracts`. Nét đứt: sự kiện, chiều mũi tên là chiều phát → nghe.
@@ -89,15 +91,39 @@ Nét liền: gọi `contracts`. Nét đứt: sự kiện, chiều mũi tên là 
 
 Chỉ phục vụ `notifications` (đọc Đơn hàng để dựng email). Checkout và transition **không** ở đây: chỉ API của `ordering` gọi chúng.
 
+| Hàm | Ai gọi | Ghi chú |
+|---|---|---|
+| `find_order_for_notification(order_code: str) -> OrderNotificationDTO \| None` | notifications | Chỉ đọc. `None` khi không có đơn. Dùng chung cho sự kiện mang `order_code` và sự kiện mang `reference` (Mã đơn) như `payments.refund-recorded` |
+
+`OrderNotificationDTO`:
+
+| Field | Kiểu | Ghi chú |
+|---|---|---|
+| `order_code` | `str` | |
+| `status` | `OrderStatus` | |
+| `payment_method` | `PaymentMethod` | Enum của `payments` |
+| `language` | `Language` | `Order.language` |
+| `customer_id` | `UUID \| None` | Có thì `notifications` lấy email qua `identity.contracts.get_customer` |
+| `contact_email` | `str` | `''` khi Người mua không nhập; cả hai nguồn đều rỗng thì không gửi |
+| `recipient_name` | `str` | `contact_name`; giá trị ẩn danh sau Yêu cầu xoá dữ liệu |
+| `lines` | `list[OrderLineNotificationDTO]` | `product_name`, `size`, `color_name`, `sku`, `quantity: int`, `unit_price: int` |
+| `subtotal`, `discount`, `shipping_fee`, `total` | `int` (VND) | Tạm tính, giảm giá Voucher, Phí ship, Tổng tiền đơn |
+| `tracking_code` | `str \| None` | Mã Vận đơn, có từ T10 |
+| `placed_at` | `datetime \| None` | `None` khi đơn online chưa thanh toán |
+
+`ordering` không gọi `identity` để dựng DTO; quyết định gửi tới đâu thuộc `notifications`.
+
 ### 4.2. `events.py`
 
-| Sự kiện | Phát khi | Ghi chú |
-|---|---|---|
-| `OrderPlacedV1` | Đơn vào `PLACED`: COD ngay khi đặt (T2), online khi Thanh toán thành công (T3) | |
-| `OrderCancelledV1` | Đơn bị huỷ | Có `previous_status`; `notifications` không gửi email khi là `PENDING_PAYMENT` |
-| `OrderShippedV1` | T10 | |
-| `OrderDeliveredV1` | T11 | |
-| `UnexpectedPaymentReceivedV1` | Nhận khoản trả thêm hoặc tới sau khi huỷ | `notifications` báo tiền sẽ được hoàn |
+Payload chỉ mang Mã đơn, số tiền, mã trạng thái ([07 mục 2](../07-async-events-jobs.md#2-danh-mục-sự-kiện)).
+
+| Sự kiện | `event_type` | Payload | Phát khi | Ghi chú |
+|---|---|---|---|---|
+| `OrderPlacedV1` | `ordering.order-placed` | `order_code: str`, `payment_method: PaymentMethod`, `total: int` | Đơn vào `PLACED`: COD ngay khi đặt (T2), online khi Thanh toán thành công (T3) | |
+| `OrderCancelledV1` | `ordering.order-cancelled` | `order_code: str`, `reason: CancelReason`, `refund_required: bool`, `previous_status: OrderStatus` | Đơn bị huỷ | `notifications` không gửi email khi `previous_status = PENDING_PAYMENT` (BR-NTF-01) |
+| `OrderShippedV1` | `ordering.order-shipped` | `order_code: str`, `tracking_code: str` | T10 | |
+| `OrderDeliveredV1` | `ordering.order-delivered` | `order_code: str` | T11 | |
+| `UnexpectedPaymentReceivedV1` | `ordering.unexpected-payment-received` | `order_code: str`, `amount: int` | Nhận khoản trả thêm hoặc tới sau khi huỷ, cùng lúc gắn cờ `unexpected_payment` | `notifications` báo tiền sẽ được hoàn |
 
 ### 4.3. `exceptions.py`
 
@@ -141,6 +167,7 @@ views.CheckoutView
        → promotions.contracts.redeem_voucher(quote, reference)
        → kiểm lại tổng > 0 và expected_total; sai thì rollback mọi thay đổi
        → tạo Order + OrderLine (voucher_discount), xoá dòng giỏ đã mua, lưu kết quả idempotency
+       → identity.contracts.record_consent() cho từng consent  # channel = checkout
        → COD: payments.contracts.start_cod_payment()     # lưu payment_id vào Order
               + common.events.publish(OrderPlacedV1(...))
          online: không phát sự kiện
@@ -153,14 +180,43 @@ views.CheckoutView
 - Không gọi GHN khi đang giữ khoá.
 - Người mua xác nhận quote mới bằng token và Idempotency-Key mới. Không có bảng Quote.
 
-### 5.2. Máy trạng thái và transition
+### 5.2. Luồng bắt đầu Thanh toán online
+
+Mục này **sở hữu** phần `ordering` của luồng; phần `payments` (lease, gọi cổng, khôi phục) ở [06 mục 3.1](../06-integrations.md#31-khởi-tạo-thanh-toán-có-thể-khôi-phục) và [ADR 0013](../../adr/0013-recoverable-payment-initiation.md).
+
+`POST /api/v1/store/orders/{code}/payments` (cần `Idempotency-Key`):
+
+```
+views.OrderPaymentView                                   # IsOrderOwner
+  → serializers.PaymentStartInput.validate()             # gateway; có return_url → 400 INVALID_RETURN_URL
+  → services.payments.start_online_payment(order_code, gateway, idempotency)
+       # 1. Transaction ngắn
+       → claim Idempotency-Key (scope, request_hash); key completed → trả kết quả cũ
+       → khoá Order; kiểm payment_method = online, status = PENDING_PAYMENT
+       → now ≥ order.created_at + PAYMENT_START_CUTOFF (phút thứ 7; placed_at còn NULL) → PaymentWindowClosed
+       → payments.contracts.prepare_payment(reference=order.code, amount=order.total, gateway,
+                                            expires_at=order.created_at + PAYMENT_LINK_TTL, operation_id)
+       → gắn payment_id vào key làm resource_id; COMMIT
+       # 2. Ngoài transaction, không giữ khoá Order
+       → payments.contracts.start_payment(payment_id, operation_id)   # PaymentStartDTO
+       # 3. Kết quả cuối (ready, terminal, từ chối) lưu vào response idempotency
+       #    dưới khoá Payment/key theo 06 mục 3.1; initializing thì chưa lưu
+  → 200 PaymentStartDTO (ready, terminal), 202 PAYMENT_INITIALIZING (initializing)
+    hoặc 422 PAYMENT_CREATION_REJECTED (cổng từ chối tạo chắc chắn; vẫn lưu làm kết quả idempotency theo 04 mục 5.2)
+```
+
+- `ordering` không lưu `payment_id` ở bước này: mỗi lần thử là một Thanh toán mới; `Order.payment_id` chỉ ghi ở T3 từ `payments.payment-succeeded`.
+- Cùng key gọi lại tiếp tục cùng Thanh toán; key mới là lần thử mới, kể cả khi đổi Cổng thanh toán.
+- Đơn đã `PLACED` hoặc `CANCELLED`: `InvalidTransition` (409), không tạo Thanh toán.
+
+### 5.3. Máy trạng thái và transition
 
 `Order.status` dùng `django-fsm-2`, bao phủ T1–T14 trong [05-order-lifecycle.md](../../business/05-order-lifecycle.md). Checkout tạo đơn ở T1/T2; mọi chuyển trạng thái của đơn đã tồn tại chỉ gọi từ `services/transitions.py`:
 
 | Nguồn | Transition |
 |---|---|
 | Staff hoặc Người mua | `confirm`, `start_packing`, `hand_over`, `cancel` (T5, T7, T9, T14), `receive_returned_shipment` |
-| Sự kiện (mục 5.6) | `mark_paid` (T3), `mark_shipped` (T10), `mark_delivered` (T11), `mark_returned` (T12) |
+| Sự kiện (mục 5.7) | `mark_paid` (T3), `mark_shipped` (T10), `mark_delivered` (T11), `mark_returned` (T12) |
 | Job | `complete` |
 
 - **Khoá:** mọi transition `select_for_update` dòng Đơn hàng trước khi đọc trạng thái; hai transition đồng thời (ví dụ T5 và T3) chạy lần lượt, cái sau thấy trạng thái mới.
@@ -170,7 +226,7 @@ views.CheckoutView
   - Còn lại, ví dụ GHN báo đã giao khi đơn đã `RETURNED_TO_SENDER`: ném `InvalidTransition`.
   - Các tình huống có cách xử lý riêng (05-order-lifecycle mục 4.1, 4.5) được kiểm trước ba nhánh này.
 
-### 5.3. Mã đơn, hạn thanh toán, cấu hình
+### 5.4. Mã đơn, hạn thanh toán, cấu hình
 
 - **Mã đơn:** `FS<YYMM>-` + 6 ký tự Crockford Base32 ngẫu nhiên, `UNIQUE`, trùng thì sinh lại. Không dùng sequence.
 - **Hạn thanh toán:**
@@ -182,7 +238,7 @@ views.CheckoutView
   - Mỗi yêu cầu hoàn truyền `request_key` ổn định theo thao tác nguồn ([03 mục 6](../03-data-model.md#6-payments)).
 - **Cấu hình:** `OrderingSettings` giữ Ngưỡng miễn phí ship và Hạn mức COD.
 
-### 5.4. Cờ cần xử lý, Đổi trả, Hoàn hàng
+### 5.5. Cờ cần xử lý, Đổi trả, Hoàn hàng
 
 - **Cờ cần xử lý:** `OrderFlag` bật từ handler hoặc service (`raise_flag`), Staff gỡ qua back-office (`resolve_flag`, có lịch sử). `raise_flag` gặp cờ cùng `kind` đang mở thì nối thêm vào `note`, không báo lỗi.
 - **Đổi trả** (`accept`), mọi thay đổi commit cùng transaction:
@@ -193,20 +249,20 @@ views.CheckoutView
   - `receive_returned_shipment` khoá Order, chỉ nhận đơn có cờ và ở `RETURNED_TO_SENDER` hoặc `CANCELLED`; chưa có `returned_to_warehouse_at` thì gọi `inventory.contracts.restock` và ghi mốc cùng transaction.
   - Gọi lại trả kết quả cũ, không nhập kho lần nữa, không đổi trạng thái đơn (BR-INV-08, US-607).
 
-### 5.5. Dữ liệu cá nhân
+### 5.6. Dữ liệu cá nhân
 
 - **Xoá dữ liệu:** `complete_erasure_request` kiểm CMP-05 (đơn ở trạng thái cuối, `payments.contracts.has_pending_refunds`) rồi gọi `identity.contracts.apply_erasure_request`. Endpoint back-office `erasure-requests` (ở `ordering`) trả 202 khi chưa xong; job của `identity` ghi `completed_at` ([03 mục 10](../03-data-model.md)).
 - **Log truy cập:** chi tiết đơn và tìm đơn theo số điện thoại ở back-office gọi `identity.contracts.log_customer_data_access` (CMP-07).
 - **`IsOrderOwner`:** JWT của Khách hàng chủ đơn, hoặc `X-Lookup-Token` xác minh qua `identity.contracts.verify_order_lookup_token`, kiểm `sub` khớp Mã đơn trên URL ([05 mục 2](../05-auth-security.md)).
 
-### 5.6. Handler
+### 5.7. Handler
 
 Mỗi handler gọi **một** service; gọi `contracts` module khác nằm trong service.
 
 | Sự kiện | Service | Hành vi |
 |---|---|---|
 | `payments.payment-succeeded` | `mark_paid` | T3, lưu `payment_id`. Đơn còn `PENDING_PAYMENT` nhưng quá `expires_at` thì thử `commit_reservation`; gặp `ReservationExpired` mới chạy T4 rồi xử lý như đơn đã huỷ. Cùng `payment_id` đã gắn thì bỏ qua; khoản trả thêm hoặc tới sau huỷ thì Hoàn tiền + cờ `unexpected_payment` + phát `UnexpectedPaymentReceivedV1` (BR-PAY-05) |
-| `payments.payment-failed` | — | `amount_mismatch`: `request_refund` đúng `amount_received` + cờ `payment_amount_mismatch` (BR-PAY-04) |
+| `payments.payment-failed` | `refund_mismatched_payment` | Chỉ xử lý `reason = amount_mismatch`: `request_refund` đúng `amount_received` (key `amount-mismatch`) + cờ `payment_amount_mismatch` cùng transaction (BR-PAY-04). Lý do khác: handler bỏ qua, Người mua thử lại được |
 | `payments.refund-recorded` | `mark_refunded` | Đổi trả có `refund_id` khớp → `refunded`; không khớp thì bỏ qua |
 | `shipping.shipment-created` | `mark_shipped` | T10, gọi `inventory.contracts.dispatch_stock`; đơn đã huỷ thì `request_shipment_cancellation` + cờ `shipment_after_cancel` |
 | `shipping.shipment-creation-failed` | `raise_flag` | Cờ `shipment_failed` |
@@ -216,7 +272,7 @@ Mỗi handler gọi **một** service; gọi `contracts` module khác nằm tron
 | `identity.email-verified` | `attach_guest_orders` | Gắn đơn của Khách vãng lai cùng email |
 | `identity.customer-erased` | `anonymize_orders` | Ẩn danh đơn; gọi `redact_provider_payloads` của `shipping`, `payments` |
 
-### 5.7. Job định kỳ
+### 5.8. Job định kỳ
 
 | Task | Việc |
 |---|---|

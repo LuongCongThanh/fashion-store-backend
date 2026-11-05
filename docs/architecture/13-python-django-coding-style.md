@@ -240,15 +240,17 @@ Project chủ ý dùng `<verb>_<noun>`, khác `<entity>_<action>` của HackSoft
 ```python
 # ✅ Call site tự mô tả; không có mutable default.
 def reserve_stock(
-    *, reference: str, items: Sequence[StockLine], expires_at: datetime
-) -> Reservation: ...
+    *, reference: str, items: list[StockLineDTO], expires_at: datetime
+) -> None: ...
 def find_order_for_guest(*, order_code: str, email: str) -> Order | None: ...
 def list_orders_backoffice(*, status: OrderStatus | None = None) -> QuerySet[Order]: ...
 
 
 class ShippingQuoteDTO(pydantic.BaseModel):
-    amount: int
-    currency: Literal["VND"]
+    fee: int
+    source: Literal["ghn", "fallback"]
+    fallback_reason: str | None
+    config_revision: str
 
 
 # ❌

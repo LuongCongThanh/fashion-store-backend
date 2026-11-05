@@ -76,7 +76,7 @@ Hai loại nhãn còn lại trong tài liệu:
 | [0007](./docs/adr/0007-events-outbox-celery-no-kafka.md) | Sự kiện qua Outbox + Celery, chưa dùng Kafka |
 | [0008](./docs/adr/0008-uuid-v7-primary-keys.md) | Khoá chính UUID v7, sinh qua hàm bọc `common.models.uuid7` (dùng `uuid.uuid7()` của Python 3.14) |
 | [0009](./docs/adr/0009-nextjs-bff-django-private.md) | Next.js là BFF cho mọi request, Django chỉ mở webhook ra internet |
-| [0010](./docs/adr/0010-stock-decremented-at-order-awaiting-dispatch.md) | Trừ Tồn kho khi bán, theo dõi Hàng chờ xuất tới lúc Bàn giao |
+| [0010](./docs/adr/0010-stock-decremented-at-order-awaiting-dispatch.md) | Trừ Tồn kho khi bán, theo dõi Hàng chờ xuất tới lúc tạo Vận đơn |
 | [0011](./docs/adr/0011-audit-field-allowlist.md) | Audit theo danh sách field, không sao chép raw payload chứa PII |
 | [0012](./docs/adr/0012-checkout-price-snapshot.md) | Kiểm tra lại giá và điều kiện bán dưới khoá Biến thể khi checkout |
 | [0013](./docs/adr/0013-recoverable-payment-initiation.md) | Khởi tạo Thanh toán có thể phục hồi bằng cùng Payment và mã nhà cung cấp |

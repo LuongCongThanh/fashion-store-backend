@@ -29,8 +29,8 @@ apps/notifications/
 
 ```mermaid
 graph LR
-    notifications((notifications)) -->|"đọc Đơn hàng"| ordering
-    notifications -->|"get_customer<br/>issue_*_link"| identity
+    notifications((notifications)) -->|"find_order_for_notification"| ordering
+    notifications -->|"get_customer, get_erasure_subject<br/>issue_*_link"| identity
 
     identity -.->|"customer-registered, verification-email-requested<br/>registration-attempted, password-reset-requested<br/>customer-erased"| notifications
     ordering -.->|"order-placed, order-cancelled<br/>order-shipped, order-delivered<br/>unexpected-payment-received"| notifications
@@ -57,14 +57,14 @@ Không có `contracts.py`, không phát sự kiện: không module nào gọi v�
 | `identity.customer-registered`, `identity.verification-email-requested` | Xác thực email; link cấp lúc gửi qua `identity.contracts.issue_email_verification_link` |
 | `identity.registration-attempted` | Báo chủ email có người vừa thử đăng ký, không kèm link hay mật khẩu |
 | `identity.password-reset-requested` | Đặt lại mật khẩu; link cấp lúc gửi qua `issue_password_reset_link` |
-| `identity.customer-erased` | Không gửi: ẩn danh `to_address`, huỷ email chưa gửi và vô hiệu lease |
+| `identity.customer-erased` | Không gửi: lấy đối tượng qua `identity.contracts.get_erasure_subject`, ẩn danh `to_address` khớp `email`, huỷ email chưa gửi và vô hiệu lease |
 | `ordering.order-placed` | COD: "Đặt đơn thành công"; online: "Thanh toán thành công" |
 | `ordering.order-cancelled` | "Đơn đã huỷ", trừ khi `previous_status = PENDING_PAYMENT` (BR-NTF-01) |
 | `ordering.order-shipped`, `ordering.order-delivered` | "Đang giao", "Đã giao" |
 | `ordering.unexpected-payment-received` | Báo tiền sẽ được hoàn |
 | `payments.refund-recorded` | "Đã hoàn tiền" |
 
-Dữ liệu đơn lấy qua `ordering.contracts`.
+Dữ liệu đơn lấy lúc gửi qua `ordering.contracts.find_order_for_notification`. Người nhận: email của Tài khoản (`identity.contracts.get_customer`) khi đơn có `customer_id`, ngược lại `contact_email`; rỗng hoặc Tài khoản đã ẩn danh thì EmailLog chuyển `cancelled`.
 
 ### 5.3. Job
 
