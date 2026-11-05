@@ -255,6 +255,7 @@ Không có Django Admin ([ADR 0004](../adr/0004-custom-nextjs-admin.md)). Xem d�
 | `make fmt` | `ruff format` + `ruff check --fix` | M0 (ticket 07) |
 | `make load-geo` | Nạp 34 tỉnh/thành và phường/xã | M0 (ticket 17) |
 | `make create-admin` | Tạo Tài khoản Admin (`manage.py create_staff --admin`; cách nhập ở mục 2.4) | M0 (ticket 12) |
+| `make seed` | Tạo Tài khoản mẫu `seed.admin@example.test` / `Dev-Admin-2026!` và `seed.staff@example.test` / `Dev-Staff-2026!` (`manage.py seed_dev`); chỉ chạy khi `DEBUG` bật và host là `localhost`, chạy lại không tạo trùng. Dữ liệu catalog, tồn kho thêm khi module có model | M1 |
 | `make openapi` | Sinh lại `openapi.yaml` (`scripts/gen_openapi.py`, `spectacular --validate --fail-on-warn`); chạy sau khi đổi API rồi commit file cùng PR ([12](./12-testing-strategy.md) mục 5) | M0 (ticket 03) |
 | `make br-report` | Liệt kê các mã `BR-xxx` trong `docs/business/04-business-rules.md` chưa có test gắn marker `br` ([12](./12-testing-strategy.md) mục 3) | M0 (ticket 02) |
 | `make seed` | Tạo Kho, danh mục, Sản phẩm mẫu, Voucher mẫu | M1 (Voucher mẫu từ M2) |
